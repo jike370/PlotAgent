@@ -174,6 +174,7 @@ class DesktopApplication:
             "engine.plots.get": self._engine_plots_get,
             "agent.tasks.create": self._agent_task_create,
             "agent.tasks.get": self._agent_task_get,
+            "agent.tasks.latest_yield": self._agent_task_latest_yield,
             "agent.tasks.list": self._agent_task_list,
             "agent.tasks.events": self._agent_task_events,
             "agent.tasks.advance": self._agent_task_advance,
@@ -186,6 +187,7 @@ class DesktopApplication:
             "agent.yields.validate": self._agent_yield_validate,
             "agent.tasks.yield.accept": self._agent_yield_accept,
             "agent.tasks.user_event": self._agent_task_user_event,
+            "agent.tasks.retry_safe": self._agent_task_retry_safe,
             "agent.tasks.plan.get": self._agent_task_plan_get,
             "agent.tasks.plan.confirm": self._agent_task_plan_confirm,
             "agent.tasks.plan.reject": self._agent_task_plan_reject,
@@ -223,6 +225,26 @@ class DesktopApplication:
         session = self._session(_text(values["project_id"], "project_id"))
         checkpoint = session.durable_tasks.get_task(_text(values["task_id"], "task_id"))
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
+    def _agent_task_latest_yield(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"project_id", "task_id"})
+        session = self._session(_text(values["project_id"], "project_id"))
+        task_id = _text(values["task_id"], "task_id")
+        checkpoint = session.durable_tasks.get_task(task_id)
+        if checkpoint.state != "awaiting_input":
+            raise RpcServiceError(
+                "TASK_INPUT_UNAVAILABLE",
+                "Only a task awaiting user input can restore its question set.",
+            )
+        yielded = session.durable_tasks.latest_yield(task_id)
+        if yielded is None or yielded.outcome != "needs_input":
+            raise RpcServiceError(
+                "TASK_INPUT_EVIDENCE_MISSING",
+                "The task does not retain a restorable question set.",
+            )
+        return cast(RpcJsonValue, yielded.model_dump(mode="json"))
 
     def _agent_task_list(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -418,6 +440,31 @@ class DesktopApplication:
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 
+    def _agent_task_retry_safe(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "task_id",
+                "expected_task_version",
+                "user_event_id",
+                "payload_hash",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        checkpoint = session.durable_tasks.record_user_event(
+            _text(values["task_id"], "task_id"),
+            expected_task_version=_integer(
+                values["expected_task_version"], "expected_task_version", minimum=1
+            ),
+            action="retry_requested",
+            user_event_id=_text(values["user_event_id"], "user_event_id"),
+            payload_hash=_text(values["payload_hash"], "payload_hash"),
+        )
+        return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
+
     def _agent_task_plan_get(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
@@ -483,11 +530,21 @@ class DesktopApplication:
     def _agent_task_execute(
         self, _context: RpcContext, params: RpcJsonValue | None
     ) -> RpcJsonValue:
-        values = _object(params, required={"project_id", "task_id"})
+        values = _object(
+            params,
+            required={"project_id", "task_id"},
+            optional={"step"},
+        )
+        step = values.get("step", False)
+        if not isinstance(step, bool):
+            raise RpcServiceError("INVALID_PARAMS", "step was invalid.")
         session = self._session(_text(values["project_id"], "project_id"))
         return cast(
             RpcJsonValue,
-            session.task_execution.run(_text(values["task_id"], "task_id")),
+            session.task_execution.run(
+                _text(values["task_id"], "task_id"),
+                max_items=1 if step else None,
+            ),
         )
 
     def _agent_task_cancel(
@@ -1044,6 +1101,14 @@ class DesktopApplication:
                 ledger=durable_tasks,
             ),
         )
+        # Opening the exclusive writer is the restart recovery boundary. Resume
+        # confirmed execution from its durable grant, reconcile any interrupted
+        # atomic item against native project storage, and finish already-verified
+        # delivery without re-running successful items. Cancellation remains a
+        # distinct terminal path that preserves any committed atomic result.
+        for state in ("cancelling", "executing", "verifying", "delivering"):
+            for task in durable_tasks.list_tasks(state=state):
+                session.task_execution.run(task.task_id)
         self._sessions[project_id] = session
         self.catalog.touch_project(project_id)
         return self._session_summary(session, replayed=replayed)

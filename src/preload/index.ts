@@ -63,6 +63,14 @@ const desktop = {
   getBootstrap: () => ipcRenderer.invoke(IPC_CHANNELS.getBootstrap),
   getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),
   cancelTask: (taskId: string) => ipcRenderer.invoke(IPC_CHANNELS.cancelTask, { taskId }),
+  acceptPartialTask: (taskId: string) => ipcRenderer.invoke(
+    IPC_CHANNELS.acceptPartialTask,
+    { taskId },
+  ),
+  resumeAgentTask: (taskId: string) => ipcRenderer.invoke(
+    IPC_CHANNELS.resumeAgentTask,
+    { taskId },
+  ),
   retryCore: () => ipcRenderer.invoke(IPC_CHANNELS.retryCore),
   getProviderStatus: () => ipcRenderer.invoke(IPC_CHANNELS.providerStatus),
   configureCustomProvider: (input: CustomProviderConfigureInput) =>

@@ -189,6 +189,8 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     }),
     getTasks: async () => ({ tasks: [], activeTaskCount: 0, hasCommittingTask: false }),
     cancelTask: actionOk,
+    acceptPartialTask: actionOk,
+    resumeAgentTask: async () => missing('浏览器预览不运行真实 Agent 任务。'),
     retryCore: actionOk,
     getProviderStatus: async () => ok({ configured: true, mode: 'browser_preview' }),
     configureCustomProvider: async () => ok({ configured: true, mode: 'browser_preview' }),

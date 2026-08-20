@@ -16,6 +16,8 @@ export const IPC_CHANNELS = {
   taskPlanResume: 'plotagent:workflow:plan-resume',
   taskPlanRun: 'plotagent:workflow:plan-run',
   cancelTask: 'plotagent:tasks:cancel',
+  acceptPartialTask: 'plotagent:tasks:accept-partial',
+  resumeAgentTask: 'plotagent:tasks:resume-agent',
   closeResponse: 'plotagent:lifecycle:close-response',
   coreStatusChanged: 'plotagent:core:status-changed',
   datasetDescribe: 'plotagent:datasets:describe',
@@ -77,6 +79,7 @@ export interface PublicError {
     | 'ORIGIN_UNAVAILABLE'
     | 'RESOURCE_INVALID'
     | 'TASK_NOT_CANCELLABLE'
+    | 'TASK_PARTIAL_RESULT_UNAVAILABLE'
   readonly message: string
   readonly retryable: boolean
 }
@@ -298,6 +301,8 @@ export interface PlotAgentDesktopApi {
   getBootstrap(): Promise<DesktopBootstrap>
   getTasks(): Promise<TaskSnapshot>
   cancelTask(taskId: string): Promise<DesktopActionResult>
+  acceptPartialTask(taskId: string): Promise<DesktopActionResult>
+  resumeAgentTask(taskId: string): Promise<DesktopDataResult>
   retryCore(): Promise<DesktopActionResult>
   getProviderStatus(): Promise<DesktopDataResult>
   configureCustomProvider(input: CustomProviderConfigureInput): Promise<DesktopDataResult>

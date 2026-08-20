@@ -1013,7 +1013,8 @@ artifact_export
 
 用户默认只在任务详情和完成摘要看到总耗时、模型调用/额度消耗与重试；开发模式可展开阶段耗时。
 端到端时长当前是观测与发布指标，不设置产品层硬截止；接近模型、Token、工具、Origin 或成本预算时
-显示真实警告，达到这些预算后进入可恢复的 `blocked_budget`，不能静默继续消费。
+显示真实警告；达到这些预算后当前任务以 `budget_exhausted → failed` 明确停止，不能静默继续消费。
+再次尝试必须创建具有新预算与新授权的新任务。
 
 不同 Provider 无法提供可靠价格时只显示 token/调用量和“费用未知”，不得伪造人民币金额。成本指标必须区分计分模型调用、能力探测、缓存命中和本地工具成本。
 
@@ -1653,7 +1654,7 @@ created
        ├─部分不可修→ partial
        └─全部不可修→ failed
 
-任意可取消阶段 → cancelling → cancelled 或 partial
+任意可取消阶段 → cancelling → cancelled（已提交成功项仍保留）
 外部环境暂不可用 → blocked，可显式恢复
 能力边界不支持 → unsupported
 ```
@@ -1696,8 +1697,8 @@ Pi 不以自由文本决定外层状态，只能产生以下 typed yield：
 | `technical_repair_ready` | 针对 VerificationReport 提出合同内修复 | 校验 repair scope，执行后复验 |
 | `unsupported` | 已检查能力仍无法满足 | 记录具体边界与替代建议 |
 | `blocked` | 环境依赖暂不可用 | 保存 blocker 和恢复条件 |
-| `budget_exhausted` | 模型/工具/时间/修复预算耗尽 | 保留 staged/成功结果并让用户决定 |
-| `cancelled` | 已响应取消 | 进入安全取消收口 |
+| `budget_exhausted` | 模型/工具/修复预算耗尽 | 当前任务失败；新任务才能获得新预算与新授权 |
+| `cancelled` | 产品停止控制的内部 abort 已响应 | 进入安全取消收口；模型不得自行提交该结果 |
 | `runtime_failed` | Provider/Pi/协议故障 | 无项目副作用，按错误策略恢复 |
 
 Pi 正常结束但没有合法 yield 时，只允许一次不重复业务工具调用的协议纠正；纠正后仍没有合法
@@ -1781,7 +1782,7 @@ Pi 的 steering/follow-up 用于消息送达和本轮协作，不决定任务版
 - 端到端 wall time 只测量、不设产品硬上限；单个 Provider/工具调用保留传输 timeout；
 - staged 文件空间和输出文件数量。
 
-per-activation 防止一次模型循环失控；task-wide 防止反复恢复绕过总预算。预算接近上限时向 Agent提供真实剩余额度；耗尽后保留成功项和 staged 证据，用户可以增加预算、接受部分结果或停止。程序不能为了省 token 改回关键词语义路由。
+per-activation 防止一次模型循环失控；task-wide 防止反复恢复绕过总预算。预算接近上限时向 Agent提供真实剩余额度；当前版本耗尽后保留成功项和 staged 证据，并把本任务明确收口为失败。若要继续，用户须创建具有新预算和新授权的新任务；不能在旧任务上伪装“增加预算后恢复”。程序不能为了省 token 改回关键词语义路由。
 
 ### 13.11 错误、重试与幂等
 
@@ -1803,7 +1804,7 @@ per-activation 防止一次模型循环失控；task-wide 防止反复恢复绕�
 - 数据库事务、文件原子发布等临界区完成到一致边界后停止；
 - 已成功 TaskItem 和已发布合法产物保留并报告；
 - 自动化只终止身份可验证的本任务 Origin 实例；
-- 取消结果为 `cancelled` 或 `partial`，不是 generic failed。
+- 取消结果统一为 `cancelled`，不是 generic failed；已提交成功项记录在 cancelled checkpoint 中。
 
 暂停只发生在耐久 wait 状态。桌面重启后，Core 从 checkpoint 判定：等待用户则恢复确认/问题卡；可机械推进则 TaskPump 继续；需要模型则生成 `resume_after_restart` activation；外部副作用不明则先 reconcile，绝不从头重复整条任务。
 

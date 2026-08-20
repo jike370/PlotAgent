@@ -7,6 +7,7 @@ import pytest
 from plotagent.contracts.agent_tasks import (
     AgentActivation,
     AgentActivationEvent,
+    AgentBudgetExhausted,
     AgentInformationReady,
     AgentIntentReady,
     AgentNeedsInput,
@@ -19,15 +20,47 @@ from plotagent.contracts.agent_tasks import (
     VerificationClaim,
     VerificationReport,
 )
+from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import DraftFieldBinding, InputQuestion, TaskDraftItem
+from plotagent.desktop_core.agent_foundation import DurableTaskCoordinator
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 from plotagent.storage.project import ProjectStore
 from plotagent.tasking import TaskLedgerRepository
+from plotagent.tasking.ledger import USER_TASK_ACTION_TRANSITIONS
 
 HASH_A = "a" * 64
 HASH_B = "b" * 64
 NOW = "2026-08-18T10:00:00Z"
 LATER = "2026-08-18T10:05:00Z"
+
+
+def test_complete_user_action_state_matrix_is_frozen() -> None:
+    assert {
+        "answered": (frozenset({"awaiting_input"}), "investigating"),
+        "confirmed": (
+            frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
+            "executing",
+        ),
+        "rejected": (
+            frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
+            "rejected",
+        ),
+        "corrected": (
+            frozenset({"awaiting_confirmation", "awaiting_reconfirmation", "partial"}),
+            "investigating",
+        ),
+        "cancel_requested": (
+            frozenset({
+                "created", "investigating", "awaiting_input", "intent_staged",
+                "awaiting_confirmation", "executing", "verifying", "repairing",
+                "awaiting_reconfirmation", "delivering", "partial", "blocked",
+            }),
+            "cancelling",
+        ),
+        "partial_accepted": (frozenset({"partial"}), None),
+        "retry_requested": (frozenset({"partial"}), "executing"),
+        "resumed": (frozenset({"blocked"}), "investigating"),
+    } == USER_TASK_ACTION_TRANSITIONS
 
 
 def envelope(*, task_id: str = "task:test") -> TaskEnvelope:
@@ -218,6 +251,190 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
         assert sequences == list(range(1, len(sequences) + 1))
 
 
+def test_waiting_input_checkpoint_survives_restart_without_new_activation(
+    tmp_path,
+) -> None:
+    workspace = tmp_path / "awaiting-input-project"
+    with ProjectStore.create(workspace, project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        ledger.start_activation(activation())
+        ledger.mark_activation_running("activation:test")
+        waiting = ledger.accept_yield(
+            AgentNeedsInput(
+                activation_id="activation:test",
+                task_id="task:test",
+                task_version=1,
+                questions=(
+                    InputQuestion(
+                        question_key="question:chart",
+                        prompt="Which chart should be used?",
+                        answer_kind="text",
+                        required=True,
+                    ),
+                ),
+            )
+        )
+        assert waiting.state == "awaiting_input"
+
+    with ProjectStore.open(workspace) as reopened:
+        repository = TaskLedgerRepository(reopened)
+        restored = repository.get_task("task:test")
+        assert restored == waiting
+        assert restored.active_activation_id is None
+        yielded = repository.latest_yield("task:test")
+        assert isinstance(yielded, AgentNeedsInput)
+        assert yielded.questions[0].prompt == "Which chart should be used?"
+
+
+def test_budget_exhaustion_is_terminal_without_a_fake_resume_path(tmp_path) -> None:
+    with ProjectStore.create(tmp_path / "budget-project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        ledger.start_activation(activation())
+        ledger.mark_activation_running("activation:test")
+        failed = ledger.accept_yield(
+            AgentBudgetExhausted(
+                activation_id="activation:test",
+                task_id="task:test",
+                task_version=1,
+                exhausted_budget="model_turns",
+                message="The bounded planning loop reached its turn ceiling.",
+            )
+        )
+
+        assert failed.state == "failed"
+        assert DurableTaskCoordinator(ledger).next_action("task:test") == {
+            "kind": "wait",
+            "reason": "terminal",
+            "task_state": "failed",
+        }
+        with pytest.raises(StorageProblem):
+            ledger.record_user_event(
+                "task:test",
+                expected_task_version=failed.task_version,
+                action="resumed",
+                user_event_id="user-event:budget-resume",
+                payload_hash=HASH_B,
+            )
+
+
+def test_waiting_confirmation_checkpoint_survives_restart_without_execution(
+    tmp_path,
+) -> None:
+    workspace = tmp_path / "awaiting-confirmation-project"
+    with ProjectStore.create(workspace, project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        ledger.start_activation(activation())
+        ledger.mark_activation_running("activation:test")
+        staged = ledger.accept_yield(
+            AgentIntentReady(
+                activation_id="activation:test",
+                task_id="task:test",
+                task_version=1,
+                intent=intent(),
+            )
+        )
+        waiting = ledger.advance(
+            "task:test",
+            expected_task_version=staged.task_version,
+            next_state="awaiting_confirmation",
+            reason_code="INTENT_PRESENTED",
+        )
+
+    with ProjectStore.open(workspace) as reopened:
+        restored = TaskLedgerRepository(reopened).get_task("task:test")
+        assert restored == waiting
+        assert restored.project_revision == 0
+        assert all(item.attempt_count == 0 for item in restored.items)
+
+
+def test_waiting_reconfirmation_checkpoint_survives_restart_without_old_grant(
+    tmp_path,
+) -> None:
+    workspace = tmp_path / "awaiting-reconfirmation-project"
+    with ProjectStore.create(workspace, project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger)
+        first = coordinator.next_action("task:test")
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+        first_intent = intent().model_copy(update={"created_by_activation_id": first_id})
+        first_intent = first_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    first_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        staged = ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=first_id,
+                task_id="task:test",
+                task_version=1,
+                intent=first_intent,
+            )
+        )
+        waiting = ledger.advance(
+            "task:test",
+            expected_task_version=staged.task_version,
+            next_state="awaiting_confirmation",
+            reason_code="INTENT_PRESENTED",
+        )
+        ledger.record_user_event(
+            "task:test",
+            expected_task_version=waiting.task_version,
+            action="corrected",
+            user_event_id="user-event:restart-correction",
+            payload_hash=HASH_B,
+            message="Use a different Y binding.",
+        )
+        second = coordinator.next_action("task:test")
+        second_id = str(second["activation"]["activation_id"])
+        second_version = int(second["activation"]["task_version"])
+        ledger.mark_activation_running(second_id)
+        revised = intent().model_copy(
+            update={
+                "intent_version": 2,
+                "task_version": second_version,
+                "created_by_activation_id": second_id,
+            }
+        )
+        revised = revised.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    revised.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        restaged = ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=second_id,
+                task_id="task:test",
+                task_version=second_version,
+                intent=revised,
+            )
+        )
+        reconfirm = ledger.advance(
+            "task:test",
+            expected_task_version=restaged.task_version,
+            next_state="awaiting_reconfirmation",
+            reason_code="REVISED_INTENT_PRESENTED",
+        )
+        assert reconfirm.state == "awaiting_reconfirmation"
+
+    with ProjectStore.open(workspace) as reopened:
+        restored_ledger = TaskLedgerRepository(reopened)
+        restored = restored_ledger.get_task("task:test")
+        assert restored == reconfirm
+        assert restored.intent is not None and restored.intent.intent_version == 2
+        assert all(item.attempt_count == 0 for item in restored.items)
+        with pytest.raises(StorageProblem):
+            restored_ledger.get_execution_grant("task:test")
+
+
 def test_read_only_information_yield_completes_without_task_items(tmp_path) -> None:
     with ProjectStore.create(
         tmp_path / "project", project_id="project:test"
@@ -266,6 +483,62 @@ def test_intent_yield_stages_items_and_survives_restart(tmp_path) -> None:
     with ProjectStore.open(workspace) as reopened:
         restored = TaskLedgerRepository(reopened).get_task("task:test")
         assert restored == staged
+
+
+def test_intent_staged_can_be_cancelled_before_the_confirmation_card_is_projected(
+    tmp_path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        current = ledger.create_task(envelope())
+        for next_state in ("investigating", "intent_staged"):
+            current = ledger.advance(
+                "task:test",
+                expected_task_version=current.task_version,
+                next_state=next_state,
+                reason_code="TEST_STAGE",
+            )
+
+        cancelling = ledger.cancel(
+            "task:test",
+            expected_task_version=current.task_version,
+            user_event_id="user-event:cancel-staged",
+            payload_hash=HASH_A,
+        )
+        cancelled = ledger.finalize_cancel(
+            "task:test", expected_task_version=cancelling.task_version
+        )
+
+        assert cancelling.state == "cancelling"
+        assert cancelled.state == "cancelled"
+
+
+def test_reconfirmation_plan_can_be_corrected_again_before_execution(tmp_path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        current = ledger.create_task(envelope())
+        for next_state in (
+            "investigating",
+            "intent_staged",
+            "awaiting_reconfirmation",
+        ):
+            current = ledger.advance(
+                "task:test",
+                expected_task_version=current.task_version,
+                next_state=next_state,
+                reason_code="TEST_RECONFIRMATION",
+            )
+
+        corrected = ledger.record_user_event(
+            "task:test",
+            expected_task_version=current.task_version,
+            action="corrected",
+            user_event_id="user-event:correct-reconfirmation",
+            payload_hash=HASH_B,
+            message="Revise the field binding once more.",
+        )
+
+        assert corrected.state == "investigating"
 
 
 def test_cancel_aborts_owned_activation_and_finalizes_without_side_effects(tmp_path) -> None:

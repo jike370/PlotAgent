@@ -18,6 +18,8 @@ interface TaskDrawerProps {
   plans: WorkflowPlanView[]
   runtimeEvent?: WorkflowRuntimeEvent
   onCancel: (taskId: string) => void
+  onAcceptPartial: (taskId: string) => void
+  onResumeTask: (taskId: string) => void
   onRetryPlan: (planId: string) => void
   onClose: () => void
 }
@@ -96,6 +98,8 @@ export function TaskDrawer({
   plans,
   runtimeEvent,
   onCancel,
+  onAcceptPartial,
+  onResumeTask,
   onRetryPlan,
   onClose,
 }: TaskDrawerProps): React.JSX.Element {
@@ -150,14 +154,24 @@ export function TaskDrawer({
           {[...shownDurable].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).map((task) => {
             const terminal = durableTerminalStates.has(task.state)
             const warning = task.state === 'partial' || task.state === 'blocked' || task.state === 'failed'
+            const completedSuccessfully = task.state === 'completed_verified'
             const plan = planByTask.get(task.taskId)
             const completed = task.items.filter((item) => item.state === 'succeeded').length
             const skipped = new Set(task.skippedItemIds ?? [])
             const retryable = plan?.resumable === true
-            const Icon = warning ? TriangleAlert : terminal ? CircleCheck : durableActiveStates.has(task.state) ? LoaderCircle : Clock3
+            const recoverablePlanning = [
+              'created', 'investigating', 'intent_staged', 'repairing', 'blocked',
+            ].includes(task.state) && task.activeActivationId === undefined
+            const Icon = warning
+              ? TriangleAlert
+              : completedSuccessfully
+                ? CircleCheck
+                : durableActiveStates.has(task.state)
+                  ? LoaderCircle
+                  : Clock3
             const updated = updateLabel(task.updatedAt)
             return (
-              <article className={`task-item task-item--${warning ? 'warning' : terminal ? 'success' : 'running'}`} key={task.taskId}>
+              <article className={`task-item task-item--${warning ? 'warning' : completedSuccessfully ? 'success' : terminal ? 'neutral' : 'running'}`} key={task.taskId}>
                 <div className="task-item__icon"><Icon className={durableActiveStates.has(task.state) ? 'spin' : undefined} size={17} /></div>
                 <div className="task-item__content">
                   <header><strong>{plan?.steps.length === 1 ? plan.steps[0]?.title : `${task.items.length || 1} 项绘图任务`}</strong><span>{task.completionOutcome === 'completed_with_skips' ? '已完成（含跳过项）' : durableStateLabels[task.state] ?? task.state}</span></header>
@@ -182,6 +196,8 @@ export function TaskDrawer({
                   ))}
                   {(retryable || (!terminal && task.state !== 'cancelling')) && <div className="task-item__actions">
                     {retryable && plan && <button type="button" onClick={() => onRetryPlan(plan.planId)}><RotateCcw size={14} />仅重试失败项</button>}
+                    {recoverablePlanning && <button type="button" onClick={() => onResumeTask(task.taskId)}><RotateCcw size={14} />{task.state === 'blocked' ? '重新检查条件' : '继续任务'}</button>}
+                    {task.state === 'partial' && completed > 0 && <button type="button" onClick={() => onAcceptPartial(task.taskId)}><CircleCheck size={14} />保留成功项并结束</button>}
                     {!terminal && task.state !== 'cancelling' && <button type="button" onClick={() => onCancel(task.taskId)}><X size={14} />停止任务</button>}
                   </div>}
                 </div>

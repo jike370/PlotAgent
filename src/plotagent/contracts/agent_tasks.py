@@ -829,7 +829,7 @@ TERMINAL_TASK_STATES: frozenset[TaskState] = frozenset(
     {"unsupported", "cancelled", "rejected", "failed", "completed_verified"}
 )
 ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
-    "created": frozenset({"investigating", "cancelling", "cancelled", "failed"}),
+    "created": frozenset({"investigating", "cancelling", "failed"}),
     "investigating": frozenset(
         {
             "awaiting_input",
@@ -841,9 +841,15 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
             "completed_verified",
         }
     ),
-    "awaiting_input": frozenset({"investigating", "cancelling", "cancelled", "failed"}),
+    "awaiting_input": frozenset({"investigating", "cancelling", "failed"}),
     "intent_staged": frozenset(
-        {"awaiting_confirmation", "awaiting_reconfirmation", "investigating", "failed"}
+        {
+            "awaiting_confirmation",
+            "awaiting_reconfirmation",
+            "investigating",
+            "cancelling",
+            "failed",
+        }
     ),
     "awaiting_confirmation": frozenset(
         {"executing", "rejected", "investigating", "cancelling", "failed"}
@@ -863,10 +869,8 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
     "repairing": frozenset(
         {
             "executing",
-            "verifying",
             "awaiting_input",
-            "awaiting_reconfirmation",
-            "partial",
+            "intent_staged",
             "blocked",
             "unsupported",
             "cancelling",
@@ -874,7 +878,7 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
         }
     ),
     "awaiting_reconfirmation": frozenset(
-        {"executing", "repairing", "rejected", "cancelling", "failed"}
+        {"executing", "rejected", "investigating", "cancelling", "failed"}
     ),
     "delivering": frozenset(
         {"completed_verified", "repairing", "blocked", "partial", "cancelling", "failed"}
@@ -883,28 +887,24 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
         {
             "investigating",
             "executing",
-            "verifying",
             "repairing",
-            "delivering",
             "cancelling",
-            "cancelled",
             "completed_verified",
         }
     ),
     "blocked": frozenset(
         {
             "investigating",
-            "executing",
-            "verifying",
             "repairing",
-            "delivering",
             "cancelling",
-            "cancelled",
             "failed",
         }
     ),
     "unsupported": frozenset(),
-    "cancelling": frozenset({"cancelled", "partial"}),
+    # An explicit product stop always has one terminal meaning. Already committed
+    # item outputs remain on the cancelled checkpoint; they do not change the task
+    # back into the recoverable ``partial`` state.
+    "cancelling": frozenset({"cancelled"}),
     "cancelled": frozenset(),
     "rejected": frozenset(),
     "failed": frozenset(),
@@ -926,11 +926,11 @@ ALLOWED_TASK_ITEM_TRANSITIONS: dict[TaskItemState, frozenset[TaskItemState]] = {
 
 
 def is_legal_task_transition(previous: TaskState, next_state: TaskState) -> bool:
-    return previous == next_state or next_state in ALLOWED_TASK_TRANSITIONS[previous]
+    return next_state in ALLOWED_TASK_TRANSITIONS[previous]
 
 
 def is_legal_task_item_transition(previous: TaskItemState, next_state: TaskItemState) -> bool:
-    return previous == next_state or next_state in ALLOWED_TASK_ITEM_TRANSITIONS[previous]
+    return next_state in ALLOWED_TASK_ITEM_TRANSITIONS[previous]
 
 
 class TaskEventBase(StrictModel):
@@ -949,6 +949,12 @@ class TaskStateTransitionEvent(TaskEventBase):
 
     @model_validator(mode="after")
     def transition_is_legal(self) -> TaskStateTransitionEvent:
+        if (
+            self.previous_state == "created"
+            and self.next_state == "created"
+            and self.reason_code == "TASK_CREATED"
+        ):
+            return self
         if not is_legal_task_transition(self.previous_state, self.next_state):
             raise ValueError("illegal task state transition")
         return self
@@ -999,8 +1005,8 @@ class UserTaskEvent(TaskEventBase):
         "rejected",
         "corrected",
         "cancel_requested",
-        "budget_extended",
         "partial_accepted",
+        "retry_requested",
         "resumed",
     ]
     user_event_id: Token
@@ -1046,7 +1052,7 @@ class VerificationReportEvent(TaskEventBase):
 class TaskBudgetEvent(TaskEventBase):
     event_type: Literal["task_budget"] = "task_budget"
     budget: TaskBudgetSnapshot
-    change_reason: Literal["usage", "user_extended", "policy_reduced", "reconciled"]
+    change_reason: Literal["usage", "policy_reduced", "reconciled"]
 
 
 TaskEvent = Annotated[

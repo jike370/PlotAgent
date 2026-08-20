@@ -227,7 +227,6 @@
         "change_reason": {
           "enum": [
             "usage",
-            "user_extended",
             "policy_reduced",
             "reconciled"
           ],
@@ -959,8 +958,8 @@
             "rejected",
             "corrected",
             "cancel_requested",
-            "budget_extended",
             "partial_accepted",
+            "retry_requested",
             "resumed"
           ],
           "title": "Action",

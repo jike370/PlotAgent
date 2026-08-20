@@ -413,6 +413,8 @@ export function App(): React.JSX.Element {
       setWorkflowPlans(plans)
       setDurableTasks(tasks)
       setWorkflowPlan(latest)
+      const restoredOutcome = readWorkflowOutcome(result.value)
+      if (restoredOutcome.kind === 'needs_input') setWorkflowOutcome(restoredOutcome)
     })
     return () => { active = false }
   }, [api, activeProjectId])
@@ -899,9 +901,16 @@ export function App(): React.JSX.Element {
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
+    const continuationPlan = workflowOutcome?.kind === 'task_plan'
+      ? workflowOutcome.plan ?? workflowPlan
+      : workflowPlan
     const continuationWorkflowRunId = workflowOutcome?.kind === 'needs_input'
       ? workflowOutcome.workflowRunId
-      : undefined
+      : continuationPlan?.taskId !== undefined
+        && ['awaiting_confirmation', 'awaiting_reconfirmation', 'partially_succeeded']
+          .includes(continuationPlan.state)
+        ? continuationPlan.taskId
+        : undefined
     if (!api) return
     pendingAgentRequest.current = undefined
     const requestGeneration = agentRequestGeneration.current + 1
@@ -1009,12 +1018,16 @@ export function App(): React.JSX.Element {
           ? '任务已完成'
           : plan.state === 'completed_with_skips'
             ? '任务已完成（含跳过项）'
-            : plan.state === 'partially_succeeded' ? '任务等待处理' : '任务未完成',
+            : plan.state === 'partially_succeeded'
+              ? '任务等待处理'
+              : plan.state === 'failed' ? '任务失败' : '任务未完成',
         message: plan.state === 'succeeded'
           ? '更改已保存为可追溯版本。'
           : plan.state === 'completed_with_skips'
             ? '成功项已保留，未执行或失败项已按你的选择跳过。'
-            : '已保留完成项，可继续处理未完成步骤。',
+            : plan.state === 'failed'
+              ? '任务已停止。请查看失败项诊断，修改要求后创建新任务。'
+              : '已保留完成项，可继续处理未完成步骤。',
         plan,
       })
       if (plan.state === 'succeeded' || plan.state === 'completed_with_skips') setNotice(undefined)
@@ -1034,9 +1047,15 @@ export function App(): React.JSX.Element {
       setNotice(failureNotice(result.error))
       return
     }
+    const listed = await api.listTaskPlans({ projectId: project.projectId })
+    const refreshedDurable = listed.ok ? readDurableTasks(listed.value) : durableTasks
+    if (listed.ok) {
+      setWorkflowPlans(readWorkflowPlans(listed.value))
+      setDurableTasks(refreshedDurable)
+    }
     if (agentRuntimeEvent?.taskId === taskId) {
       invalidateAgentRequest()
-      const retainedCount = durableTasks
+      const retainedCount = refreshedDurable
         .find((task) => task.taskId === taskId)
         ?.items.filter((item) => item.state === 'succeeded').length ?? 0
       setWorkflowOutcome({
@@ -1047,10 +1066,60 @@ export function App(): React.JSX.Element {
           : '任务已停止，项目未发生更改。',
       })
     }
-    const listed = await api.listTaskPlans({ projectId: project.projectId })
-    if (listed.ok) {
-      setWorkflowPlans(readWorkflowPlans(listed.value))
-      setDurableTasks(readDurableTasks(listed.value))
+  }
+
+  const acceptPartialTask = async (taskId: string): Promise<void> => {
+    if (!api || !project || busyAction !== undefined) return
+    setBusyAction('agent-plan')
+    try {
+      const result = await api.acceptPartialTask(taskId)
+      if (!result.ok) {
+        setNotice(failureNotice(result.error))
+        return
+      }
+      const listed = await api.listTaskPlans({ projectId: project.projectId })
+      if (!listed.ok) {
+        setNotice(failureNotice(listed.error))
+        return
+      }
+      const plans = readWorkflowPlans(listed.value)
+      const durable = readDurableTasks(listed.value)
+      setWorkflowPlans(plans)
+      setDurableTasks(durable)
+      const completed = plans.find((plan) => plan.taskId === taskId)
+      if (completed) {
+        setWorkflowPlan(completed)
+        setWorkflowOutcome({
+          kind: 'task_plan',
+          title: '任务已完成（含跳过项）',
+          message: '成功项已保留，未完成项已按你的选择跳过。',
+          plan: completed,
+        })
+      }
+      setNotice(undefined)
+    } finally {
+      setBusyAction(undefined)
+    }
+  }
+
+  const resumeAgentTask = async (taskId: string): Promise<void> => {
+    if (!api || !project) return
+    setBusyAction('agent'); setNotice(undefined)
+    try {
+      const value = valueOrThrow(await api.resumeAgentTask(taskId))
+      mergeDurableResult(value)
+      const outcome = readWorkflowOutcome(value)
+      setWorkflowPlan(outcome.plan)
+      setWorkflowOutcome(outcome)
+      const listed = await api.listTaskPlans({ projectId: project.projectId })
+      if (listed.ok) {
+        setWorkflowPlans(readWorkflowPlans(listed.value))
+        setDurableTasks(readDurableTasks(listed.value))
+      }
+    } catch (error) {
+      setNotice(errorNotice(error))
+    } finally {
+      setBusyAction(undefined)
     }
   }
 
@@ -1087,7 +1156,14 @@ export function App(): React.JSX.Element {
         throw new Error('Core did not confirm plan cancellation.')
       }
       setWorkflowPlan(undefined)
-      setWorkflowOutcome({ kind: 'no_change', title: '计划已取消', message: '未修改任何项目对象。' })
+      const retainedCount = rejectedPlan?.completedCount ?? 0
+      setWorkflowOutcome({
+        kind: 'no_change',
+        title: '计划已拒绝',
+        message: retainedCount > 0
+          ? `未执行修订计划；已保留此前完成的 ${retainedCount} 项结果。`
+          : '未执行计划，项目未发生更改。',
+      })
     } catch (error) {
       setWorkflowOutcome({ kind: 'rejected', title: '计划未取消', message: errorNotice(error).message })
     } finally {
@@ -1335,7 +1411,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onClose={() => setScreen('workspace')} />}
       </div>
@@ -1346,7 +1422,7 @@ export function App(): React.JSX.Element {
         setUndoStack([]); setRedoStack([])
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
-      {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} durableTasks={durableTasks} plans={workflowPlans} runtimeEvent={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent : undefined} onCancel={(taskId) => { void cancelTask(taskId) }} onRetryPlan={(planId) => { void executeWorkflowPlan(planId, true) }} onClose={() => setTasksOpen(false)} />}
+      {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} durableTasks={durableTasks} plans={workflowPlans} runtimeEvent={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent : undefined} onCancel={(taskId) => { void cancelTask(taskId) }} onAcceptPartial={(taskId) => { void acceptPartialTask(taskId) }} onResumeTask={(taskId) => { void resumeAgentTask(taskId) }} onRetryPlan={(planId) => { void executeWorkflowPlan(planId, true) }} onClose={() => setTasksOpen(false)} />}
       {providerOpen && <ProviderSettings busy={busyAction === 'provider'} configured={providerConfiguration} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
     </div>
   )

@@ -114,7 +114,14 @@ function workflowPlanFixture(
   options: {
     planId?: string
     plotVersion?: number
-    failure?: { code: string; message: string; retryable: boolean }
+    failure?: {
+      code: string
+      message: string
+      retryable: boolean
+      category?: string
+      requiresUser?: boolean
+      sideEffectState?: string
+    }
   } = {},
 ): JsonValue {
   const planId = options.planId ?? 'plan:one'
@@ -124,6 +131,8 @@ function workflowPlanFixture(
   const progressState = stepState === 'ready' ? 'pending'
     : stepState === 'stale' ? 'failed' : stepState
   return {
+    task_id: 'task:workflow:test',
+    task_version: 3,
     plan: {
       schema_version: 'task-plan.v1',
       plan_id: planId,
@@ -157,6 +166,16 @@ function workflowPlanFixture(
         error_code: options.failure.code,
         error_message: options.failure.message,
         error_retryable: options.failure.retryable,
+        ...(options.failure.category === undefined ? {} : {
+          last_error: {
+            code: options.failure.code,
+            message: options.failure.message,
+            retryable: options.failure.retryable,
+            category: options.failure.category,
+            requires_user: options.failure.requiresUser ?? false,
+            side_effect_state: options.failure.sideEffectState ?? 'unknown',
+          },
+        }),
       }),
       ...(plotVersion === undefined ? {} : { output_plot_id: 'plot:one', output_plot_version: plotVersion }),
     }],
@@ -284,6 +303,8 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     getBootstrap: vi.fn(readyBootstrap),
     getTasks: vi.fn(async () => ({ tasks: [], activeTaskCount: 0, hasCommittingTask: false })),
     cancelTask: vi.fn(actionOk),
+    acceptPartialTask: vi.fn(actionOk),
+    resumeAgentTask: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
     retryCore: vi.fn(actionOk),
     getProviderStatus: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
     configureCustomProvider: vi.fn(async () => ok({ configured: true, mode: 'custom_provider' })),
@@ -1151,6 +1172,36 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
   })
 
+  it('presents a terminal execution failure as stopped instead of resumable partial work', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => ok({
+        task_plan: workflowPlanFixture('failed', 'failed', {
+          planId: 'plan:batch',
+          failure: {
+            code: 'UNSUPPORTED_OPERATION',
+            message: '该操作不能执行。',
+            retryable: false,
+            category: 'unsupported',
+            sideEffectState: 'known_none',
+          },
+        }),
+      })),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    const card = (await screen.findByRole('heading', { name: '任务计划' })).closest('section')
+    expect(card).toHaveTextContent('失败')
+    expect(card).toHaveTextContent('下一步：修改要求后创建新任务')
+    expect(screen.queryByRole('button', { name: '继续未完成步骤' })).not.toBeInTheDocument()
+  })
+
   it('keeps a batch clarification in the conversation instead of reporting a missing plan', async () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn(async () => ok({
@@ -1540,7 +1591,13 @@ describe('PlotAgent real desktop workflow', () => {
   it('restores a partial plan and resumes only its unfinished work', async () => {
     const user = userEvent.setup()
     const partial = workflowPlanFixture('partially_failed', 'failed', {
-      failure: { code: 'ORIGIN_EXPORT_FAILED', message: 'OPJU 导出未完成。', retryable: true },
+      failure: {
+        code: 'ORIGIN_EXPORT_FAILED',
+        message: 'OPJU 导出未完成。',
+        retryable: true,
+        category: 'deterministic_technical',
+        sideEffectState: 'known_none',
+      },
     })
     const resumeWorkflowPlan = vi.fn(async () => ok({
       task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }),
@@ -1560,6 +1617,89 @@ describe('PlotAgent real desktop workflow', () => {
     expect(resumeWorkflowPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })
     expect(await screen.findByText('更改已保存')).toBeInTheDocument()
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
+  })
+
+  it('sends a natural-language partial repair back to the same durable task', async () => {
+    const user = userEvent.setup()
+    const partial = workflowPlanFixture('partially_failed', 'failed', {
+      failure: {
+        code: 'FIELD_BINDING_INVALID',
+        message: '第二项字段绑定不成立。',
+        retryable: false,
+        category: 'semantic_conflict',
+        requiresUser: true,
+        sideEffectState: 'known_none',
+      },
+    })
+    const runWorkflow = vi.fn(async () => ok({
+      outcome: 'needs_input',
+      workflow_run_id: 'task:workflow:test',
+      questions: [{
+        question_key: 'replacement_field',
+        prompt: '第二项应改用哪一列？',
+        answer_kind: 'field',
+        choices: [],
+        required: true,
+      }],
+    }))
+    installApi(fakeDesktop({
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [partial] })),
+      runWorkflow,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    expect(await screen.findByText('第二项字段绑定不成立。')).toBeInTheDocument()
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '第二项改用信号列，保留已经成功的第一项。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      continuationWorkflowRunId: 'task:workflow:test',
+      instruction: '第二项改用信号列，保留已经成功的第一项。',
+    }))
+  })
+
+  it('restores a pending question after restart and answers the same durable task', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture())))
+    installApi(fakeDesktop({
+      listTaskPlans: vi.fn(async () => ok({
+        task_plans: [],
+        durable_tasks: [{
+          task_id: 'task:restart-question',
+          task_version: 4,
+          state: 'awaiting_input',
+          project_revision: 1,
+          items: [],
+        }],
+        pending_inputs: [{
+          outcome: 'needs_input',
+          workflow_run_id: 'task:restart-question',
+          questions: [{
+            question_key: 'field_y',
+            prompt: '哪一列应作为 Y？',
+            answer_kind: 'field',
+            choices: [],
+            required: true,
+          }],
+        }],
+      })),
+      runWorkflow,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    expect((await screen.findAllByText('哪一列应作为 Y？')).length).toBeGreaterThan(0)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '使用 Response_mV。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      continuationWorkflowRunId: 'task:restart-question',
+      instruction: '使用 Response_mV。',
+    }))
   })
 
   it('passes a retry request verbatim without rebuilding hidden task context', async () => {
@@ -1637,6 +1777,31 @@ describe('PlotAgent real desktop workflow', () => {
 
     expect(await screen.findByText('已拒绝')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /执行|继续/ })).not.toBeInTheDocument()
+  })
+
+  it('rejects a revised plan without claiming that earlier successful items vanished', async () => {
+    const user = userEvent.setup()
+    const pendingRevision = workflowPlanFixture(
+      'awaiting_reconfirmation',
+      'succeeded',
+      { planId: 'plan:revision', plotVersion: 2 },
+    )
+    const rejectedRevision = workflowPlanFixture(
+      'rejected',
+      'succeeded',
+      { planId: 'plan:revision', plotVersion: 2 },
+    )
+    installApi(fakeDesktop({
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [pendingRevision] })),
+      confirmTaskPlan: vi.fn(async () => ok(rejectedRevision)),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.click(await screen.findByRole('button', { name: '拒绝修订计划' }))
+
+    expect(await screen.findByText('计划已拒绝')).toBeInTheDocument()
+    expect(screen.getByText('未执行修订计划；已保留此前完成的 1 项结果。')).toBeInTheDocument()
   })
 
   it.each([
@@ -1725,5 +1890,78 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(within(drawer).getByRole('button', { name: /全部/ }))
     expect(within(drawer).getByText('模型服务余额不足')).toBeInTheDocument()
     expect(within(drawer).queryByRole('button', { name: '停止任务' })).not.toBeInTheDocument()
+  })
+
+  it('projects the refreshed cancelled checkpoint before describing retained results', async () => {
+    const user = userEvent.setup()
+    const cancelledTask: JsonValue = {
+      task_id: 'task:cancel-boundary',
+      task_version: 7,
+      state: 'cancelled',
+      project_revision: 2,
+      updated_at: '2026-08-20T08:00:00Z',
+      items: [{
+        item_id: 'item:cancel-boundary.1',
+        state: 'succeeded',
+        attempt_count: 1,
+        output_plot_id: 'plot:retained',
+        output_plot_version: 1,
+      }, {
+        item_id: 'item:cancel-boundary.2',
+        state: 'cancelled',
+        attempt_count: 0,
+      }],
+    }
+    const listTaskPlans = vi.fn()
+      .mockResolvedValueOnce(ok({ task_plans: [], durable_tasks: [] }))
+      .mockResolvedValue(ok({ task_plans: [], durable_tasks: [cancelledTask] }))
+    const cancelTask = vi.fn(actionOk)
+    installApi(fakeDesktop({ listTaskPlans, cancelTask }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await waitFor(() => expect(workflowRuntimeListener).toBeDefined())
+    act(() => workflowRuntimeListener?.({
+      schemaVersion: '1.0',
+      runId: 'workflow:cancel-boundary',
+      projectId: 'project:sample',
+      taskId: 'task:cancel-boundary',
+      sequence: 2,
+      stage: 'planning',
+      label: 'Agent 正在规划…',
+    }))
+    await user.click(screen.getByRole('button', { name: /任务中心/ }))
+    await user.click(within(screen.getByRole('dialog', { name: '任务中心' }))
+      .getByRole('button', { name: '停止任务' }))
+
+    expect(cancelTask).toHaveBeenCalledWith('task:cancel-boundary')
+    expect(await screen.findByText('任务已停止，已保留 1 项成功结果。')).toBeInTheDocument()
+  })
+
+  it('continues an interrupted planning task from the task center', async () => {
+    const user = userEvent.setup()
+    const resumeAgentTask = vi.fn(async () => ok(
+      workflowResultWithPlan(workflowPlanFixture()),
+    ))
+    installApi(fakeDesktop({
+      listTaskPlans: vi.fn(async () => ok({
+        task_plans: [],
+        durable_tasks: [{
+          task_id: 'task:restart-planning',
+          task_version: 4,
+          state: 'investigating',
+          project_revision: 1,
+          items: [],
+        }],
+      })),
+      resumeAgentTask,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: /任务中心/ }))
+    await user.click(within(screen.getByRole('dialog', { name: '任务中心' }))
+      .getByRole('button', { name: '继续任务' }))
+
+    expect(resumeAgentTask).toHaveBeenCalledWith('task:restart-planning')
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
   })
 })

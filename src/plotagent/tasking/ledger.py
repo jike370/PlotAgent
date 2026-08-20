@@ -17,6 +17,7 @@ from plotagent.contracts.agent_tasks import (
     TASK_EVENT_ADAPTER,
     AgentActivation,
     AgentActivationEvent,
+    AgentBlocked,
     AgentYield,
     ExecutionGrant,
     IntentRef,
@@ -95,10 +96,54 @@ type UserTaskAction = Literal[
     "rejected",
     "corrected",
     "cancel_requested",
-    "budget_extended",
     "partial_accepted",
+    "retry_requested",
     "resumed",
 ]
+
+
+USER_TASK_ACTION_TRANSITIONS: dict[
+    UserTaskAction,
+    tuple[frozenset[TaskState], TaskState | None],
+] = {
+    "answered": (frozenset({"awaiting_input"}), "investigating"),
+    "confirmed": (
+        frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
+        "executing",
+    ),
+    "rejected": (
+        frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
+        "rejected",
+    ),
+    "corrected": (
+        frozenset({"awaiting_confirmation", "awaiting_reconfirmation", "partial"}),
+        "investigating",
+    ),
+    "cancel_requested": (
+        frozenset(
+            {
+                "created",
+                "investigating",
+                "awaiting_input",
+                "intent_staged",
+                "awaiting_confirmation",
+                "executing",
+                "verifying",
+                "repairing",
+                "awaiting_reconfirmation",
+                "delivering",
+                "partial",
+                "blocked",
+            }
+        ),
+        "cancelling",
+    ),
+    # Accepting a verified subset is a terminal resolution distinct from
+    # both waiting in ``partial`` and explicit task cancellation.
+    "partial_accepted": (frozenset({"partial"}), None),
+    "retry_requested": (frozenset({"partial"}), "executing"),
+    "resumed": (frozenset({"blocked"}), "investigating"),
+}
 
 
 class TaskLedgerRepository:
@@ -375,6 +420,20 @@ class TaskLedgerRepository:
                 (state, limit),
             ).fetchall()
         return tuple(self._decode_checkpoint(str(row[0])) for row in rows)
+
+    def latest_yield(self, task_id: str) -> AgentYield | None:
+        """Return the newest durable Agent yield without reactivating the task."""
+
+        self.get_task(task_id)
+        row = self._connection.execute(
+            """
+            SELECT yield_json FROM agent_activations_v2
+            WHERE task_id = ? AND yield_json IS NOT NULL
+            ORDER BY updated_at DESC, activation_id DESC LIMIT 1
+            """,
+            (task_id,),
+        ).fetchone()
+        return None if row is None else AGENT_YIELD_ADAPTER.validate_json(str(row[0]))
 
     def recover_inflight_activations(self) -> tuple[str, ...]:
         """Abort activations owned by a previous desktop process.
@@ -693,6 +752,8 @@ class TaskLedgerRepository:
                 )
 
             next_state = self._yield_state(yielded)
+            if isinstance(yielded, AgentBlocked) and not yielded.retryable:
+                next_state = "failed"
             intent_ref: IntentRef | None = checkpoint.intent
             items = checkpoint.items
             completion: TaskCompletion | None = None
@@ -812,50 +873,9 @@ class TaskLedgerRepository:
         payload_hash: str,
         message: str | None = None,
     ) -> TaskCheckpoint:
-        transitions: dict[str, tuple[frozenset[TaskState], TaskState | None]] = {
-            "answered": (frozenset({"awaiting_input"}), "investigating"),
-            "confirmed": (
-                frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
-                "executing",
-            ),
-            "rejected": (
-                frozenset({"awaiting_confirmation", "awaiting_reconfirmation"}),
-                "rejected",
-            ),
-            "corrected": (
-                frozenset(
-                    {"awaiting_confirmation", "awaiting_reconfirmation", "partial"}
-                ),
-                "investigating",
-            ),
-            "cancel_requested": (
-                frozenset(
-                    {
-                        "created",
-                        "investigating",
-                        "awaiting_input",
-                        "intent_staged",
-                        "awaiting_confirmation",
-                        "executing",
-                        "verifying",
-                        "repairing",
-                        "awaiting_reconfirmation",
-                        "delivering",
-                        "partial",
-                        "blocked",
-                    }
-                ),
-                "cancelling",
-            ),
-            "budget_extended": (frozenset(ALLOWED_TASK_TRANSITIONS), None),
-            # Accepting a verified subset is a terminal resolution distinct from
-            # both waiting in ``partial`` and explicit task cancellation.
-            "partial_accepted": (frozenset({"partial"}), None),
-            "resumed": (frozenset({"blocked"}), "investigating"),
-        }
-        if action not in transitions:
+        if action not in USER_TASK_ACTION_TRANSITIONS:
             raise ValueError("unsupported user task action")
-        allowed_states, next_state = transitions[action]
+        allowed_states, next_state = USER_TASK_ACTION_TRANSITIONS[action]
         with self._transaction() as connection:
             current = self._get_task_in_transaction(connection, task_id)
             existing = connection.execute(
@@ -888,6 +908,40 @@ class TaskLedgerRepository:
             self._expect_version(current, expected_task_version)
             if current.state not in allowed_states:
                 raise self._conflict("User action is not valid in the current task state.")
+            if action == "resumed":
+                latest = connection.execute(
+                    """
+                    SELECT activation_json, yield_json FROM agent_activations_v2
+                    WHERE task_id = ? AND yield_json IS NOT NULL
+                    ORDER BY updated_at DESC, activation_id DESC LIMIT 1
+                    """,
+                    (task_id,),
+                ).fetchone()
+                if latest is None:
+                    raise self._conflict("A blocked task is missing its durable blocker.")
+                activation = AgentActivation.model_validate_json(str(latest[0]))
+                yielded = AGENT_YIELD_ADAPTER.validate_json(str(latest[1]))
+                if not isinstance(yielded, AgentBlocked) or not yielded.retryable:
+                    raise self._conflict("This blocked task has no retryable external condition.")
+                next_state = (
+                    "repairing" if activation.task_state == "repairing" else "investigating"
+                )
+            if action == "retry_requested":
+                retryable = tuple(
+                    item for item in current.items if item.state == "repairable_failed"
+                )
+                if not retryable or any(
+                    item.last_error is None
+                    or item.last_error.category != "deterministic_technical"
+                    or not item.last_error.retryable
+                    or item.last_error.requires_user
+                    or item.last_error.side_effect_state != "known_none"
+                    for item in retryable
+                ):
+                    raise self._conflict(
+                        "Only unchanged, side-effect-free failed items can be retried "
+                        "without Agent revision."
+                    )
             now = _utc_now()
             sequence = self._next_sequence(connection, task_id)
             event = UserTaskEvent(
@@ -1588,7 +1642,10 @@ class TaskLedgerRepository:
             "technical_repair_ready": "executing",
             "unsupported": "unsupported",
             "blocked": "blocked",
-            "budget_exhausted": "blocked",
+            # A task-wide budget has no in-place mutation or extension control.
+            # Treat exhaustion as an explicit terminal failure; retrying means a
+            # new task with a fresh, auditable budget rather than a fake resume.
+            "budget_exhausted": "failed",
             "cancelled": "cancelling",
             "runtime_failed": "failed",
         }

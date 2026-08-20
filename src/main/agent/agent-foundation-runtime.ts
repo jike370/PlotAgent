@@ -72,6 +72,20 @@ interface PlanAuthority {
   readonly taskId: string
 }
 
+const PLAN_VISIBLE_TASK_STATES = new Set([
+  'awaiting_confirmation',
+  'awaiting_reconfirmation',
+  'executing',
+  'verifying',
+  'delivering',
+  'partial',
+  'cancelling',
+  'cancelled',
+  'rejected',
+  'failed',
+  'completed_verified',
+])
+
 function record(value: unknown, label: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new AgentFoundationRuntimeError('AGENT_V2_PROTOCOL_INVALID', `${label} was invalid.`)
@@ -132,6 +146,24 @@ function planIdentity(value: unknown): { planId: string; taskId: string } {
   }
 }
 
+function hasSafeDeterministicRetry(task: Record<string, unknown>): boolean {
+  if (!Array.isArray(task.items)) return false
+  const failed = task.items.flatMap((candidate): Record<string, unknown>[] => {
+    if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) return []
+    const item = candidate as Record<string, unknown>
+    return item.state === 'repairable_failed' ? [item] : []
+  })
+  return failed.length > 0 && failed.every((item) => {
+    const error = item.last_error
+    if (error === null || typeof error !== 'object' || Array.isArray(error)) return false
+    const detail = error as Record<string, unknown>
+    return detail.category === 'deterministic_technical'
+      && detail.retryable === true
+      && detail.requires_user === false
+      && detail.side_effect_state === 'known_none'
+  })
+}
+
 function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRuntimeError {
   const yielded = result.terminalYield
   if (yielded?.outcome === 'runtime_failed') {
@@ -169,6 +201,12 @@ function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRunti
     return new AgentFoundationRuntimeError(
       'AGENT_V2_DECISION_TIMEOUT',
       '模型服务响应超时，未生成计划，也未修改项目。可以直接重试。',
+    )
+  }
+  if (yielded?.outcome === 'budget_exhausted') {
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_BUDGET_EXHAUSTED',
+      `本任务已达到 ${yielded.exhausted_budget} 限额，未生成计划，也未修改项目。请创建新任务后重试。`,
     )
   }
   if (yielded?.outcome === 'blocked') {
@@ -212,6 +250,11 @@ export class AgentFoundationRuntime {
   private readonly authorityByPlan = new Map<string, PlanAuthority>()
   private readonly authorityByTask = new Map<string, string>()
   private readonly activePumps = new Map<string, AgentTaskPump>()
+  private readonly activeExecutions = new Set<string>()
+  private readonly executionCancellationSignals = new Map<string, {
+    promise: Promise<boolean>
+    resolve: (cancelled: boolean) => void
+  }>()
   private sequence = 0
 
   constructor(options: AgentFoundationRuntimeOptions) {
@@ -257,7 +300,9 @@ export class AgentFoundationRuntime {
       const task = record(value, 'durable task checkpoint')
       const taskId = string(task.task_id, 'task ID')
       this.authorityByTask.set(taskId, projectId)
-      return task.intent === null || task.intent === undefined
+      return task.intent === null
+        || task.intent === undefined
+        || !PLAN_VISIBLE_TASK_STATES.has(string(task.state, 'task state'))
         ? []
         : [{ taskId }]
     })
@@ -277,8 +322,25 @@ export class AgentFoundationRuntime {
       this.authorityByPlan.set(identity.planId, { projectId, taskId })
       return json(view)
     }))
+    const pendingInputs = await Promise.all(result.tasks.flatMap((value) => {
+      const task = record(value, 'durable task checkpoint')
+      return task.state === 'awaiting_input' && typeof task.task_id === 'string'
+        ? [task.task_id]
+        : []
+    }).map(async (taskId) => {
+      const yielded = record(await this.core.request(
+        'agent.tasks.latest_yield',
+        { project_id: projectId, task_id: taskId },
+        15_000,
+      ), 'durable pending question')
+      return json({ ...yielded, workflow_run_id: taskId })
+    }))
     // Core lists durable tasks newest-first while the renderer selects the last plan.
-    return { task_plans: newestFirst.reverse(), durable_tasks: result.tasks }
+    return {
+      task_plans: newestFirst.reverse(),
+      durable_tasks: result.tasks,
+      pending_inputs: pendingInputs,
+    }
   }
 
   async run(input: AgentFoundationRunInput): Promise<JsonValue> {
@@ -388,10 +450,15 @@ export class AgentFoundationRuntime {
       { project_id: input.projectId, task_id: taskId },
       15_000,
     ), 'durable task checkpoint')
-    if (task.state !== 'awaiting_input') {
+    const action = task.state === 'awaiting_input'
+      ? 'answered'
+      : ['awaiting_confirmation', 'awaiting_reconfirmation', 'partial'].includes(String(task.state))
+        ? 'corrected'
+        : undefined
+    if (action === undefined) {
       throw new AgentFoundationRuntimeError(
         'AGENT_V2_CONTINUATION_STALE',
-        '这项 Agent 任务当前不在等待回复，请从任务中心查看最新状态。',
+        '这项 Agent 任务当前不接受回复或修订，请从任务中心查看最新状态。',
       )
     }
     this.authorityByTask.set(taskId, input.projectId)
@@ -400,7 +467,7 @@ export class AgentFoundationRuntime {
       project_id: input.projectId,
       task_id: taskId,
       expected_task_version: taskVersion,
-      action: 'answered',
+      action,
       user_event_id: `user-event:${this.id()}`,
       payload_hash: createHash('sha256').update(input.instruction, 'utf8').digest('hex'),
       message: input.instruction,
@@ -532,43 +599,55 @@ export class AgentFoundationRuntime {
     const authority = this.authority(input)
     const runId = `workflow:execute:${authority.taskId.replace(/^task:/, '')}`
     this.taskByRunId.set(runId, authority.taskId)
+    this.activeExecutions.add(authority.taskId)
     this.emit(runId, authority.projectId, 'planning', '正在调用绘图引擎并验证结果…')
     try {
       let view = record(await this.get(input), 'durable task plan view')
       let task = record(view.task, 'durable execution task')
-      if (task.state === 'completed_verified') {
-        this.emit(runId, authority.projectId, 'completed', '任务结果已验证')
-        return json(view)
+      if (['completed_verified', 'cancelled', 'rejected', 'failed', 'unsupported'].includes(
+        string(task.state, 'task state'),
+      )) {
+        return this.finishExecutionView(runId, authority.projectId, view)
       }
       if (task.state !== 'partial') {
-        const executed = record(await this.core.request(
-          'agent.tasks.execute',
-          { project_id: authority.projectId, task_id: authority.taskId },
-          900_000,
-        ), 'durable execution result')
+        const executed = await this.executeAtAtomicBoundaries(
+          authority.projectId,
+          authority.taskId,
+        )
         task = record(executed.task, 'durable execution task')
-      }
-      if (task.state === 'partial') {
-      this.emit(runId, authority.projectId, 'planning', '正在分析失败项并保留已成功结果…')
-      const host = new CorePiRuntimeHostV2(this.core, authority.projectId)
-      const runtime = this.createRuntime(
-        host,
-        (event) => this.forwardRuntime(runId, authority.projectId, event),
-      )
-      const pump = new AgentTaskPump({
-        core: this.core,
-        runtime,
-        emit: (event) => this.forwardPump(runId, authority.projectId, event),
-      })
-      this.activePumps.set(authority.taskId, pump)
-      let drained: TaskPumpResult
-      try {
-        drained = await pump.drain(authority.projectId, authority.taskId)
-      } finally {
-        if (this.activePumps.get(authority.taskId) === pump) {
-          this.activePumps.delete(authority.taskId)
+        view = record(await this.get(input), 'durable task plan view')
+        task = record(view.task, 'durable execution task')
+        if (['cancelled', 'rejected', 'failed', 'unsupported'].includes(
+          string(task.state, 'task state'),
+        )) {
+          return this.finishExecutionView(runId, authority.projectId, view)
         }
       }
+      if (task.state === 'partial') {
+        if (hasSafeDeterministicRetry(task)) {
+          this.emit(runId, authority.projectId, 'completed', '失败项可按原计划安全重试')
+          return json(view)
+        }
+        this.emit(runId, authority.projectId, 'planning', '正在分析失败项并保留已成功结果…')
+        const host = new CorePiRuntimeHostV2(this.core, authority.projectId)
+        const runtime = this.createRuntime(
+          host,
+          (event) => this.forwardRuntime(runId, authority.projectId, event),
+        )
+        const pump = new AgentTaskPump({
+          core: this.core,
+          runtime,
+          emit: (event) => this.forwardPump(runId, authority.projectId, event),
+        })
+        this.activePumps.set(authority.taskId, pump)
+        let drained: TaskPumpResult
+        try {
+          drained = await pump.drain(authority.projectId, authority.taskId)
+        } finally {
+          if (this.activePumps.get(authority.taskId) === pump) {
+            this.activePumps.delete(authority.taskId)
+          }
+        }
         if (
           drained.reason === 'awaiting_input'
           || drained.reason === 'awaiting_reconfirmation'
@@ -582,24 +661,118 @@ export class AgentFoundationRuntime {
         }
         if (drained.reason === 'execution_pending') {
           this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
-          await this.core.request(
-            'agent.tasks.execute',
-            { project_id: authority.projectId, task_id: authority.taskId },
-            900_000,
+          await this.executeAtAtomicBoundaries(
+            authority.projectId,
+            authority.taskId,
           )
         }
       }
       this.emit(runId, authority.projectId, 'validating_draft', '正在读取验证报告与已保存结果…')
       view = record(await this.get(input), 'durable task plan view')
-      this.emit(runId, authority.projectId, 'completed', '任务结果已验证')
-      return json(view)
+      return this.finishExecutionView(runId, authority.projectId, view)
     } catch (error) {
       this.emit(runId, authority.projectId, 'failed', '任务执行或验证失败')
       throw error
+    } finally {
+      this.activeExecutions.delete(authority.taskId)
+      this.executionCancellationSignals.delete(authority.taskId)
     }
   }
 
-  async cancel(taskId: string): Promise<void> {
+  private finishExecutionView(
+    runId: string,
+    projectId: string,
+    view: Record<string, unknown>,
+  ): JsonValue {
+    const task = record(view.task, 'durable execution task')
+    const state = string(task.state, 'task state')
+    if (state === 'completed_verified') {
+      this.emit(runId, projectId, 'completed', '任务结果已验证')
+    } else if (state === 'cancelled' || state === 'rejected') {
+      this.emit(runId, projectId, 'cancelled', 'Agent 任务已停止，已完成结果继续保留')
+    } else if (state === 'failed' || state === 'unsupported') {
+      this.emit(runId, projectId, 'failed', '任务执行失败，请查看失败项诊断')
+    } else if (state === 'partial') {
+      this.emit(runId, projectId, 'completed', '成功项已保留，失败项等待处理')
+    } else if (state === 'blocked') {
+      this.emit(runId, projectId, 'completed', '任务等待外部条件恢复')
+    } else {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_EXECUTION_STATE_INVALID',
+        `任务执行在未处理的状态停止：${state}。`,
+      )
+    }
+    return json(view)
+  }
+
+  private async executeAtAtomicBoundaries(
+    projectId: string,
+    taskId: string,
+  ): Promise<Record<string, unknown>> {
+    // Core's control channel is intentionally serial. Returning after each
+    // atomic item lets an already queued cancel request run before the next
+    // item is submitted, while preserving the committed item and its receipt.
+    for (let stepCount = 0; stepCount < 1_024; stepCount += 1) {
+      const beforeStep = await this.cancelledExecutionCheckpoint(projectId, taskId)
+      if (beforeStep !== undefined) return beforeStep
+      const result = record(await this.core.request(
+        'agent.tasks.execute',
+        { project_id: projectId, task_id: taskId, step: true },
+        900_000,
+      ), 'durable execution result')
+      const task = record(result.task, 'durable execution task')
+      if (task.state !== 'executing') return result
+      const afterStep = await this.cancelledExecutionCheckpoint(projectId, taskId)
+      if (afterStep !== undefined) return afterStep
+    }
+    throw new AgentFoundationRuntimeError(
+      'AGENT_V2_EXECUTION_STEP_LIMIT',
+      '批量任务的子项数量超出安全执行上限。',
+    )
+  }
+
+  private async cancelledExecutionCheckpoint(
+    projectId: string,
+    taskId: string,
+  ): Promise<Record<string, unknown> | undefined> {
+    const signal = this.executionCancellationSignals.get(taskId)
+    if (signal === undefined) return undefined
+    if (!await signal.promise) {
+      this.executionCancellationSignals.delete(taskId)
+      return undefined
+    }
+    const task = record(await this.core.request(
+      'agent.tasks.get',
+      { project_id: projectId, task_id: taskId },
+      15_000,
+    ), 'cancelled durable task checkpoint')
+    return { task }
+  }
+
+  async resume(input: AgentFoundationPlanInput): Promise<JsonValue> {
+    const authority = this.authority(input)
+    const view = record(await this.get(input), 'task plan view')
+    const task = record(view.task, 'task checkpoint')
+    if (task.state !== 'partial' || !hasSafeDeterministicRetry(task)) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_SAFE_RETRY_UNAVAILABLE',
+        '当前失败项不能按原计划直接重试，请修改要求或等待 Agent 提出修订。',
+      )
+    }
+    const version = integer(task.task_version, 'task version')
+    await this.core.request('agent.tasks.retry_safe', {
+      project_id: authority.projectId,
+      task_id: authority.taskId,
+      expected_task_version: version,
+      user_event_id: `user-event:${this.id()}`,
+      payload_hash: createHash('sha256')
+        .update(`retry-safe:${authority.taskId}:${version}`, 'utf8')
+        .digest('hex'),
+    }, 15_000)
+    return await this.execute(input)
+  }
+
+  async resumeTask(taskId: string): Promise<JsonValue> {
     const projectId = this.authorityByTask.get(taskId)
     if (projectId === undefined) {
       throw new AgentFoundationRuntimeError(
@@ -612,21 +785,132 @@ export class AgentFoundationRuntime {
       { project_id: projectId, task_id: taskId },
       15_000,
     ), 'durable task checkpoint')
-    if (['completed_verified', 'cancelled', 'rejected', 'failed', 'unsupported'].includes(
+    if (this.activePumps.has(taskId) || typeof task.active_activation_id === 'string') {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_TASK_ALREADY_RUNNING',
+        '这项任务正在运行，无需再次继续。',
+      )
+    }
+    if (!['created', 'investigating', 'intent_staged', 'repairing', 'blocked'].includes(
       string(task.state, 'task state'),
     )) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_TASK_RESUME_UNAVAILABLE',
+        '这项任务当前不需要恢复 Agent 规划，请按任务卡上的可用操作继续。',
+      )
+    }
+    if (task.state === 'blocked') {
+      const version = integer(task.task_version, 'task version')
+      await this.core.request('agent.tasks.user_event', {
+        project_id: projectId,
+        task_id: taskId,
+        expected_task_version: version,
+        action: 'resumed',
+        user_event_id: `user-event:${this.id()}`,
+        payload_hash: createHash('sha256')
+          .update(`resume-blocked:${taskId}:${version}`, 'utf8')
+          .digest('hex'),
+      }, 15_000)
+    }
+    const runId = `workflow:resume:${taskId.replace(/^task:/, '')}`
+    this.taskByRunId.set(runId, taskId)
+    this.emit(runId, projectId, 'preparing_context', '正在从保存的任务检查点继续…')
+    const host = new CorePiRuntimeHostV2(this.core, projectId)
+    const runtime = this.createRuntime(
+      host,
+      (event) => this.forwardRuntime(runId, projectId, event),
+    )
+    const pump = new AgentTaskPump({
+      core: this.core,
+      runtime,
+      emit: (event) => this.forwardPump(runId, projectId, event),
+    })
+    this.activePumps.set(taskId, pump)
+    let drained: TaskPumpResult
+    try {
+      drained = await pump.drain(projectId, taskId)
+    } finally {
+      if (this.activePumps.get(taskId) === pump) this.activePumps.delete(taskId)
+    }
+    return await this.finishPlanningPump(projectId, taskId, runId, drained)
+  }
+
+  async cancel(taskId: string): Promise<void> {
+    const projectId = this.authorityByTask.get(taskId)
+    if (projectId === undefined) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_TASK_UNKNOWN',
+        '当前桌面会话中找不到该 Agent 任务。',
+      )
+    }
+    let resolveSignal: ((cancelled: boolean) => void) | undefined
+    if (this.activeExecutions.has(taskId)) {
+      const promise = new Promise<boolean>((resolve) => {
+        resolveSignal = resolve
+      })
+      this.executionCancellationSignals.set(taskId, { promise, resolve: resolveSignal! })
+    }
+    const controlTimeoutMs = this.activeExecutions.has(taskId) ? 900_000 : 15_000
+    let cancelled = false
+    try {
+      const task = record(await this.core.request(
+        'agent.tasks.get',
+        { project_id: projectId, task_id: taskId },
+        controlTimeoutMs,
+      ), 'durable task checkpoint')
+      if (['completed_verified', 'cancelled', 'rejected', 'failed', 'unsupported'].includes(
+        string(task.state, 'task state'),
+      )) {
+        this.activePumps.get(taskId)?.cancel(projectId, taskId)
+        cancelled = task.state === 'cancelled'
+        return
+      }
+      const version = integer(task.task_version, 'task version')
       this.activePumps.get(taskId)?.cancel(projectId, taskId)
-      return
+      const payloadHash = createHash('sha256')
+        .update(`cancel:${taskId}:${version}`, 'utf8')
+        .digest('hex')
+      await this.core.request('agent.tasks.cancel', {
+        project_id: projectId,
+        task_id: taskId,
+        expected_task_version: version,
+        user_event_id: `user-event:${this.id()}`,
+        payload_hash: payloadHash,
+      }, controlTimeoutMs)
+      cancelled = true
+    } finally {
+      resolveSignal?.(cancelled)
+    }
+  }
+
+  async acceptPartial(taskId: string): Promise<void> {
+    const projectId = this.authorityByTask.get(taskId)
+    if (projectId === undefined) {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_TASK_UNKNOWN',
+        '当前桌面会话中找不到该 Agent 任务。',
+      )
+    }
+    const task = record(await this.core.request(
+      'agent.tasks.get',
+      { project_id: projectId, task_id: taskId },
+      15_000,
+    ), 'durable task checkpoint')
+    if (string(task.state, 'task state') !== 'partial') {
+      throw new AgentFoundationRuntimeError(
+        'AGENT_V2_PARTIAL_RESULT_UNAVAILABLE',
+        '这项任务当前没有可保留并结束的部分结果。',
+      )
     }
     const version = integer(task.task_version, 'task version')
-    this.activePumps.get(taskId)?.cancel(projectId, taskId)
     const payloadHash = createHash('sha256')
-      .update(`cancel:${taskId}:${version}`, 'utf8')
+      .update(`accept-partial:${taskId}:${version}`, 'utf8')
       .digest('hex')
-    await this.core.request('agent.tasks.cancel', {
+    await this.core.request('agent.tasks.user_event', {
       project_id: projectId,
       task_id: taskId,
       expected_task_version: version,
+      action: 'partial_accepted',
       user_event_id: `user-event:${this.id()}`,
       payload_hash: payloadHash,
     }, 15_000)

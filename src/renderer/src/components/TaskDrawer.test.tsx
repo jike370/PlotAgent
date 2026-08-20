@@ -20,6 +20,8 @@ describe('TaskDrawer', () => {
         label: 'Agent 正在检查数据并规划…',
       }}
       onCancel={onCancel}
+      onAcceptPartial={vi.fn()}
+      onResumeTask={vi.fn()}
       onRetryPlan={vi.fn()}
       onClose={vi.fn()}
     />)
@@ -33,6 +35,7 @@ describe('TaskDrawer', () => {
 
   it('shows durable partial results, safe diagnostics, and retries failed items only', () => {
     const onRetryPlan = vi.fn()
+    const onAcceptPartial = vi.fn()
     const onCancel = vi.fn()
     render(<TaskDrawer
       tasks={[]}
@@ -79,6 +82,8 @@ describe('TaskDrawer', () => {
         ],
       }]}
       onCancel={onCancel}
+      onAcceptPartial={onAcceptPartial}
+      onResumeTask={vi.fn()}
       onRetryPlan={onRetryPlan}
       onClose={vi.fn()}
     />)
@@ -89,6 +94,76 @@ describe('TaskDrawer', () => {
     expect(within(dialog).getByRole('alert')).toHaveTextContent('诊断 diag:safe-1')
     fireEvent.click(within(dialog).getByRole('button', { name: '仅重试失败项' }))
     expect(onRetryPlan).toHaveBeenCalledWith('plan:partial')
+    fireEvent.click(within(dialog).getByRole('button', { name: '保留成功项并结束' }))
+    expect(onAcceptPartial).toHaveBeenCalledWith('task:partial')
     expect(onCancel).not.toHaveBeenCalled()
+  })
+
+  it('offers an explicit restart continuation for an interrupted planning task', () => {
+    const onResumeTask = vi.fn()
+    render(<TaskDrawer
+      tasks={[]}
+      durableTasks={[{
+        taskId: 'task:recovered-planning',
+        taskVersion: 4,
+        state: 'investigating',
+        projectRevision: 2,
+        items: [],
+      }]}
+      plans={[]}
+      onCancel={vi.fn()}
+      onAcceptPartial={vi.fn()}
+      onResumeTask={onResumeTask}
+      onRetryPlan={vi.fn()}
+      onClose={vi.fn()}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: '继续任务' }))
+    expect(onResumeTask).toHaveBeenCalledWith('task:recovered-planning')
+  })
+
+  it('does not offer duplicate continuation while a durable activation is running', () => {
+    render(<TaskDrawer
+      tasks={[]}
+      durableTasks={[{
+        taskId: 'task:active-planning',
+        taskVersion: 4,
+        state: 'investigating',
+        projectRevision: 2,
+        activeActivationId: 'activation:active-planning',
+        items: [],
+      }]}
+      plans={[]}
+      onCancel={vi.fn()}
+      onAcceptPartial={vi.fn()}
+      onResumeTask={vi.fn()}
+      onRetryPlan={vi.fn()}
+      onClose={vi.fn()}
+    />)
+
+    expect(screen.queryByRole('button', { name: '继续任务' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '停止任务' })).toBeInTheDocument()
+  })
+
+  it('does not style cancelled, rejected, or unsupported terminal tasks as success', () => {
+    const { container } = render(<TaskDrawer
+      tasks={[]}
+      durableTasks={[
+        { taskId: 'task:cancelled', taskVersion: 2, state: 'cancelled', projectRevision: 2, items: [] },
+        { taskId: 'task:rejected', taskVersion: 2, state: 'rejected', projectRevision: 2, items: [] },
+        { taskId: 'task:unsupported', taskVersion: 2, state: 'unsupported', projectRevision: 2, items: [] },
+        { taskId: 'task:completed', taskVersion: 2, state: 'completed_verified', projectRevision: 2, items: [] },
+      ]}
+      plans={[]}
+      onCancel={vi.fn()}
+      onAcceptPartial={vi.fn()}
+      onResumeTask={vi.fn()}
+      onRetryPlan={vi.fn()}
+      onClose={vi.fn()}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: '全部 4' }))
+    expect(container.querySelectorAll('.task-item--neutral')).toHaveLength(3)
+    expect(container.querySelectorAll('.task-item--success')).toHaveLength(1)
   })
 })

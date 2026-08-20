@@ -323,6 +323,12 @@ class DurableAgentCoreHost:
                 for item_id, state in activation.item_states
                 if state == "repairable_failed"
             }
+            checkpoint = self.ledger.get_task(activation.task_id)
+            affected_items = tuple(
+                item
+                for item in checkpoint.items
+                if item.item_id in set(proposal.affected_item_ids)
+            )
             if (
                 not set(proposal.failed_report_ids)
                 <= set(activation.verification_report_ids)
@@ -332,6 +338,20 @@ class DurableAgentCoreHost:
                 raise AgentFoundationError(
                     "REPAIR_SCOPE_INVALID",
                     "The repair proposal exceeds the failed item and evidence scope.",
+                )
+            if not affected_items or any(
+                item.last_error is None
+                or item.last_error.category != "deterministic_technical"
+                or not item.last_error.retryable
+                or item.last_error.requires_user
+                or item.last_error.side_effect_state != "known_none"
+                for item in affected_items
+            ):
+                raise AgentFoundationError(
+                    "REPAIR_SAFETY_INVALID",
+                    "An unchanged technical retry is allowed only for a deterministic, "
+                    "retryable failure with known-none side effects. Semantic failures "
+                    "must ask for input or produce a revised intent for reconfirmation.",
                 )
         return yielded
 
@@ -919,10 +939,11 @@ class DurableAgentCoreHost:
             system_prompt += (
                 " This activation is a scoped technical recovery. Inspect only the failed "
                 "verification evidence and affected items named in the context. If the same "
-                "confirmed operation can be safely retried without changing fields, chart "
-                "semantics, or output scope, return technical_repair_ready with exactly the "
-                "repair operation retry_execution. Otherwise return needs_input, blocked, or "
-                "unsupported; never emit a new TaskIntent from this activation."
+                "confirmed operation has a deterministic technical failure, is retryable, "
+                "requires no user input, has known-none side effects, and can be retried without "
+                "changing fields, chart semantics, or output scope, return technical_repair_ready "
+                "with exactly the repair operation retry_execution. Otherwise return needs_input, "
+                "blocked, or unsupported; never disguise a semantic failure as a technical retry."
             )
         elif runtime.activation.reason in {"user_answered", "user_corrected"}:
             if runtime.activation.confirmed_intent is None:
@@ -1154,7 +1175,21 @@ class DurableTaskCoordinator:
         if checkpoint.state == "repairing" and any(
             item.state == "repairable_failed" for item in checkpoint.items
         ):
-            activation = self._repair_activation(checkpoint)
+            resumed_after_restart = task_id in self._recovered_task_ids
+            latest_user_event = self._ledger.latest_user_event(task_id)
+            activation = self._repair_activation(
+                checkpoint,
+                reason=(
+                    "resume_after_restart"
+                    if resumed_after_restart
+                    else "external_blocker_cleared"
+                    if latest_user_event is not None
+                    and latest_user_event.action == "resumed"
+                    else "verification_failed"
+                ),
+            )
+            if resumed_after_restart:
+                self._recovered_task_ids.discard(task_id)
             self._ledger.start_activation(activation)
             return {
                 "kind": "run_activation",
@@ -1181,7 +1216,16 @@ class DurableTaskCoordinator:
             created_at=_iso(now),
         )
 
-    def _repair_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
+    def _repair_activation(
+        self,
+        checkpoint: TaskCheckpoint,
+        *,
+        reason: Literal[
+            "verification_failed", "external_blocker_cleared", "resume_after_restart"
+        ] = (
+            "verification_failed"
+        ),
+    ) -> AgentActivation:
         envelope = self._ledger.get_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
@@ -1202,7 +1246,7 @@ class DurableTaskCoordinator:
             activation_id=f"activation:{uuid.uuid4().hex}",
             task_id=checkpoint.task_id,
             task_version=checkpoint.task_version,
-            reason="verification_failed",
+            reason=reason,
             task_state=checkpoint.state,
             original_instruction=envelope.original_instruction,
             confirmed_intent=checkpoint.intent,

@@ -370,6 +370,14 @@ describe('product plot state', () => {
           error_code: 'PROJECT_VERSION_CONFLICT',
           error_message: '项目版本已经变化，请重新执行。',
           error_retryable: true,
+          last_error: {
+            code: 'ORIGIN_BUSY',
+            category: 'deterministic_technical',
+            message: 'Origin 暂时忙碌。',
+            retryable: true,
+            requires_user: false,
+            side_effect_state: 'known_none',
+          },
         },
         { item_id: 'item:b-create', state: 'succeeded', attempt_count: 1 },
       ],
@@ -381,6 +389,8 @@ describe('product plot state', () => {
       code: 'PROJECT_VERSION_CONFLICT',
       message: '项目版本已经变化，请重新执行。',
       retryable: true,
+      category: 'deterministic_technical',
+      sideEffectState: 'known_none',
     })
     expect(plan?.completedCount).toBe(2)
     expect(plan?.resumable).toBe(true)
@@ -494,6 +504,7 @@ describe('product plot state', () => {
         task_version: 8,
         state: 'partial',
         project_revision: 12,
+        active_activation_id: 'activation:partial-repair',
         updated_at: '2026-08-18T07:00:00Z',
         items: [
           {
@@ -523,6 +534,7 @@ describe('product plot state', () => {
       taskVersion: 8,
       state: 'partial',
       projectRevision: 12,
+      activeActivationId: 'activation:partial-repair',
       updatedAt: '2026-08-18T07:00:00Z',
       items: [
         {
@@ -544,5 +556,43 @@ describe('product plot state', () => {
         },
       ],
     }])
+  })
+
+  it('never projects a terminal failed task as resumable even when its error was retryable', () => {
+    const plan = readWorkflowPlan({
+      task: {
+        task_id: 'task:failed-terminal',
+        task_version: 5,
+        state: 'failed',
+        items: [{
+          item_id: 'item:failed-terminal.1',
+          state: 'failed',
+          attempt_count: 1,
+          last_error: {
+            code: 'ORIGIN_BUSY',
+            category: 'deterministic_technical',
+            message: 'Origin is busy.',
+            retryable: true,
+            requires_user: false,
+            side_effect_state: 'known_none',
+          },
+        }],
+      },
+      plan: {
+        plan_id: 'plan:failed-terminal',
+        items: [{
+          item_id: 'item:failed-terminal.1',
+          task_kind: 'create',
+          profile_id: 'K01',
+          sources: [],
+          bindings: [],
+          visual_actions: [],
+        }],
+      },
+      plan_hash: 'a'.repeat(64),
+      confirmation_state: 'unavailable',
+    })
+
+    expect(plan).toMatchObject({ state: 'failed', resumable: false })
   })
 })

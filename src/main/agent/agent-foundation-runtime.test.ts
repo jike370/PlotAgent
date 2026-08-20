@@ -35,7 +35,7 @@ class FakeCore {
     if (method === 'agent.tasks.create') return { state: 'created' }
     if (method === 'agent.tasks.list') {
       return {
-        tasks: [{ task_id: 'task:fixed', intent: { intent_id: 'intent:fixed' } }],
+        tasks: [{ task_id: 'task:fixed', state: 'awaiting_confirmation', intent: { intent_id: 'intent:fixed' } }],
       }
     }
     if (method === 'agent.tasks.pump.next') {
@@ -127,6 +127,17 @@ describe('AgentFoundationRuntime', () => {
       code: 'IPC_INVALID_ARGUMENT',
       message: '模型服务余额不足。',
       retryable: true,
+    })
+  })
+
+  it('does not present an exhausted task budget as retryable in place', () => {
+    expect(publicAgentFoundationError(new AgentFoundationRuntimeError(
+      'AGENT_V2_BUDGET_EXHAUSTED',
+      '任务预算已耗尽；请修改要求后创建新任务。',
+    ))).toEqual({
+      code: 'IPC_INVALID_ARGUMENT',
+      message: '任务预算已耗尽；请修改要求后创建新任务。',
+      retryable: false,
     })
   })
 
@@ -375,6 +386,269 @@ describe('AgentFoundationRuntime', () => {
     }))
   })
 
+  it('continues a partial task as a correction instead of creating a replacement task', async () => {
+    let nextCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:partial-correction', task_version: 8, state: 'partial', items: [
+            { item_id: 'item:partial-correction.1', state: 'succeeded', attempt_count: 1 },
+            { item_id: 'item:partial-correction.2', state: 'repairable_failed', attempt_count: 1 },
+          ],
+        }
+        if (method === 'agent.tasks.user_event') return { state: 'investigating' }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          return nextCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:partial-correction',
+                  task_id: 'task:partial-correction',
+                  task_version: 9,
+                  task_state: 'investigating',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : {
+                kind: 'wait',
+                reason: 'awaiting_reconfirmation',
+                task_state: 'awaiting_reconfirmation',
+              }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return { state: 'intent_staged' }
+        if (method === 'agent.tasks.plan.get') return {
+          task: {
+            task_id: 'task:partial-correction',
+            task_version: 11,
+            state: 'awaiting_reconfirmation',
+            items: [],
+          },
+          plan: { plan_id: 'plan:partial-correction.v2', items: [] },
+          plan_hash: 'b'.repeat(64),
+          confirmation_state: 'pending',
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'partial-correction',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'cancelled',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: 'Synthetic revised intent accepted by the fake Core.',
+        }),
+      }),
+    })
+
+    await expect(runtime.run({
+      projectId: 'project:test',
+      selectedSources: [],
+      expectedProjectVersion: 1,
+      continuationWorkflowRunId: 'task:partial-correction',
+      instruction: '第二项改用另一列，然后再执行。',
+    })).resolves.toMatchObject({
+      task: { state: 'awaiting_reconfirmation' },
+      plan: { plan_id: 'plan:partial-correction.v2' },
+    })
+    expect(calls.filter((call) => call.method === 'agent.tasks.create')).toHaveLength(0)
+    expect(calls.find((call) => call.method === 'agent.tasks.user_event')).toMatchObject({
+      params: {
+        task_id: 'task:partial-correction',
+        action: 'corrected',
+        message: '第二项改用另一列，然后再执行。',
+      },
+    })
+  })
+
+  it('resumes an interrupted planning checkpoint without creating a replacement task', async () => {
+    let nextCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'agent.tasks.list') return { tasks: [{
+          task_id: 'task:restart-planning',
+          task_version: 4,
+          state: 'investigating',
+          intent: null,
+          items: [],
+        }] }
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:restart-planning',
+          task_version: 4,
+          state: 'investigating',
+          items: [],
+        }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          return nextCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:restart-planning',
+                  task_id: 'task:restart-planning',
+                  task_version: 4,
+                  task_state: 'investigating',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : {
+                kind: 'wait',
+                reason: 'awaiting_confirmation',
+                task_state: 'awaiting_confirmation',
+              }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return { state: 'intent_staged' }
+        if (method === 'agent.tasks.plan.get') return {
+          task: {
+            task_id: 'task:restart-planning',
+            task_version: 6,
+            state: 'awaiting_confirmation',
+            items: [],
+          },
+          plan: { plan_id: 'plan:restart-planning.v1', items: [] },
+          plan_hash: 'c'.repeat(64),
+          confirmation_state: 'pending',
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'restart-planning',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'cancelled',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          message: 'Synthetic recovered intent accepted by the fake Core.',
+        }),
+      }),
+    })
+    await runtime.list('project:test')
+
+    await expect(runtime.resumeTask('task:restart-planning')).resolves.toMatchObject({
+      task: { state: 'awaiting_confirmation' },
+      plan: { plan_id: 'plan:restart-planning.v1' },
+    })
+    expect(calls.filter((call) => call.method === 'agent.tasks.create')).toHaveLength(0)
+    expect(calls.filter((call) => call.method === 'agent.tasks.user_event')).toHaveLength(0)
+  })
+
+  it('rejects duplicate continuation while the durable activation is still running', async () => {
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        if (method === 'agent.tasks.list') return { tasks: [{
+          task_id: 'task:active-planning',
+          task_version: 4,
+          state: 'investigating',
+          active_activation_id: 'activation:active-planning',
+          intent: null,
+          items: [],
+        }] }
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:active-planning',
+          task_version: 4,
+          state: 'investigating',
+          active_activation_id: 'activation:active-planning',
+          items: [],
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined })
+    await runtime.list('project:test')
+
+    await expect(runtime.resumeTask('task:active-planning')).rejects.toMatchObject({
+      code: 'AGENT_V2_TASK_ALREADY_RUNNING',
+      message: '这项任务正在运行，无需再次继续。',
+    })
+  })
+
+  it('resumes a blocked task only through the typed external-condition event', async () => {
+    let nextCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'agent.tasks.list') return { tasks: [{
+          task_id: 'task:blocked', task_version: 3, state: 'blocked', intent: null, items: [],
+        }] }
+        if (method === 'agent.tasks.get') return {
+          task_id: 'task:blocked', task_version: 3, state: 'blocked', items: [],
+        }
+        if (method === 'agent.tasks.user_event') return {
+          task_id: 'task:blocked', task_version: 4, state: 'investigating', items: [],
+        }
+        if (method === 'agent.tasks.pump.next') {
+          nextCalls += 1
+          return nextCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:blocked',
+                  task_id: 'task:blocked',
+                  task_version: 4,
+                  task_state: 'investigating',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                },
+              }
+            : { kind: 'wait', reason: 'awaiting_input', task_state: 'awaiting_input' }
+        }
+        if (method === 'agent.tasks.activation.running') return {}
+        if (method === 'agent.tasks.yield.accept') return { state: 'awaiting_input' }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      id: () => 'blocked',
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'needs_input',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          questions: [{
+            question_key: 'external_condition',
+            prompt: '外部条件已经恢复，是否继续？',
+            answer_kind: 'single_choice',
+            required: true,
+            choices: ['继续', '暂不继续'],
+          }],
+        }),
+      }),
+    })
+    await runtime.list('project:test')
+
+    await expect(runtime.resumeTask('task:blocked')).resolves.toMatchObject({
+      outcome: 'needs_input',
+      workflow_run_id: 'task:blocked',
+    })
+    expect(calls.find((call) => call.method === 'agent.tasks.user_event')).toMatchObject({
+      params: { task_id: 'task:blocked', expected_task_version: 3, action: 'resumed' },
+    })
+  })
+
   it('runs one selected source to confirmation and executes only after approval', async () => {
     const core = new FakeCore()
     const events: AgentFoundationRuntimeEvent[] = []
@@ -427,6 +701,188 @@ describe('AgentFoundationRuntime', () => {
     expect(events.at(-1)).toMatchObject({ stage: 'completed', label: '任务结果已验证' })
   })
 
+  it('returns to the Core control channel between atomic batch items', async () => {
+    let state = 'executing'
+    let executionCalls = 0
+    const calls: { method: string; params: unknown }[] = []
+    const core = {
+      request: async (method: string, params?: unknown): Promise<unknown> => {
+        calls.push({ method, params })
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:stepped', state, intent: { intent_id: 'intent:stepped' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: { task_id: 'task:stepped', task_version: 4 + executionCalls, state, items: [] },
+            plan: { plan_id: 'plan:stepped', items: [] },
+            plan_hash: 'a'.repeat(64),
+            confirmation_state: 'confirmed',
+          }
+        }
+        if (method === 'agent.tasks.execute') {
+          executionCalls += 1
+          state = executionCalls === 1 ? 'executing' : 'completed_verified'
+          return { task: { task_id: 'task:stepped', task_version: 4 + executionCalls, state } }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined })
+    await runtime.list('project:test')
+
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:stepped' }))
+      .resolves.toMatchObject({ task: { state: 'completed_verified' } })
+
+    const executions = calls.filter((call) => call.method === 'agent.tasks.execute')
+    expect(executions).toHaveLength(2)
+    expect(executions.every((call) => (
+      call.params as Record<string, unknown>
+    ).step === true)).toBe(true)
+  })
+
+  it('does not enqueue the next atomic item after the user requests cancellation', async () => {
+    let state = 'executing'
+    let executionCalls = 0
+    let releaseFirstStep: (() => void) | undefined
+    let markFirstStepStarted: (() => void) | undefined
+    const firstStepStarted = new Promise<void>((resolve) => {
+      markFirstStepStarted = resolve
+    })
+    const firstStepRelease = new Promise<void>((resolve) => {
+      releaseFirstStep = resolve
+    })
+    const cancelControlTimeouts: number[] = []
+    const core = {
+      request: async (method: string, _params?: unknown, timeoutMs?: number): Promise<unknown> => {
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:cancel-race', state, intent: { intent_id: 'intent:cancel-race' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: { task_id: 'task:cancel-race', task_version: 6, state, items: [] },
+            plan: { plan_id: 'plan:cancel-race', items: [] },
+            plan_hash: 'a'.repeat(64),
+            confirmation_state: 'confirmed',
+          }
+        }
+        if (method === 'agent.tasks.get') {
+          cancelControlTimeouts.push(timeoutMs ?? 0)
+          return { task_id: 'task:cancel-race', task_version: 6, state, items: [] }
+        }
+        if (method === 'agent.tasks.execute') {
+          executionCalls += 1
+          markFirstStepStarted?.()
+          await firstStepRelease
+          return { task: { task_id: 'task:cancel-race', task_version: 6, state: 'executing' } }
+        }
+        if (method === 'agent.tasks.cancel') {
+          state = 'cancelled'
+          return { task_id: 'task:cancel-race', task_version: 8, state }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const events: AgentFoundationRuntimeEvent[] = []
+    const runtime = new AgentFoundationRuntime({ core, emit: (event) => events.push(event) })
+    await runtime.list('project:test')
+
+    const execution = runtime.execute({ projectId: 'project:test', planId: 'plan:cancel-race' })
+    await firstStepStarted
+    await runtime.cancel('task:cancel-race')
+    releaseFirstStep?.()
+
+    await expect(execution).resolves.toMatchObject({ task: { state: 'cancelled' } })
+    expect(executionCalls).toBe(1)
+    expect(cancelControlTimeouts).toContain(900_000)
+    expect(events.at(-1)).toMatchObject({ stage: 'cancelled' })
+  })
+
+  it('reports a terminal execution failure as failed instead of verified completion', async () => {
+    let state = 'executing'
+    const events: AgentFoundationRuntimeEvent[] = []
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:terminal-failure', state, intent: { intent_id: 'intent:terminal-failure' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: { task_id: 'task:terminal-failure', task_version: 5, state, items: [] },
+            plan: { plan_id: 'plan:terminal-failure', items: [] },
+            plan_hash: 'a'.repeat(64),
+            confirmation_state: 'confirmed',
+          }
+        }
+        if (method === 'agent.tasks.execute') {
+          state = 'failed'
+          return { task: { task_id: 'task:terminal-failure', task_version: 5, state } }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: (event) => events.push(event) })
+    await runtime.list('project:test')
+
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:terminal-failure' }))
+      .resolves.toMatchObject({ task: { state: 'failed' } })
+    expect(events.at(-1)).toMatchObject({ stage: 'failed', label: '任务执行失败，请查看失败项诊断' })
+  })
+
+  it.each([
+    { terminalState: 'failed', expectedStage: 'failed' },
+    { terminalState: 'cancelled', expectedStage: 'cancelled' },
+  ] as const)(
+    'projects $terminalState when a partial-repair pump stops terminally',
+    async ({ terminalState, expectedStage }) => {
+      let state = 'partial'
+      const events: AgentFoundationRuntimeEvent[] = []
+      const core = {
+        request: async (method: string): Promise<unknown> => {
+          if (method === 'agent.tasks.list') {
+            return {
+              tasks: [{
+                task_id: 'task:repair-terminal',
+                state,
+                intent: { intent_id: 'intent:repair-terminal' },
+              }],
+            }
+          }
+          if (method === 'agent.tasks.plan.get') {
+            return {
+              task: {
+                task_id: 'task:repair-terminal',
+                task_version: 8,
+                state,
+                items: [{
+                  item_id: 'item:repair-terminal.1',
+                  state: 'repairable_failed',
+                  attempt_count: 1,
+                }],
+              },
+              plan: { plan_id: 'plan:repair-terminal', items: [] },
+              plan_hash: 'a'.repeat(64),
+              confirmation_state: 'confirmed',
+            }
+          }
+          if (method === 'agent.tasks.pump.next') {
+            state = terminalState
+            return { kind: 'wait', reason: 'terminal', task_state: terminalState }
+          }
+          throw new Error(`Unexpected method ${method}`)
+        },
+      }
+      const runtime = new AgentFoundationRuntime({ core, emit: (event) => events.push(event) })
+      await runtime.list('project:test')
+
+      await expect(runtime.execute({
+        projectId: 'project:test',
+        planId: 'plan:repair-terminal',
+      })).resolves.toMatchObject({ task: { state: terminalState } })
+      expect(events.at(-1)).toMatchObject({ stage: expectedStage })
+      expect(events.at(-1)?.label).not.toBe('任务结果已验证')
+    },
+  )
+
   it('recovers durable plan authority after a desktop restart', async () => {
     const core = new FakeCore()
     const runtime = new AgentFoundationRuntime({
@@ -446,6 +902,42 @@ describe('AgentFoundationRuntime', () => {
       .resolves.toMatchObject({ task: { state: 'executing' } })
   })
 
+  it.each(['intent_staged', 'investigating', 'awaiting_input', 'repairing', 'blocked'])(
+    'restores a %s checkpoint without reading a missing or stale confirmation plan',
+    async (state) => {
+      const calls: string[] = []
+      const core = {
+        request: async (method: string): Promise<unknown> => {
+          calls.push(method)
+          if (method === 'agent.tasks.list') return {
+            tasks: [{
+              task_id: `task:${state}`,
+              task_version: 4,
+              state,
+              intent: { intent_id: `intent:${state}` },
+              items: [],
+            }],
+          }
+          if (method === 'agent.tasks.latest_yield' && state === 'awaiting_input') return {
+            outcome: 'needs_input',
+            questions: [{ question_key: 'field_y', prompt: '请选择 Y。' }],
+          }
+          throw new Error(`A non-present current plan must not be read: ${method}`)
+        },
+      }
+      const runtime = new AgentFoundationRuntime({ core, emit: () => undefined })
+
+      await expect(runtime.list('project:test')).resolves.toMatchObject({
+        task_plans: [],
+        durable_tasks: [{ task_id: `task:${state}`, state }],
+      })
+      expect(runtime.ownsTask(`task:${state}`)).toBe(true)
+      expect(calls).toEqual(state === 'awaiting_input'
+        ? ['agent.tasks.list', 'agent.tasks.latest_yield']
+        : ['agent.tasks.list'])
+    },
+  )
+
   it('cancels a recovered durable task through its Core-owned checkpoint', async () => {
     const core = new FakeCore()
     const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'cancel' })
@@ -462,6 +954,169 @@ describe('AgentFoundationRuntime', () => {
     })
     await expect(runtime.cancel('task:fixed')).resolves.toBeUndefined()
     expect(core.calls.filter((call) => call.method === 'agent.tasks.cancel')).toHaveLength(1)
+  })
+
+  it('accepts a recovered partial result through the typed durable user event', async () => {
+    class PartialCore extends FakeCore {
+      override async request(method: string, params?: unknown): Promise<unknown> {
+        this.calls.push({ method, params })
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:fixed', state: 'partial', intent: { intent_id: 'intent:fixed' } }] }
+        }
+        if (method === 'agent.tasks.get') {
+          return { task_id: 'task:fixed', task_version: 7, state: 'partial' }
+        }
+        if (method === 'agent.tasks.user_event') {
+          return {
+            task_id: 'task:fixed',
+            task_version: 8,
+            state: 'completed_verified',
+            completion: { outcome: 'completed_with_skips' },
+          }
+        }
+        return super.request(method, params)
+      }
+    }
+
+    const core = new PartialCore()
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'skip' })
+    await runtime.list('project:test')
+
+    await expect(runtime.acceptPartial('task:fixed')).resolves.toBeUndefined()
+    expect(core.calls.find((call) => call.method === 'agent.tasks.user_event')).toMatchObject({
+      params: {
+        project_id: 'project:test',
+        task_id: 'task:fixed',
+        expected_task_version: 7,
+        action: 'partial_accepted',
+        user_event_id: 'user-event:skip',
+      },
+    })
+  })
+
+  it('offers and performs a side-effect-free retry without starting the Agent runtime', async () => {
+    class SafeRetryCore extends FakeCore {
+      private retryState = 'partial'
+
+      private retryTask(): Record<string, unknown> {
+        return {
+          task_id: 'task:fixed',
+          task_version: this.retryState === 'partial' ? 7 : 8,
+          state: this.retryState,
+          items: this.retryState === 'partial' ? [{
+            item_id: 'item:fixed.1',
+            state: 'repairable_failed',
+            last_error: {
+              category: 'deterministic_technical',
+              retryable: true,
+              requires_user: false,
+              side_effect_state: 'known_none',
+            },
+          }] : [],
+        }
+      }
+
+      override async request(method: string, params?: unknown): Promise<unknown> {
+        this.calls.push({ method, params })
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:fixed', state: this.retryState, intent: { intent_id: 'intent:fixed' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: this.retryTask(),
+            plan: { plan_id: 'plan:fixed', items: [] },
+            plan_hash: 'a'.repeat(64),
+          }
+        }
+        if (method === 'agent.tasks.retry_safe') {
+          this.retryState = 'executing'
+          return this.retryTask()
+        }
+        if (method === 'agent.tasks.execute') {
+          this.retryState = 'completed_verified'
+          return { task: this.retryTask() }
+        }
+        return super.request(method, params)
+      }
+    }
+
+    const core = new SafeRetryCore()
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'retry' })
+    await runtime.list('project:test')
+
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:fixed' }))
+      .resolves.toMatchObject({ task: { state: 'partial' } })
+    expect(core.calls.filter((call) => call.method === 'agent.tasks.pump.next')).toHaveLength(0)
+    expect(core.calls.filter((call) => call.method === 'agent.tasks.execute')).toHaveLength(0)
+
+    await expect(runtime.resume({ projectId: 'project:test', planId: 'plan:fixed' }))
+      .resolves.toMatchObject({ task: { state: 'completed_verified' } })
+    expect(core.calls.find((call) => call.method === 'agent.tasks.retry_safe')).toMatchObject({
+      params: {
+        project_id: 'project:test',
+        task_id: 'task:fixed',
+        expected_task_version: 7,
+      },
+    })
+    expect(core.calls.filter((call) => call.method === 'agent.tasks.execute')).toHaveLength(1)
+  })
+
+  it('returns the refreshed durable checkpoint when a safe retry still fails', async () => {
+    let state = 'partial'
+    let version = 7
+    let attempts = 1
+    const task = (): Record<string, unknown> => ({
+      task_id: 'task:retry-again',
+      task_version: version,
+      state,
+      items: [{
+        item_id: 'item:retry-again.1',
+        state: 'repairable_failed',
+        attempt_count: attempts,
+        last_error: {
+          category: 'deterministic_technical',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      }],
+    })
+    const calls: string[] = []
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        calls.push(method)
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:retry-again', state, intent: { intent_id: 'intent:retry-again' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return { task: task(), plan: { plan_id: 'plan:retry-again', items: [] }, plan_hash: 'a'.repeat(64) }
+        }
+        if (method === 'agent.tasks.retry_safe') {
+          state = 'executing'
+          version = 8
+          return task()
+        }
+        if (method === 'agent.tasks.execute') {
+          state = 'partial'
+          version = 9
+          attempts = 2
+          return { task: task() }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'retry-again' })
+    await runtime.list('project:test')
+
+    await expect(runtime.resume({ projectId: 'project:test', planId: 'plan:retry-again' }))
+      .resolves.toMatchObject({
+        task: {
+          state: 'partial',
+          task_version: 9,
+          items: [{ attempt_count: 2 }],
+        },
+      })
+    expect(calls).not.toContain('agent.tasks.pump.next')
   })
 
   it('creates a bounded multi-source and multi-profile durable batch envelope', async () => {
@@ -598,7 +1253,7 @@ describe('AgentFoundationRuntime', () => {
       async request(method: string): Promise<unknown> {
         this.calls.push(method)
         if (method === 'agent.tasks.list') {
-          return { tasks: [{ task_id: 'task:partial', intent: { intent_id: 'intent:partial' } }] }
+          return { tasks: [{ task_id: 'task:partial', state: this.state, intent: { intent_id: 'intent:partial' } }] }
         }
         if (method === 'agent.tasks.plan.get') {
           return {
@@ -685,7 +1340,7 @@ describe('AgentFoundationRuntime', () => {
     const core = {
       request: async (method: string): Promise<unknown> => {
         if (method === 'agent.tasks.list') {
-          return { tasks: [{ task_id: 'task:repair-question', intent: { intent_id: 'intent:repair-question' } }] }
+          return { tasks: [{ task_id: 'task:repair-question', state: 'partial', intent: { intent_id: 'intent:repair-question' } }] }
         }
         if (method === 'agent.tasks.plan.get') return {
           task: {
@@ -770,7 +1425,7 @@ describe('AgentFoundationRuntime', () => {
         request: async (method: string): Promise<unknown> => {
           calls.push(method)
           if (method === 'agent.tasks.list') {
-            return { tasks: [{ task_id: 'task:already-complete', intent: { intent_id: 'intent:already-complete' } }] }
+            return { tasks: [{ task_id: 'task:already-complete', state: 'completed_verified', intent: { intent_id: 'intent:already-complete' } }] }
           }
           if (method === 'agent.tasks.plan.get') return view
           throw new Error(`Unexpected method ${method}`)
@@ -824,9 +1479,19 @@ describe('AgentFoundationRuntime', () => {
         exhausted_budget: 'wall_time',
         message: 'wall-time budget exhausted',
       },
-      wait: { reason: 'blocked', task_state: 'blocked' },
+      wait: { reason: 'terminal', task_state: 'failed' },
       code: 'AGENT_V2_DECISION_TIMEOUT',
       message: /响应超时.*未修改项目/,
+    },
+    {
+      yielded: {
+        outcome: 'budget_exhausted',
+        exhausted_budget: 'model_turns',
+        message: 'model-turn budget exhausted',
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_BUDGET_EXHAUSTED',
+      message: /model_turns 限额.*创建新任务/,
     },
   ])('reports an actionable failure when planning stops before confirmation', async (example) => {
     class FailureCore extends FakeCore {

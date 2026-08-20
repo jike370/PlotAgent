@@ -210,6 +210,62 @@ def test_agent_task_v2_cancel_is_durable_and_terminal(harness: ApplicationHarnes
     ]
 
 
+def test_agent_v2_restart_finalizes_pre_execution_cancellation_without_a_plan(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "restart-pre-execution-cancel"
+    first = ApplicationHarness(root)
+    try:
+        project_id, _revision = _create_open(first)
+        created = first.call(
+            "agent.tasks.create",
+            {
+                "project_id": project_id,
+                "envelope": {
+                    "task_id": "task:restart-pre-execution-cancel",
+                    "task_version": 1,
+                    "project_id": project_id,
+                    "project_revision": 0,
+                    "original_instruction": "Create a line chart.",
+                    "selected_sources": [{
+                        "source_dataset_id": "source:test",
+                        "source_version": 1,
+                        "content_hash": "a" * 64,
+                    }],
+                    "selected_profile_ids": ["K01"],
+                    "budget": {"max_estimated_cost": 10},
+                    "created_at": "2026-08-20T10:00:00Z",
+                },
+            },
+        )
+        session = first.application._sessions[project_id]  # noqa: SLF001
+        cancelling = session.durable_tasks.cancel(
+            "task:restart-pre-execution-cancel",
+            expected_task_version=created["task_version"],
+            user_event_id="user-event:restart-pre-execution-cancel",
+            payload_hash="c" * 64,
+        )
+        assert cancelling.state == "cancelling"
+        assert cancelling.items == ()
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored = second.call(
+            "agent.tasks.get",
+            {
+                "project_id": project_id,
+                "task_id": "task:restart-pre-execution-cancel",
+            },
+        )
+        assert restored["state"] == "cancelled"
+        assert restored["project_revision"] == 0
+    finally:
+        second.close()
+
+
 def test_agent_follow_up_links_new_task_without_reopening_parent(
     harness: ApplicationHarness,
 ) -> None:
@@ -570,6 +626,8 @@ def _execute_agent_create_batch(
     *,
     token: str,
     profiles: tuple[str, ...],
+    confirm: bool = True,
+    execute: bool = True,
 ) -> dict[str, Any]:
     dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
     task_id = f"task:{token}"
@@ -680,7 +738,9 @@ def _execute_agent_create_batch(
     view = harness.call(
         "agent.tasks.plan.get", {"project_id": project_id, "task_id": task_id}
     )
-    harness.call(
+    if not confirm:
+        return view
+    confirmed = harness.call(
         "agent.tasks.plan.confirm",
         {
             "project_id": project_id,
@@ -690,9 +750,52 @@ def _execute_agent_create_batch(
             "plan_hash": view["plan_hash"],
         },
     )
+    if not execute:
+        return confirmed
     return harness.call(
         "agent.tasks.execute", {"project_id": project_id, "task_id": task_id}
     )
+
+
+def test_agent_v2_rejects_a_stale_confirmation_without_project_side_effects(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="stale-confirmation")
+    view = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="stale-confirmation",
+        profiles=("K01",),
+        confirm=False,
+        execute=False,
+    )
+    revision_before = harness.call(
+        "engine.plots.list", {"project_id": project_id}
+    )["project_version"]
+
+    with pytest.raises(RpcServiceError) as caught:
+        harness.call(
+            "agent.tasks.plan.confirm",
+            {
+                "project_id": project_id,
+                "task_id": "task:stale-confirmation",
+                "expected_task_version": view["task"]["task_version"],
+                "user_event_id": "user-event:stale-confirmation",
+                "plan_hash": "f" * 64,
+            },
+        )
+    assert caught.value.code == "PLAN_CONFIRMATION_STALE"
+    restored = harness.call(
+        "agent.tasks.get",
+        {"project_id": project_id, "task_id": "task:stale-confirmation"},
+    )
+    assert restored["state"] == "awaiting_confirmation"
+    assert all(item["attempt_count"] == 0 for item in restored["items"])
+    assert harness.call(
+        "engine.plots.list", {"project_id": project_id}
+    )["project_version"] == revision_before
 
 
 def _accept_scoped_retry(
@@ -760,6 +863,103 @@ def test_agent_v2_executes_confirmed_batch_and_verifies_every_item(
     assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 2
 
 
+def test_agent_v2_step_execution_yields_between_atomic_items_for_cancellation(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-step-cancel")
+    confirmed = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="step-cancel",
+        profiles=("K01", "K02"),
+        execute=False,
+    )
+
+    first_step = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:step-cancel", "step": True},
+    )
+
+    assert confirmed["task"]["state"] == "executing"
+    assert first_step["execution_pending"] is True
+    assert first_step["task"]["state"] == "executing"
+    assert [item["state"] for item in first_step["task"]["items"]] == [
+        "succeeded",
+        "staged",
+    ]
+    assert len(first_step["plots"]) == 1
+
+    cancelled = harness.call(
+        "agent.tasks.cancel",
+        {
+            "project_id": project_id,
+            "task_id": "task:step-cancel",
+            "expected_task_version": first_step["task"]["task_version"],
+            "user_event_id": "user-event:step-cancel-request",
+            "payload_hash": "f" * 64,
+        },
+    )
+    assert cancelled["state"] == "cancelled"
+    assert [item["state"] for item in cancelled["items"]] == [
+        "succeeded",
+        "cancelled",
+    ]
+    assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 1
+
+
+def test_agent_v2_step_execution_does_not_implicitly_retry_an_earlier_failure(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="agent-v2-step-failure")
+    execute = TaskPlanExecutor.execute_compiled_item
+    first_attempts = 0
+
+    def fail_first(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        nonlocal first_attempts
+        if item.profile_id == "K01":
+            first_attempts += 1
+            raise RuntimeError("Stable first-item failure.")
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_first)
+    _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="step-failure",
+        profiles=("K01", "K02"),
+        execute=False,
+    )
+
+    first_step = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:step-failure", "step": True},
+    )
+    assert [item["state"] for item in first_step["task"]["items"]] == [
+        "repairable_failed",
+        "staged",
+    ]
+
+    second_step = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:step-failure", "step": True},
+    )
+    assert second_step["task"]["state"] == "partial"
+    assert [item["attempt_count"] for item in second_step["task"]["items"]] == [1, 1]
+    assert [failure["item_id"] for failure in second_step["failures"]] == [
+        "item:step-failure.1"
+    ]
+    assert first_attempts == 1
+
+
 def test_agent_v2_cancel_waits_for_the_running_item_and_preserves_its_receipt(
     harness: ApplicationHarness,
     monkeypatch: pytest.MonkeyPatch,
@@ -823,6 +1023,229 @@ def test_agent_v2_cancel_waits_for_the_running_item_and_preserves_its_receipt(
     assert any(event["event_type"] == "tool_receipt" for event in events)
     assert any(event["event_type"] == "verification_report" for event in events)
     assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 1
+
+
+@pytest.mark.parametrize("commit_before_exit", (False, True))
+def test_agent_v2_restart_reconciles_cancelling_atomic_item(
+    tmp_path: Path,
+    commit_before_exit: bool,
+) -> None:
+    root = tmp_path / "restart-cancelling-app"
+    first = ApplicationHarness(root)
+    project_id = ""
+
+    try:
+        project_id, revision = _create_open(first)
+        imported = _import_dataset(
+            first,
+            project_id,
+            revision,
+            key=f"restart-cancelling-{commit_before_exit}",
+        )
+        confirmed = _execute_agent_create_batch(
+            first,
+            project_id,
+            imported,
+            token="restart-cancelling",
+            profiles=("K01", "K02"),
+            execute=False,
+        )
+        session = first.application._sessions[project_id]  # noqa: SLF001
+        task = session.durable_tasks.get_task("task:restart-cancelling")
+        running = session.durable_tasks.transition_item(
+            task.task_id,
+            expected_task_version=task.task_version,
+            item_id=task.items[0].item_id,
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_PROCESS_EXIT_DURING_ATOMIC_ITEM",
+        )
+        if commit_before_exit:
+            plan = session.durable_tasks.get_plan(running.task_id)
+            session.task_execution._item_executor().execute_compiled_item(  # noqa: SLF001
+                plan.items[0],
+                running.project_revision,
+            )
+        cancelling = session.durable_tasks.cancel(
+            running.task_id,
+            expected_task_version=running.task_version,
+            user_event_id="user-event:restart-cancelling-cancel",
+            payload_hash="e" * 64,
+        )
+        assert confirmed["task"]["state"] == "executing"
+        assert cancelling.state == "cancelling"
+        assert cancelling.items[0].state == "running"
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored = second.call(
+            "agent.tasks.get",
+            {"project_id": project_id, "task_id": "task:restart-cancelling"},
+        )
+        assert restored["state"] == "cancelled"
+        expected_states = (
+            ["succeeded", "cancelled"]
+            if commit_before_exit
+            else ["cancelled", "cancelled"]
+        )
+        assert [item["state"] for item in restored["items"]] == expected_states
+        plots = second.call("engine.plots.list", {"project_id": project_id})["plots"]
+        assert len(plots) == (1 if commit_before_exit else 0)
+        if commit_before_exit:
+            assert restored["items"][0]["receipt_ids"]
+            assert restored["items"][0]["verification_report_ids"]
+    finally:
+        second.close()
+
+
+@pytest.mark.parametrize("commit_before_exit", (False, True))
+def test_agent_v2_restart_resumes_confirmed_execution_at_the_atomic_boundary(
+    tmp_path: Path,
+    commit_before_exit: bool,
+) -> None:
+    root = tmp_path / f"restart-executing-{commit_before_exit}"
+    first = ApplicationHarness(root)
+    project_id = ""
+    try:
+        project_id, revision = _create_open(first)
+        imported = _import_dataset(
+            first,
+            project_id,
+            revision,
+            key=f"restart-executing-{commit_before_exit}",
+        )
+        _execute_agent_create_batch(
+            first,
+            project_id,
+            imported,
+            token="restart-executing",
+            profiles=("K01", "K02"),
+            execute=False,
+        )
+        session = first.application._sessions[project_id]  # noqa: SLF001
+        task = session.durable_tasks.get_task("task:restart-executing")
+        running = session.durable_tasks.transition_item(
+            task.task_id,
+            expected_task_version=task.task_version,
+            item_id=task.items[0].item_id,
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_PROCESS_EXIT_DURING_CONFIRMED_ITEM",
+        )
+        if commit_before_exit:
+            plan = session.durable_tasks.get_plan(running.task_id)
+            session.task_execution._item_executor().execute_compiled_item(  # noqa: SLF001
+                plan.items[0],
+                running.project_revision,
+            )
+        assert running.state == "executing"
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored = second.call(
+            "agent.tasks.get",
+            {"project_id": project_id, "task_id": "task:restart-executing"},
+        )
+        if commit_before_exit:
+            assert restored["state"] == "completed_verified"
+            assert [item["state"] for item in restored["items"]] == [
+                "succeeded",
+                "succeeded",
+            ]
+            assert [item["attempt_count"] for item in restored["items"]] == [1, 1]
+            assert len(second.call(
+                "engine.plots.list", {"project_id": project_id}
+            )["plots"]) == 2
+        else:
+            assert restored["state"] == "partial"
+            assert [item["state"] for item in restored["items"]] == [
+                "repairable_failed",
+                "staged",
+            ]
+            assert [item["attempt_count"] for item in restored["items"]] == [1, 0]
+            assert tuple(second.call(
+                "engine.plots.list", {"project_id": project_id}
+            )["plots"]) == ()
+    finally:
+        second.close()
+
+
+@pytest.mark.parametrize("crash_state", ("verifying", "delivering"))
+def test_agent_v2_restart_finishes_verified_delivery_without_rerunning_items(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_state: str,
+) -> None:
+    root = tmp_path / f"restart-{crash_state}"
+    first = ApplicationHarness(root)
+    project_id = ""
+    try:
+        project_id, revision = _create_open(first)
+        imported = _import_dataset(
+            first,
+            project_id,
+            revision,
+            key=f"restart-{crash_state}",
+        )
+        _execute_agent_create_batch(
+            first,
+            project_id,
+            imported,
+            token=f"restart-{crash_state}",
+            profiles=("K01",),
+            execute=False,
+        )
+        session = first.application._sessions[project_id]  # noqa: SLF001
+        if crash_state == "verifying":
+            original_advance = session.durable_tasks.advance
+
+            def stop_before_delivery(*args: Any, **kwargs: Any) -> Any:
+                if kwargs.get("next_state") == "delivering":
+                    raise RuntimeError("synthetic exit before delivery")
+                return original_advance(*args, **kwargs)
+
+            monkeypatch.setattr(session.durable_tasks, "advance", stop_before_delivery)
+        else:
+            monkeypatch.setattr(
+                session.durable_tasks,
+                "complete_task",
+                lambda *args, **kwargs: (_ for _ in ()).throw(
+                    RuntimeError("synthetic exit before completion")
+                ),
+            )
+        with pytest.raises(RuntimeError, match="synthetic exit"):
+            session.task_execution.run(f"task:restart-{crash_state}")
+        assert session.durable_tasks.get_task(
+            f"task:restart-{crash_state}"
+        ).state == crash_state
+    finally:
+        first.close()
+        monkeypatch.undo()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored = second.call(
+            "agent.tasks.get",
+            {
+                "project_id": project_id,
+                "task_id": f"task:restart-{crash_state}",
+            },
+        )
+        assert restored["state"] == "completed_verified"
+        assert restored["items"][0]["state"] == "succeeded"
+        assert restored["items"][0]["attempt_count"] == 1
+        assert len(second.call(
+            "engine.plots.list", {"project_id": project_id}
+        )["plots"]) == 1
+    finally:
+        second.close()
 
 
 def test_agent_v2_preserves_successful_items_when_one_batch_item_fails(
@@ -976,6 +1399,68 @@ def test_agent_v2_stops_after_a_scoped_retry_makes_no_progress(
     )
     assert checkpoint["items"][1]["state"] == "failed"
     assert checkpoint["items"][0]["state"] == "succeeded"
+
+
+def test_agent_v2_user_safe_retry_replays_failed_item_without_agent_activation(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="safe-retry")
+    execute = TaskPlanExecutor.execute_compiled_item
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise RuntimeError("Stable renderer transport failure.")
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="safe-retry",
+        profiles=("K01", "K02"),
+    )
+    partial = first["task"]
+    assert partial["state"] == "partial"
+    assert partial["items"][1]["last_error"]["category"] == "deterministic_technical"
+    events_before = harness.call(
+        "agent.tasks.events",
+        {"project_id": project_id, "task_id": "task:safe-retry"},
+    )["events"]
+    activation_count = sum(
+        event["event_type"] == "agent_activation" for event in events_before
+    )
+
+    retrying = harness.call(
+        "agent.tasks.retry_safe",
+        {
+            "project_id": project_id,
+            "task_id": "task:safe-retry",
+            "expected_task_version": partial["task_version"],
+            "user_event_id": "user-event:safe-retry-request",
+            "payload_hash": "f" * 64,
+        },
+    )
+    assert retrying["state"] == "executing"
+    retried = harness.call(
+        "agent.tasks.execute",
+        {"project_id": project_id, "task_id": "task:safe-retry"},
+    )
+    assert retried["task"]["state"] == "partial"
+    assert [item["attempt_count"] for item in retried["task"]["items"]] == [1, 2]
+    events_after = harness.call(
+        "agent.tasks.events",
+        {"project_id": project_id, "task_id": "task:safe-retry"},
+    )["events"]
+    assert sum(
+        event["event_type"] == "agent_activation" for event in events_after
+    ) == activation_count
 
 
 def test_agent_v2_accepts_verified_subset_without_reconfirmation_or_rerun(
@@ -1151,6 +1636,167 @@ def test_agent_v2_accepts_verified_subset_without_reconfirmation_or_rerun(
     }
 
 
+def test_agent_v2_explicit_skip_closes_partial_without_model_or_rerun(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="explicit-skip")
+    execute = TaskPlanExecutor.execute_compiled_item
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise ValueError("The second item cannot be rendered from this data.")
+        return execute(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    first = _execute_agent_create_batch(
+        harness,
+        project_id,
+        imported,
+        token="explicit-skip",
+        profiles=("K01", "K02"),
+    )
+    partial = first["task"]
+    assert partial["state"] == "partial"
+    revision_after_success = partial["project_revision"]
+    attempts_before = {
+        item["item_id"]: item["attempt_count"] for item in partial["items"]
+    }
+
+    completed = harness.call(
+        "agent.tasks.user_event",
+        {
+            "project_id": project_id,
+            "task_id": "task:explicit-skip",
+            "expected_task_version": partial["task_version"],
+            "action": "partial_accepted",
+            "user_event_id": "user-event:explicit-skip-accept",
+            "payload_hash": "d" * 64,
+        },
+    )
+    assert completed["state"] == "completed_verified"
+    assert completed["completion"]["outcome"] == "completed_with_skips"
+    assert completed["completion"]["skipped_item_ids"] == [
+        "item:explicit-skip.2"
+    ]
+    assert completed["project_revision"] == revision_after_success
+    assert {
+        item["item_id"]: item["attempt_count"] for item in completed["items"]
+    } == attempts_before
+    assert harness.call(
+        "agent.tasks.pump.next",
+        {"project_id": project_id, "task_id": "task:explicit-skip"},
+    ) == {
+        "kind": "wait",
+        "reason": "terminal",
+        "task_state": "completed_verified",
+    }
+
+
+def test_agent_v2_partial_and_completed_with_skips_survive_restart(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "restart-partial-app"
+    first = ApplicationHarness(root)
+    original = TaskPlanExecutor.execute_compiled_item
+
+    def fail_second(
+        self: TaskPlanExecutor,
+        item: Any,
+        current_revision: int,
+    ) -> tuple[int, int]:
+        if item.profile_id == "K02":
+            raise ValueError("The second item cannot be rendered from this data.")
+        return original(self, item, current_revision)
+
+    monkeypatch.setattr(TaskPlanExecutor, "execute_compiled_item", fail_second)
+    try:
+        project_id, revision = _create_open(first)
+        imported = _import_dataset(first, project_id, revision, key="restart-partial")
+        partial = _execute_agent_create_batch(
+            first,
+            project_id,
+            imported,
+            token="restart-partial",
+            profiles=("K01", "K02"),
+        )["task"]
+        assert partial["state"] == "partial"
+        frozen_items = [
+            (
+                item["item_id"],
+                item["state"],
+                item["attempt_count"],
+                item["output_plot_id"],
+                item["output_plot_version"],
+            )
+            for item in partial["items"]
+        ]
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        second.call("projects.open", {"project_id": project_id})
+        restored_partial = second.call(
+            "agent.tasks.get",
+            {"project_id": project_id, "task_id": "task:restart-partial"},
+        )
+        assert restored_partial["state"] == "partial"
+        assert [
+            (
+                item["item_id"],
+                item["state"],
+                item["attempt_count"],
+                item["output_plot_id"],
+                item["output_plot_version"],
+            )
+            for item in restored_partial["items"]
+        ] == frozen_items
+        completed = second.call(
+            "agent.tasks.user_event",
+            {
+                "project_id": project_id,
+                "task_id": "task:restart-partial",
+                "expected_task_version": restored_partial["task_version"],
+                "action": "partial_accepted",
+                "user_event_id": "user-event:restart-partial-accept",
+                "payload_hash": "a" * 64,
+            },
+        )
+        assert completed["completion"]["outcome"] == "completed_with_skips"
+    finally:
+        second.close()
+
+    third = ApplicationHarness(root)
+    try:
+        third.call("projects.open", {"project_id": project_id})
+        restored_completed = third.call(
+            "agent.tasks.get",
+            {"project_id": project_id, "task_id": "task:restart-partial"},
+        )
+        assert restored_completed["state"] == "completed_verified"
+        assert restored_completed["completion"]["outcome"] == "completed_with_skips"
+        assert restored_completed["completion"]["skipped_item_ids"] == [
+            "item:restart-partial.2"
+        ]
+        assert third.call(
+            "agent.tasks.pump.next",
+            {"project_id": project_id, "task_id": "task:restart-partial"},
+        ) == {
+            "kind": "wait",
+            "reason": "terminal",
+            "task_state": "completed_verified",
+        }
+    finally:
+        third.close()
+
+
 def test_agent_v2_retries_one_transient_failure_without_model_activation(
     harness: ApplicationHarness,
     monkeypatch: pytest.MonkeyPatch,
@@ -1230,6 +1876,23 @@ def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
         profiles=("K01", "K02"),
     )
     assert first["task"]["state"] == "partial"
+    assert first["task"]["items"][1]["last_error"]["category"] == "semantic_conflict"
+
+    with pytest.raises(RpcServiceError):
+        harness.call(
+            "agent.tasks.retry_safe",
+            {
+                "project_id": project_id,
+                "task_id": "task:repair-needs-input",
+                "expected_task_version": first["task"]["task_version"],
+                "user_event_id": "user-event:semantic-retry-must-not-run",
+                "payload_hash": "e" * 64,
+            },
+        )
+    assert harness.call(
+        "agent.tasks.get",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )["state"] == "partial"
 
     directive = harness.call(
         "agent.tasks.pump.next",
@@ -1245,6 +1908,32 @@ def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
         "agent.activations.prepare",
         {"project_id": project_id, "activation_id": activation_id},
     )
+    with pytest.raises(RpcServiceError) as unsafe_retry:
+        harness.call(
+            "agent.yields.validate",
+            {
+                "project_id": project_id,
+                "activation_id": activation_id,
+                "yield": {
+                    "outcome": "technical_repair_ready",
+                    "activation_id": activation_id,
+                    "task_id": "task:repair-needs-input",
+                    "task_version": activation["task_version"],
+                    "proposal": {
+                        "failed_report_ids": activation["verification_report_ids"],
+                        "affected_item_ids": ["item:repair-needs-input.2"],
+                        "repair_operations": ["retry_execution"],
+                        "preserves_confirmed_semantics": True,
+                    },
+                },
+            },
+        )
+    assert unsafe_retry.value.code == "REPAIR_SAFETY_INVALID"
+    assert harness.call(
+        "agent.tasks.get",
+        {"project_id": project_id, "task_id": "task:repair-needs-input"},
+    )["state"] == "repairing"
+
     validated = harness.call(
         "agent.yields.validate",
         {

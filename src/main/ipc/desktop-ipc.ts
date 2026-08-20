@@ -535,6 +535,52 @@ export function registerDesktopIpc({
     return requestCoreAction(supervisor, 'tasks.cancel', { task_id: taskId })
   })
 
+  ipcMain.handle(IPC_CHANNELS.acceptPartialTask, async (_event, value: unknown) => {
+    const taskId = parseTaskId(value)
+    if (taskId === null) return invalidArgument('A valid task ID is required.')
+    if (!agentFoundationRuntime.ownsTask(taskId)) {
+      return {
+        ok: false,
+        error: {
+          code: 'TASK_PARTIAL_RESULT_UNAVAILABLE',
+          message: 'The partial Agent task is not available in this desktop session.',
+          retryable: false,
+        },
+      } satisfies DesktopActionResult
+    }
+    try {
+      await agentFoundationRuntime.acceptPartial(taskId)
+      return { ok: true } satisfies DesktopActionResult
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+      } satisfies DesktopActionResult
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.resumeAgentTask, async (_event, value: unknown) => {
+    const taskId = parseTaskId(value)
+    if (taskId === null) return invalidDataArgument('A valid task ID is required.')
+    if (!agentFoundationRuntime.ownsTask(taskId)) {
+      return invalidDataArgument('The Agent task is not available in this desktop session.')
+    }
+    try {
+      return {
+        ok: true,
+        value: sanitizeCoreResult(
+          await agentFoundationRuntime.resumeTask(taskId),
+          resources,
+        ),
+      } satisfies DesktopDataResult
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        error: publicAgentFoundationError(error) ?? supervisor.toPublicResult(error),
+      } satisfies DesktopDataResult
+    }
+  })
+
   ipcMain.handle(IPC_CHANNELS.retryCore, () => {
     if (!supervisor.retry()) return invalidArgument('The local Core is not in a retryable state.')
     return { ok: true } satisfies DesktopActionResult
@@ -820,7 +866,9 @@ export function registerDesktopIpc({
       if (input === null) return invalidDataArgument('任务计划参数无效。')
       const operation = channel === IPC_CHANNELS.taskPlanGet
         ? agentFoundationRuntime.get(input)
-        : agentFoundationRuntime.execute(input)
+        : channel === IPC_CHANNELS.taskPlanResume
+          ? agentFoundationRuntime.resume(input)
+          : agentFoundationRuntime.execute(input)
       return operation.then((result) => ({
         ok: true,
         value: sanitizeCoreResult(result, resources),

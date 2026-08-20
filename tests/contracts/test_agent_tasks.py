@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from plotagent.contracts.agent_tasks import (
     AGENT_YIELD_ADAPTER,
+    ALLOWED_TASK_ITEM_TRANSITIONS,
+    ALLOWED_TASK_TRANSITIONS,
     TASK_EVENT_ADAPTER,
     ActivationBudget,
     AgentActivation,
@@ -27,6 +29,7 @@ from plotagent.contracts.agent_tasks import (
     TaskError,
     TaskIntent,
     TaskItemSnapshot,
+    TaskItemTransitionEvent,
     TaskStateTransitionEvent,
     ToolReceipt,
     VerificationClaim,
@@ -455,6 +458,161 @@ def test_state_transition_tables_close_terminal_states_and_allow_repair() -> Non
     assert not is_legal_task_transition("completed_verified", "executing")
     assert is_legal_task_item_transition("repairable_failed", "running")
     assert not is_legal_task_item_transition("succeeded", "running")
+
+
+def test_complete_task_transition_matrix_is_frozen() -> None:
+    expected = {
+        "created": {"investigating", "cancelling", "failed"},
+        "investigating": {
+            "awaiting_input", "intent_staged", "blocked", "unsupported",
+            "cancelling", "failed", "completed_verified",
+        },
+        "awaiting_input": {"investigating", "cancelling", "failed"},
+        "intent_staged": {
+            "awaiting_confirmation",
+            "awaiting_reconfirmation",
+            "investigating",
+            "cancelling",
+            "failed",
+        },
+        "awaiting_confirmation": {
+            "executing", "rejected", "investigating", "cancelling", "failed",
+        },
+        "executing": {"verifying", "partial", "blocked", "cancelling", "failed"},
+        "verifying": {
+            "delivering", "repairing", "awaiting_reconfirmation", "partial",
+            "blocked", "cancelling", "failed",
+        },
+        "repairing": {
+            "executing", "awaiting_input", "intent_staged", "blocked", "unsupported",
+            "cancelling", "failed",
+        },
+        "awaiting_reconfirmation": {
+            "executing", "rejected", "investigating", "cancelling", "failed",
+        },
+        "delivering": {
+            "completed_verified", "repairing", "blocked", "partial", "cancelling", "failed",
+        },
+        "partial": {
+            "investigating", "executing", "repairing", "cancelling", "completed_verified",
+        },
+        "blocked": {
+            "investigating", "repairing", "cancelling", "failed",
+        },
+        "unsupported": set(),
+        "cancelling": {"cancelled"},
+        "cancelled": set(),
+        "rejected": set(),
+        "failed": set(),
+        "completed_verified": set(),
+    }
+    assert {
+        state: set(next_states)
+        for state, next_states in ALLOWED_TASK_TRANSITIONS.items()
+    } == expected
+    for state in expected:
+        assert not is_legal_task_transition(state, state)
+    assert TaskStateTransitionEvent(
+        event_id="event:task-created",
+        task_id="task:test",
+        task_version=1,
+        sequence=1,
+        occurred_at=NOW,
+        previous_state="created",
+        next_state="created",
+        reason_code="TASK_CREATED",
+    ).next_state == "created"
+    assert not is_legal_task_transition("cancelling", "partial")
+    for state in ("created", "awaiting_input", "partial", "blocked"):
+        assert not is_legal_task_transition(state, "cancelled")
+
+
+def test_complete_task_item_transition_matrix_is_frozen() -> None:
+    expected = {
+        "pending": {"staged", "running", "blocked", "failed", "cancelled"},
+        "staged": {"running", "blocked", "failed", "cancelled"},
+        "running": {"succeeded", "repairable_failed", "failed", "blocked", "cancelled"},
+        "succeeded": set(),
+        "repairable_failed": {"running", "failed", "blocked", "cancelled"},
+        "failed": set(),
+        "blocked": {"pending", "running", "failed", "cancelled"},
+        "cancelled": set(),
+    }
+    assert {
+        state: set(next_states)
+        for state, next_states in ALLOWED_TASK_ITEM_TRANSITIONS.items()
+    } == expected
+    for state in expected:
+        assert not is_legal_task_item_transition(state, state)
+
+
+def test_every_task_state_pair_is_accepted_or_rejected_by_the_frozen_matrix() -> None:
+    states = tuple(ALLOWED_TASK_TRANSITIONS)
+    for previous in states:
+        for next_state in states:
+            payload = {
+                "event_id": "event:matrix.task",
+                "task_id": "task:test",
+                "task_version": 1,
+                "sequence": 1,
+                "occurred_at": NOW,
+                "previous_state": previous,
+                "next_state": next_state,
+                "reason_code": "MATRIX_AUDIT",
+            }
+            if is_legal_task_transition(previous, next_state):
+                assert TaskStateTransitionEvent.model_validate(payload).next_state == next_state
+            else:
+                with pytest.raises(ValidationError, match="illegal task state transition"):
+                    TaskStateTransitionEvent.model_validate(payload)
+
+
+def test_every_task_item_state_pair_is_accepted_or_rejected_by_the_frozen_matrix() -> None:
+    states = tuple(ALLOWED_TASK_ITEM_TRANSITIONS)
+    for previous in states:
+        for next_state in states:
+            payload = {
+                "event_id": "event:matrix.item",
+                "task_id": "task:test",
+                "task_version": 1,
+                "sequence": 1,
+                "occurred_at": NOW,
+                "item_id": "item:test.1",
+                "previous_state": previous,
+                "next_state": next_state,
+                "reason_code": "MATRIX_AUDIT",
+            }
+            if is_legal_task_item_transition(previous, next_state):
+                assert TaskItemTransitionEvent.model_validate(payload).next_state == next_state
+            else:
+                with pytest.raises(ValidationError, match="illegal task item state transition"):
+                    TaskItemTransitionEvent.model_validate(payload)
+
+
+def test_user_task_event_action_set_excludes_unimplemented_budget_mutation() -> None:
+    with pytest.raises(ValidationError):
+        TASK_EVENT_ADAPTER.validate_python({
+            "event_type": "user_task_event",
+            "event_id": "event:budget",
+            "task_id": "task:test",
+            "task_version": 1,
+            "sequence": 1,
+            "occurred_at": NOW,
+            "action": "budget_extended",
+            "user_event_id": "user-event:budget",
+            "payload_hash": "a" * 64,
+        })
+    with pytest.raises(ValidationError):
+        TASK_EVENT_ADAPTER.validate_python({
+            "event_type": "task_budget",
+            "event_id": "event:budget-change",
+            "task_id": "task:test",
+            "task_version": 1,
+            "sequence": 1,
+            "occurred_at": NOW,
+            "budget": budget().model_dump(mode="json"),
+            "change_reason": "user_extended",
+        })
 
 
 def test_task_event_union_rejects_illegal_transition_and_wrong_discriminator() -> None:

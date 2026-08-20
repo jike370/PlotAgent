@@ -339,7 +339,8 @@
   终态才稳定返回 `AGENT_YIELD_MISSING`。Core 工具/终态身份错配始终 fail closed；
 - 同时执行 activation 与 task-wide 的 model call/turn、token、tool call、披露 scalar 和估算成本预算；
   端到端 wall time 只记录、评测和展示，当前不作为产品层终止预算。Provider/工具仍保留独立传输
-  timeout，用户取消仍端到端传播；预算超限返回 typed `budget_exhausted`，不伪造 TaskState transition；
+  timeout，用户取消仍端到端传播；预算超限返回 typed `budget_exhausted`，Core 将当前任务明确收口为
+  `failed`，不提供无预算变更的伪恢复；
 - abort 已覆盖 ContextBuilder/host prepare 与 Pi 运行阶段；新 activation 会取消旧 generation，迟到的
   tool result/yield 在接受前重新核对 generation，不会覆盖新任务版本；Provider 中断、timeout、supersede
   均转成稳定的 typed yield；
@@ -455,7 +456,7 @@
 - 扩展到 1–64 TaskItem 的批量计划；
 - TaskItem 逐项原子提交，成功项冻结，失败项独立 repair/retry；
 - 语义变化生成新 TaskIntentVersion 并重新确认；
-- 用户可接受 partial、仅重试失败项或取消剩余项。
+- 用户可接受 partial 并明确跳过未完成项、仅安全重试失败项，或取消整个任务；三种终态语义不得混用。
 
 ### 当前实现进度（2026-08-18）
 
@@ -483,7 +484,7 @@
 
 ### 测试
 
-- renderer 技术错误自动修复且无需重新确认；
+- 同一授权、`known_none` 且可重放的确定性技术错误无需模型和重新确认即可重试；
 - 字段/图类/统计定义变化必须重新确认；
 - 相同失败不会循环；
 - 3 项中 2 成功 1 失败只修失败项；

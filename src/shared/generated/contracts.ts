@@ -1714,7 +1714,7 @@ export type TaskBudgetEvent = {
   readonly occurred_at: string;
   readonly event_type?: "task_budget";
   readonly budget: TaskBudgetSnapshot;
-  readonly change_reason: "usage" | "user_extended" | "policy_reduced" | "reconciled";
+  readonly change_reason: "usage" | "policy_reduced" | "reconciled";
 }
 
 export type TaskBudgetLimits = {
@@ -2061,7 +2061,7 @@ export type UserTaskEvent = {
   readonly sequence: number;
   readonly occurred_at: string;
   readonly event_type?: "user_task_event";
-  readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "budget_extended" | "partial_accepted" | "resumed";
+  readonly action: "answered" | "confirmed" | "rejected" | "corrected" | "cancel_requested" | "partial_accepted" | "retry_requested" | "resumed";
   readonly user_event_id: string;
   readonly payload_hash: string;
   readonly message?: string | null;

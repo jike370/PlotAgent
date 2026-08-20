@@ -13,7 +13,10 @@ from plotagent.contracts.agent_tasks import (
     SelectedPlotRef,
     TaskBudgetLimits,
     TaskEnvelope,
+    TaskError,
     TaskIntent,
+    VerificationClaim,
+    VerificationReport,
 )
 from plotagent.contracts.agent_tools import ToolInvocation
 from plotagent.contracts.base import SourceDatasetRef
@@ -106,6 +109,91 @@ def intent(
     return draft.model_copy(update={"content_hash": canonical_hash(payload)})
 
 
+def prepare_repair_activation(
+    ledger: TaskLedgerRepository,
+    coordinator: DurableTaskCoordinator,
+) -> dict[str, object]:
+    first = coordinator.next_action("task:test")
+    first_id = str(cast(dict[str, object], first["activation"])["activation_id"])
+    ledger.mark_activation_running(first_id)
+    ledger.accept_yield(
+        AgentIntentReady(
+            activation_id=first_id,
+            task_id="task:test",
+            task_version=1,
+            intent=intent(first_id),
+        )
+    )
+    coordinator.next_action("task:test")
+    checkpoint = ledger.get_task("task:test")
+    checkpoint = ledger.advance(
+        "task:test",
+        expected_task_version=checkpoint.task_version,
+        next_state="executing",
+        reason_code="TEST_CONFIRMED",
+    )
+    checkpoint = ledger.transition_item(
+        "task:test",
+        expected_task_version=checkpoint.task_version,
+        item_id="item:test.1",
+        expected_item_state="staged",
+        next_state="running",
+        reason_code="TEST_ITEM_STARTED",
+    )
+    failure = TaskError(
+        code="FIELD_BINDING_INVALID",
+        category="semantic_conflict",
+        message="The selected field cannot satisfy the role.",
+        retryable=False,
+        requires_user=True,
+        side_effect_state="known_none",
+    )
+    checkpoint = ledger.transition_item(
+        "task:test",
+        expected_task_version=checkpoint.task_version,
+        item_id="item:test.1",
+        expected_item_state="running",
+        next_state="repairable_failed",
+        reason_code="TEST_ITEM_FAILED",
+        error=failure,
+    )
+    report = VerificationReport(
+        report_id="verification:test-repair",
+        task_id="task:test",
+        task_version=checkpoint.task_version,
+        intent=checkpoint.intent,
+        item_id="item:test.1",
+        status="failed",
+        claims=(
+            VerificationClaim(
+                claim_id="claim:test-repair",
+                status="failed",
+                expected="The selected field satisfies the renderer role.",
+                observed="The selected field is incompatible.",
+                repair_scope=("item:test.1",),
+                error=failure,
+            ),
+        ),
+        content_hash="0" * 64,
+        verified_at="2026-08-18T10:01:00Z",
+    )
+    report = report.model_copy(update={
+        "content_hash": canonical_hash(
+            report.model_dump(mode="json", exclude={"content_hash"})
+        )
+    })
+    checkpoint = ledger.record_verification_report(report)
+    ledger.advance(
+        "task:test",
+        expected_task_version=checkpoint.task_version,
+        next_state="partial",
+        reason_code="TEST_PARTIAL",
+    )
+    repair = coordinator.next_action("task:test")
+    assert repair["kind"] == "run_activation"
+    return cast(dict[str, object], repair["activation"])
+
+
 def test_next_action_creates_one_idempotent_activation(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         ledger = TaskLedgerRepository(project)
@@ -149,6 +237,113 @@ def test_inflight_activation_is_aborted_and_resumed_after_restart(tmp_path: Path
         assert old_status == "aborted"
 
 
+def test_inflight_repair_activation_restarts_with_the_same_failure_evidence(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        directive = coordinator.next_action("task:test")
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=activation_id,
+                task_id="task:test",
+                task_version=1,
+                intent=intent(activation_id),
+            )
+        )
+        coordinator.next_action("task:test")
+        checkpoint = ledger.get_task("task:test")
+        checkpoint = ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="executing",
+            reason_code="TEST_CONFIRMED",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_ITEM_STARTED",
+        )
+        failure = TaskError(
+            code="FIELD_BINDING_INVALID",
+            category="semantic_conflict",
+            message="The selected field cannot satisfy the role.",
+            retryable=False,
+            requires_user=True,
+            side_effect_state="known_none",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="running",
+            next_state="repairable_failed",
+            reason_code="TEST_ITEM_FAILED",
+            error=failure,
+        )
+        checkpoint = ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="verifying",
+            reason_code="TEST_VERIFYING",
+        )
+        report = VerificationReport(
+            report_id="verification:test-restart-repair",
+            task_id="task:test",
+            task_version=checkpoint.task_version,
+            intent=checkpoint.intent,
+            item_id="item:test.1",
+            status="failed",
+            claims=(
+                VerificationClaim(
+                    claim_id="claim:binding",
+                    status="failed",
+                    expected="The selected field satisfies the renderer role.",
+                    observed="The selected field is incompatible.",
+                    repair_scope=("item:test.1",),
+                    error=failure,
+                ),
+            ),
+            content_hash="0" * 64,
+            verified_at="2026-08-18T10:01:00Z",
+        )
+        report = report.model_copy(update={
+            "content_hash": canonical_hash(
+                report.model_dump(mode="json", exclude={"content_hash"})
+            )
+        })
+        checkpoint = ledger.record_verification_report(report)
+        checkpoint = ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="repairing",
+            reason_code="TEST_REPAIRING",
+        )
+        repair = coordinator.next_action("task:test")
+        repair_id = str(repair["activation"]["activation_id"])
+        ledger.mark_activation_running(repair_id)
+
+        recovered = ledger.recover_inflight_activations()
+        assert recovered == ("task:test",)
+        restarted = DurableTaskCoordinator(
+            ledger, clock=lambda: NOW, recovered_task_ids=recovered
+        ).next_action("task:test")
+
+        assert restarted["kind"] == "run_activation"
+        assert restarted["activation"]["reason"] == "resume_after_restart"
+        assert restarted["activation"]["verification_report_ids"] == [
+            "verification:test-restart-repair"
+        ]
+        assert restarted["activation"]["activation_id"] != repair_id
+
+
 def test_blocked_task_resumes_only_after_explicit_external_clear(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         ledger = TaskLedgerRepository(project)
@@ -182,6 +377,105 @@ def test_blocked_task_resumes_only_after_explicit_external_clear(tmp_path: Path)
         continuation = coordinator.next_action("task:test")
         assert continuation["kind"] == "run_activation"
         assert continuation["activation"]["reason"] == "external_blocker_cleared"
+
+
+def test_nonretryable_blocker_is_terminal_instead_of_offering_fake_recovery(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action("task:test")
+        activation_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        failed = ledger.accept_yield(
+            AgentBlocked(
+                activation_id=activation_id,
+                task_id="task:test",
+                task_version=1,
+                blocker_code="POLICY_DENIED",
+                message="The required resource is permanently unavailable.",
+                resume_condition="No in-place recovery is available.",
+                retryable=False,
+            )
+        )
+
+        assert failed.state == "failed"
+        assert coordinator.next_action("task:test") == {
+            "kind": "wait",
+            "reason": "terminal",
+            "task_state": "failed",
+        }
+
+
+def test_blocked_repair_resumes_in_repair_scope_with_failure_evidence(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        repair = prepare_repair_activation(ledger, coordinator)
+        repair_id = str(repair["activation_id"])
+        repair_version = int(cast(int, repair["task_version"]))
+        ledger.mark_activation_running(repair_id)
+        blocked = ledger.accept_yield(
+            AgentBlocked(
+                activation_id=repair_id,
+                task_id="task:test",
+                task_version=repair_version,
+                blocker_code="ORIGIN_UNAVAILABLE",
+                message="Origin is unavailable.",
+                resume_condition="Origin becomes available.",
+                retryable=True,
+            )
+        )
+        assert blocked.state == "blocked"
+
+        resumed = ledger.record_user_event(
+            "task:test",
+            expected_task_version=blocked.task_version,
+            action="resumed",
+            user_event_id="user-event:resume-repair",
+            payload_hash="e" * 64,
+        )
+        assert resumed.state == "repairing"
+        continuation = coordinator.next_action("task:test")
+        assert continuation["kind"] == "run_activation"
+        assert continuation["activation"]["reason"] == "external_blocker_cleared"
+        assert continuation["activation"]["item_states"] == [
+            ["item:test.1", "repairable_failed"]
+        ]
+
+
+def test_repair_can_stage_a_revised_intent_without_an_extra_question(tmp_path: Path) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        repair = prepare_repair_activation(ledger, coordinator)
+        repair_id = str(repair["activation_id"])
+        repair_version = int(cast(int, repair["task_version"]))
+        ledger.mark_activation_running(repair_id)
+
+        staged = ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=repair_id,
+                task_id="task:test",
+                task_version=repair_version,
+                intent=intent(
+                    repair_id,
+                    intent_version=2,
+                    task_version=repair_version,
+                ),
+            )
+        )
+        assert staged.state == "intent_staged"
+        assert staged.items[0].state == "staged"
+        assert coordinator.next_action("task:test") == {
+            "kind": "wait",
+            "reason": "awaiting_reconfirmation",
+            "task_state": "awaiting_reconfirmation",
+        }
 
 
 def test_context_authority_stays_current_until_yield_then_waits_for_confirmation(

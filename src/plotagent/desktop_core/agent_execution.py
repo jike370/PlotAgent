@@ -157,19 +157,43 @@ class DurableTaskExecutionService:
         )
         return {"task": updated.model_dump(mode="json")}
 
-    def run(self, task_id: str) -> dict[str, object]:
+    def run(
+        self,
+        task_id: str,
+        *,
+        max_items: int | None = None,
+    ) -> dict[str, object]:
+        if max_items is not None and max_items < 1:
+            raise ValueError("max_items must be positive")
         lease = self.ledger.acquire_lease(
             task_id,
             holder_id=f"execution:{uuid.uuid4().hex}",
             ttl_seconds=1800,
         )
         try:
-            return self._run_with_lease(task_id)
+            return self._run_with_lease(task_id, max_items=max_items)
         finally:
             self.ledger.release_lease(task_id, lease_token=lease)
 
-    def _run_with_lease(self, task_id: str) -> dict[str, object]:
+    def _run_with_lease(
+        self,
+        task_id: str,
+        *,
+        max_items: int | None,
+    ) -> dict[str, object]:
         checkpoint = self.ledger.get_task(task_id)
+        if checkpoint.state == "cancelling":
+            if not any(item.state == "running" for item in checkpoint.items):
+                return self._finalize_cancel(task_id, checkpoint, reports=[])
+            plan = self.ledger.get_plan(task_id)
+            reconciled = self._reconcile_interrupted_items(
+                task_id,
+                checkpoint,
+                plan.items,
+            )
+            return self._finalize_cancel(task_id, reconciled, reports=[])
+        if checkpoint.state in {"verifying", "delivering"}:
+            return self._complete_verified_task(task_id, checkpoint)
         if checkpoint.state != "executing":
             raise DurableExecutionError(
                 "TASK_NOT_EXECUTABLE", "Only a confirmed task can execute."
@@ -194,18 +218,28 @@ class DurableTaskExecutionService:
         reconciled_all = bool(checkpoint.items) and all(
             item.state == "succeeded" for item in checkpoint.items
         )
-        repairing = any(item.state == "repairable_failed" for item in checkpoint.items)
-        if not reconciled_all and (
+        execution_started = any(
+            item.attempt_count > 0
+            or item.state in {"succeeded", "repairable_failed", "failed", "blocked"}
+            for item in checkpoint.items
+        )
+        if (
             grant.intent != checkpoint.intent
-            or (not repairing and grant.task_version != checkpoint.task_version)
+            or grant.task_version > checkpoint.task_version
+            or (not execution_started and grant.task_version != checkpoint.task_version)
         ):
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the task."
             )
         if (
             not reconciled_all
-            and not repairing
-            and grant.expected_project_revision != checkpoint.project_revision
+            and (
+                grant.expected_project_revision > checkpoint.project_revision
+                or (
+                    not execution_started
+                    and grant.expected_project_revision != checkpoint.project_revision
+                )
+            )
         ):
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the project."
@@ -224,12 +258,20 @@ class DurableTaskExecutionService:
         reports: list[VerificationReport] = []
         receipts: list[ToolReceipt] = []
         failures: list[dict[str, object]] = []
+        attempted_items = 0
+        # During an initial confirmed batch, a repairable failure from an earlier
+        # step must not be retried implicitly while untouched items remain. Once
+        # the task is explicitly returned from ``partial`` to ``executing``, no
+        # staged items remain and the scoped repairable item becomes eligible.
+        has_staged_items = any(item.state == "staged" for item in checkpoint.items)
         for item in plan.items:
             current = self.ledger.get_task(task_id)
             if current.state == "cancelling":
                 return self._finalize_cancel(task_id, current, reports=reports)
             snapshot = next(entry for entry in current.items if entry.item_id == item.item_id)
             if snapshot.state in {"succeeded", "failed", "blocked", "cancelled"}:
+                continue
+            if snapshot.state == "repairable_failed" and has_staged_items:
                 continue
             scope = scopes[item.item_id]
             if "create_plot" not in scope.operations:
@@ -257,6 +299,7 @@ class DurableTaskExecutionService:
                 after, plot_version = executor.execute_compiled_item(item, before)
                 stored = self.engine.documents.get(item.plot_id, plot_version)
             except Exception as error:
+                attempted_items += 1
                 latest = self.ledger.get_task(task_id)
                 failure, report, receipt = self._record_item_failure(
                     task_id,
@@ -273,6 +316,12 @@ class DurableTaskExecutionService:
                 latest = self.ledger.get_task(task_id)
                 if latest.state == "cancelling":
                     return self._finalize_cancel(task_id, latest, reports=reports)
+                if self._should_yield_execution_step(
+                    latest,
+                    attempted_items=attempted_items,
+                    max_items=max_items,
+                ):
+                    return self._execution_progress(latest, reports=reports)
                 continue
 
             latest = self.ledger.get_task(task_id)
@@ -330,12 +379,20 @@ class DurableTaskExecutionService:
                     "content_hash": stored.content_hash,
                 }
             )
+            attempted_items += 1
             latest = self.ledger.get_task(task_id)
             if latest.state == "cancelling":
                 return self._finalize_cancel(task_id, latest, reports=reports)
+            if self._should_yield_execution_step(
+                latest,
+                attempted_items=attempted_items,
+                max_items=max_items,
+            ):
+                return self._execution_progress(latest, reports=reports)
 
         current = self.ledger.get_task(task_id)
         plots = self._completed_plots(current)
+        failures = self._current_failures(current)
         if failures:
             retryable_failure = any(
                 item.state == "repairable_failed" for item in current.items
@@ -381,26 +438,101 @@ class DurableTaskExecutionService:
             reason_code="EXECUTION_FINISHED",
             project_revision=current.project_revision,
         )
-        delivering = self.ledger.advance(
-            task_id,
-            expected_task_version=verifying.task_version,
-            next_state="delivering",
-            reason_code="VERIFICATION_PASSED",
+        return self._complete_verified_task(task_id, verifying)
+
+    @staticmethod
+    def _should_yield_execution_step(
+        checkpoint: TaskCheckpoint,
+        *,
+        attempted_items: int,
+        max_items: int | None,
+    ) -> bool:
+        """Return control between atomic items so queued cancellation can be handled."""
+
+        if max_items is None or attempted_items < max_items:
+            return False
+        # A repairable failure is not an implicit retry. Yield only when another
+        # untouched item remains in the confirmed batch.
+        return any(item.state == "staged" for item in checkpoint.items)
+
+    def _execution_progress(
+        self,
+        checkpoint: TaskCheckpoint,
+        *,
+        reports: list[VerificationReport],
+    ) -> dict[str, object]:
+        return {
+            "task": checkpoint.model_dump(mode="json"),
+            "plots": self._completed_plots(checkpoint),
+            "verifications": [report.model_dump(mode="json") for report in reports],
+            "failures": self._current_failures(checkpoint),
+            "execution_pending": True,
+        }
+
+    @staticmethod
+    def _current_failures(checkpoint: TaskCheckpoint) -> list[dict[str, object]]:
+        return [
+            {
+                "item_id": item.item_id,
+                "error": item.last_error.model_dump(mode="json"),
+            }
+            for item in checkpoint.items
+            if item.state in {"repairable_failed", "failed", "blocked"}
+            and item.last_error is not None
+        ]
+
+    def _complete_verified_task(
+        self,
+        task_id: str,
+        checkpoint: TaskCheckpoint,
+    ) -> dict[str, object]:
+        """Finish a fully verified task, including after a process restart."""
+
+        current = checkpoint
+        if not current.items or any(item.state != "succeeded" for item in current.items):
+            raise DurableExecutionError(
+                "VERIFICATION_CHECKPOINT_INVALID",
+                "A verifying task must retain only succeeded task items.",
+            )
+        required_report_ids = tuple(
+            item.verification_report_ids[-1]
+            for item in current.items
+            if item.verification_report_ids
         )
+        if len(required_report_ids) != len(current.items):
+            raise DurableExecutionError(
+                "VERIFICATION_EVIDENCE_MISSING",
+                "A verified task item is missing its durable verification report.",
+            )
+        if current.state == "verifying":
+            current = self.ledger.advance(
+                task_id,
+                expected_task_version=current.task_version,
+                next_state="delivering",
+                reason_code="VERIFICATION_PASSED",
+            )
+        if current.state != "delivering":
+            raise DurableExecutionError(
+                "DELIVERY_CHECKPOINT_INVALID",
+                "Only a verifying or delivering task can finish verified delivery.",
+            )
         completed = self.ledger.complete_task(
             task_id,
-            expected_task_version=delivering.task_version,
+            expected_task_version=current.task_version,
             completion=TaskCompletion(
                 completed_at=_now(),
-                final_project_revision=delivering.project_revision,
-                required_report_ids=tuple(
-                    item.verification_report_ids[-1] for item in current.items
-                ),
+                final_project_revision=current.project_revision,
+                required_report_ids=required_report_ids,
                 artifact_receipt_ids=tuple(
                     item.receipt_ids[-1] for item in current.items if item.receipt_ids
                 ),
             ),
         )
+        plots = self._completed_plots(completed)
+        reports = [
+            self.ledger.get_verification_report(report_id)
+            for report_id in required_report_ids
+        ]
         result: dict[str, object] = {
             "task": completed.model_dump(mode="json"),
             "plots": plots,
@@ -519,7 +651,7 @@ class DurableTaskExecutionService:
                 attempt_count=snapshot.attempt_count,
             )
             current = self.ledger.record_verification_report(report)
-        if interrupted and any(
+        if current.state != "cancelling" and interrupted and any(
             item.state == "repairable_failed" for item in current.items
         ):
             current = self.ledger.advance(
@@ -633,7 +765,9 @@ class DurableTaskExecutionService:
             finished_at=_now(),
         )
         self.ledger.record_tool_receipt(receipt)
-        item_state: TaskItemState = "repairable_failed" if retryable else "failed"
+        item_state: TaskItemState = (
+            "repairable_failed" if retryable or requires_user else "failed"
+        )
         failed_item = self.ledger.transition_item(
             task_id,
             expected_task_version=task_version,
@@ -672,6 +806,20 @@ class DurableTaskExecutionService:
             return "unsupported", False, False
         if any(token in normalized for token in ("PERMISSION", "AUTHORITY", "SCOPE")):
             return "safety_or_permission", False, True
+        if any(
+            token in normalized
+            for token in (
+                "VALUEERROR",
+                "INVALID_ARGUMENT",
+                "INVALID_PARAMS",
+                "BINDING",
+                "FIELD",
+                "DATA_TYPE",
+                "DATA_SHAPE",
+                "CONTRACT",
+            )
+        ):
+            return "semantic_conflict", False, True
         return "deterministic_technical", True, False
 
     @staticmethod

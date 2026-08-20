@@ -106,6 +106,7 @@ interface ConversationWorkspaceProps {
   onOpenFocus: () => void
   onOpenTasks: () => void
   onCancelTask: (taskId: string) => void
+  onAcceptPartialTask: (taskId: string) => void
   canUndo: boolean
   canRedo: boolean
   onUndo: () => void
@@ -655,6 +656,7 @@ function WorkflowPlanObject({
   onUndo,
   onRun,
   onResume,
+  onAcceptPartial,
 }: {
   plan: WorkflowPlanView
   datasets: ProductDataset[]
@@ -668,6 +670,7 @@ function WorkflowPlanObject({
   onUndo: () => void
   onRun: (planId: string) => void
   onResume: (planId: string) => void
+  onAcceptPartial: (taskId: string) => void
 }): React.JSX.Element {
   const stateLabels: Record<string, string> = {
     awaiting_confirmation: '等待确认',
@@ -677,7 +680,7 @@ function WorkflowPlanObject({
     partially_succeeded: '部分完成',
     completed_with_skips: '已完成（含跳过项）',
     succeeded: '已完成',
-    failed: '未完成',
+    failed: '失败',
     cancelled: '已取消',
     rejected: '已拒绝',
   }
@@ -766,7 +769,11 @@ function WorkflowPlanObject({
               {step.failure && <div className="agent-plan-step__failure" role="alert">
                 <p>{step.failure.message}</p>
                 <small>阶段：绘图引擎执行与验证 · {step.failure.sideEffectState === 'known_applied' ? '已保留已提交更改' : step.failure.sideEffectState === 'known_none' ? '项目未发生更改' : '项目变化待核验'}</small>
-                <small>下一步：{step.failure.retryable ? '仅重试此失败项' : step.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
+                <small>下一步：{plan.state === 'failed'
+                  ? '修改要求后创建新任务'
+                  : step.failure.retryable
+                    ? '仅重试此失败项'
+                    : step.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
                 {step.failure.diagnosticId && <small>诊断 ID：{step.failure.diagnosticId}</small>}
               </div>}
             </div>
@@ -777,9 +784,10 @@ function WorkflowPlanObject({
       {plan.warnings.length > 0 && <div className="agent-plan__warnings">{plan.warnings.map((warning) => <p key={warning}><TriangleAlert size={14} />{warning}</p>)}</div>}
       <footer className="agent-plan__actions">
         {plan.state === 'awaiting_confirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消</button><button type="button" onClick={() => onEdit(plan.planId)} disabled={busy}>修改绑定</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认并执行</button></>}
-        {plan.state === 'awaiting_reconfirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>取消修订</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认修订计划</button></>}
+        {plan.state === 'awaiting_reconfirmation' && <><button type="button" onClick={() => onReject(plan.planId)} disabled={busy}>拒绝修订计划</button><button className="primary-button" type="button" onClick={() => onConfirm(plan.planId)} disabled={busy}>确认修订计划</button></>}
         {plan.state === 'ready' && <button className="primary-button" type="button" onClick={() => onRun(plan.planId)} disabled={busy}>执行计划</button>}
         {plan.resumable && <button className="primary-button" type="button" onClick={() => onResume(plan.planId)} disabled={busy}>继续未完成步骤</button>}
+        {plan.state === 'partially_succeeded' && plan.completedCount > 0 && plan.taskId && <button type="button" onClick={() => onAcceptPartial(plan.taskId as string)} disabled={busy}>保留成功项并结束</button>}
         {(plan.state === 'succeeded' || plan.state === 'completed_with_skips') && <><span className="agent-plan__saved"><CircleCheck size={14} />{plan.state === 'completed_with_skips' ? '成功项已保存，其余已跳过' : '更改已保存'}</span>{canUndo && <button type="button" onClick={onUndo} disabled={busy}><Undo2 size={14} />撤销本轮</button>}</>}
       </footer>
     </section>
@@ -915,7 +923,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {props.workflowOutcome && props.workflowOutcome.kind !== 'task_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.workflowOutcome.kind === 'rejected' ? 'error' : props.workflowOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.workflowOutcome.kind === 'rejected' ? 'alert' : 'status'}>
               <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
             </div>}
-            {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} /></div></div>}
+            {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></div></div>}
             {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
             <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}

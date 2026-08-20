@@ -33,8 +33,9 @@ Pi 不拥有任意文件系统、SQL、Shell、Python、Origin、模板、render
 - `needs_input`：同一 durable task 暂停，用户回答后从 checkpoint 续接；
 - `unsupported`：请求超出当前产品或图类合同；
 - `blocked`：存在明确外部恢复条件；
-- `runtime_failed` / `budget_exhausted`：不产生项目副作用，保留安全诊断并允许重试；
-- `cancelled`：停止本任务，保留已原子完成的项目结果，不终止无关任务或用户 Origin。
+- `runtime_failed`：不产生项目副作用，保留安全诊断；可按错误类别重试；
+- `budget_exhausted`：当前任务明确失败；若要重试，创建具有新预算和新授权的新任务，不在旧任务上伪恢复；
+- `cancelled`：只由产品停止控制或其内部 abort 路径产生；保留已原子完成的项目结果，不终止无关任务或用户 Origin。
 
 聊天消息和模型隐藏推理不是项目真相。项目真相仅包括 Core 接受的 intent/plan、TaskEvent、receipt、VerificationReport、durable checkpoint 和正式产物。
 

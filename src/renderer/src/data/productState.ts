@@ -309,6 +309,7 @@ export interface DurableTaskView {
   taskVersion: number
   state: string
   projectRevision: number
+  activeActivationId?: string
   updatedAt?: string
   completionOutcome?: 'all_succeeded' | 'completed_with_skips'
   skippedItemIds?: string[]
@@ -812,6 +813,10 @@ function decisionMessage(decision: JsonRecord): string {
 
 export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
   const root = isJsonRecord(value) ? value : undefined
+  if (root !== undefined && Array.isArray(root.pending_inputs)) {
+    const pending = root.pending_inputs.find(isJsonRecord)
+    if (pending !== undefined) return readWorkflowOutcome(pending)
+  }
   const outcome = root === undefined ? undefined : stringValue(root, 'outcome')
   if (outcome === 'draft_ready' || readWorkflowPlan(value) !== undefined) {
     const plan = readWorkflowPlan(value)
@@ -1017,8 +1022,11 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     warnings: [],
     steps,
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
-    resumable: (state === 'partially_succeeded' || state === 'failed')
-      && steps.some((step) => step.failure?.retryable === true),
+    resumable: state === 'partially_succeeded'
+      && steps.some((step) => step.failure?.retryable === true
+        && step.failure.category === 'deterministic_technical'
+        && step.failure.requiresUser !== true
+        && step.failure.sideEffectState === 'known_none'),
     bindings,
     boundActions,
   }
@@ -1091,6 +1099,9 @@ export function readDurableTasks(value: JsonValue): DurableTaskView[] {
       taskVersion: entry.task_version,
       state: entry.state,
       projectRevision: entry.project_revision,
+      ...(typeof entry.active_activation_id === 'string'
+        ? { activeActivationId: entry.active_activation_id }
+        : {}),
       ...(typeof entry.updated_at === 'string' ? { updatedAt: entry.updated_at } : {}),
       ...(completionOutcome === 'all_succeeded' || completionOutcome === 'completed_with_skips'
         ? { completionOutcome }
