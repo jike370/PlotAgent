@@ -1197,7 +1197,8 @@ export function App(): React.JSX.Element {
       if ((rejectedPlan?.state ?? (isJsonRecord(value) ? value.state : undefined)) !== 'rejected') {
         throw new Error('Core did not confirm plan cancellation.')
       }
-      setWorkflowPlan(undefined)
+      if (rejectedPlan) setWorkflowPlan(rejectedPlan)
+      else setWorkflowPlan(undefined)
       const retainedCount = rejectedPlan?.completedCount ?? 0
       setWorkflowOutcome({
         kind: 'no_change',

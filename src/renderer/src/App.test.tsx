@@ -1948,6 +1948,28 @@ describe('PlotAgent real desktop workflow', () => {
 
     expect(await screen.findByText('计划已拒绝')).toBeInTheDocument()
     expect(screen.getByText('未执行修订计划；已保留此前完成的 1 项结果。')).toBeInTheDocument()
+    expect(screen.getByText('已拒绝')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '确认修订计划' })).not.toBeInTheDocument()
+  })
+
+  it('turns a rejected current plan into non-executable conversation history', async () => {
+    const user = userEvent.setup()
+    const pendingPlan = workflowPlanFixture('awaiting_confirmation')
+    const rejectedPlan = workflowPlanFixture('rejected', 'failed')
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pendingPlan))),
+      confirmTaskPlan: vi.fn(async () => ok(rejectedPlan)),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '新建一张折线图')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '取消' }))
+
+    expect(await screen.findByText('计划已拒绝')).toBeInTheDocument()
+    expect(screen.getByText('已拒绝')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '确认并执行' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '修改绑定' })).not.toBeInTheDocument()
   })
 
   it.each([
