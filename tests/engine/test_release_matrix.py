@@ -5,7 +5,12 @@ import json
 from pathlib import Path
 
 from plotagent.engine.profiles import ENGINE_PROFILES
+from scripts.release_matrix_actions import (
+    document_for_actions,
+    representative_edit_actions,
+)
 from scripts.release_matrix_cases import RELEASE_CASES
+from scripts.run_release_edit_matrix import _failed_rows, _origin_request
 from scripts.run_release_matrix import execute_offline_matrix
 from scripts.run_release_origin_matrix import (
     _edited_history,
@@ -114,3 +119,96 @@ def test_origin_matrix_rebases_offline_artifacts_to_merged_report(
     merged = next(row for row in rebased if row.matrix_key == source.matrix_key)
     assert merged.artifact is not None
     assert (output / merged.artifact).resolve() == (offline / source.artifact).resolve()
+
+
+def test_all_representative_profiles_apply_common_edits_in_matplotlib(
+    tmp_path: Path,
+) -> None:
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    backend = default_matplotlib_backend(tmp_path / "matplotlib-edits")
+    cases = tuple(case for case in RELEASE_CASES if case.variant == "representative")
+    operation_counts: dict[str, int] = {}
+    for case in cases:
+        default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+        default.publish()
+        default.finalize()
+        actions = representative_edit_actions(case, default.readback)
+        assert [action.expected_plot_version for action in actions] == list(
+            range(1, len(actions) + 1)
+        )
+        previous_hash = default.readback.style_hash
+        for action in actions:
+            operation_counts[action.operation] = operation_counts.get(action.operation, 0) + 1
+        for count in range(1, len(actions) + 1):
+            history = actions[:count]
+            document = document_for_actions(case, history)
+            change = backend.stage(
+                document,
+                history,
+                EngineRenderSource(data=case.view),
+            )
+            assert change.readback.style_hash != previous_hash
+            previous_hash = change.readback.style_hash
+            change.publish()
+            change.finalize()
+
+    assert operation_counts["set_title"] == 34
+    assert operation_counts["set_axis"] == 34
+    assert operation_counts["set_series_style"] == 34
+    assert operation_counts["set_legend"] > 0
+
+
+def test_release_edit_origin_request_preserves_linear_action_history(
+    tmp_path: Path,
+) -> None:
+    case = next(
+        item
+        for item in RELEASE_CASES
+        if item.profile_id == "K01" and item.variant == "representative"
+    )
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    backend = default_matplotlib_backend(tmp_path / "matplotlib")
+    default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+    actions = representative_edit_actions(case, default.readback)
+
+    request = _origin_request(
+        case,
+        actions[:2],
+        install_dir=tmp_path,
+        output=tmp_path / "v3.opju",
+        previous=tmp_path / "v2.opju",
+    )
+
+    assert request.document.plot_version == 3
+    assert request.document.parent_version == 2
+    assert request.previous_opju == str(tmp_path / "v2.opju")
+    assert tuple(action.action_id for action in request.actions) == (
+        case.create.action_id,
+        actions[0].action_id,
+        actions[1].action_id,
+    )
+
+
+def test_release_edit_failures_are_recorded_per_backend(tmp_path: Path) -> None:
+    case = next(
+        item
+        for item in RELEASE_CASES
+        if item.profile_id == "K01" and item.variant == "representative"
+    )
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    backend = default_matplotlib_backend(tmp_path / "matplotlib")
+    default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+    actions = representative_edit_actions(case, default.readback)
+
+    rows = _failed_rows(case, actions, backend="origin", error=RuntimeError("boom"))
+
+    assert len(rows) == len(actions)
+    assert {row.backend for row in rows} == {"origin"}
+    assert {row.status for row in rows} == {"FAIL"}
+    assert {row.error for row in rows} == {"RuntimeError: boom"}

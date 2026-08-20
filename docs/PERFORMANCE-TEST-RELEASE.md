@@ -48,6 +48,20 @@
 只有34项均生成非零OPJU，且编辑后由独立Origin进程重开、机械读回并导出fresh
 PNG，才可把 `representative:opju` 从 `UNVERIFIED` 升为 `PASS`。
 
+公共编辑阶段以该Origin基线为输入，对34图分别顺序执行标题、轴、系列以及该图
+支持的图例编辑；Matplotlib必须逐版本发布，Origin必须每个动作形成独立线性版本，
+并由另一个Origin进程复核最终版本：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_edit_matrix.py `
+  --origin-baseline build\release-matrix\origin-<commit>-<timestamp>
+```
+
+两个后端必须独立记账，不能以一个后端的PASS遮蔽另一个后端的FAIL。Origin的原生
+存储分辨率也必须显式解释：线宽和边框宽度允许半个0.1 pt存储步长，单列图例的
+`ncols=0`自动纵向布局规范化为公共合同的一列；其他数值与多列图例仍按合同精确
+读回。
+
 正式图清单以 [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) 为准。K16、K25、S01、S21及其他删除图只验证不可发现与 `CHART_TYPE_REMOVED`，不计入34图通过数。
 
 ## 4. 图形门禁

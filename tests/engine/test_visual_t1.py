@@ -18,6 +18,8 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
 from plotagent.engine.backends.origin.visual_t1 import (
     _centered_levels,
     _effective_state_actions,
+    _legend_column_count,
+    _series_numeric_tolerance,
     _updated_tick_bits,
 )
 from plotagent.engine.contracts import (
@@ -228,6 +230,18 @@ def test_origin_tick_bitfield_preserves_visibility_and_sets_direction() -> None:
     assert _updated_tick_bits(10, hide_minor) == 2
     assert _updated_tick_bits(10, inward) == 5
     assert _updated_tick_bits(0, show_both) == 15
+
+
+def test_origin_series_width_tolerance_matches_native_storage_resolution() -> None:
+    assert _series_numeric_tolerance("line_width") == 0.051
+    assert _series_numeric_tolerance("fill_stroke_width") == 0.051
+    assert _series_numeric_tolerance("marker_size") == 1e-7
+
+
+def test_origin_automatic_vertical_legend_normalizes_to_one_column() -> None:
+    assert _legend_column_count(0) == 1
+    assert _legend_column_count(1) == 1
+    assert _legend_column_count(2) == 2
 
 
 def test_matplotlib_shared_visual_language_edits_native_artists() -> None:

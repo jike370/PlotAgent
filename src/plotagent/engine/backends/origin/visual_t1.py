@@ -904,6 +904,22 @@ def _verify_label_style(
     return observed
 
 
+def _series_numeric_tolerance(name: str) -> float:
+    # Origin 2024 stores plot and border widths at 0.1 pt resolution.  The
+    # setter accepts finer decimals, but a saved-and-reopened project reports
+    # the nearest tenth (for example 2.25 -> 2.3).  Treat half a storage step
+    # as the native representational tolerance; other numeric properties stay
+    # exact at the public contract's precision.
+    return 0.051 if name in {"line_width", "fill_stroke_width"} else 1e-7
+
+
+def _legend_column_count(stored: int) -> int:
+    # Origin normalizes an explicit single-column legend to ncols=0, its
+    # native "automatic vertical layout" sentinel.  The renderer-neutral
+    # contract expresses that same visible state as one column.
+    return 1 if stored == 0 else stored
+
+
 def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, object]:
     layer, plot_index = _layer_and_plot(graph, action.target)
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
@@ -991,7 +1007,12 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         if requested is None:
             continue
         value = _get_plot_option(op, plot_range, option)
-        _require_number(name, value, expected)
+        _require_number(
+            name,
+            value,
+            expected,
+            tolerance=_series_numeric_tolerance(name),
+        )
         observed[name] = value
     for name, requested, property_path in (
         ("line_opacity", action.line_opacity, "transparency"),
@@ -1223,7 +1244,7 @@ def _verify_actions(
                 if action.visible is not None:
                     _require_equal("legend visibility", observed["show"], int(action.visible))
                 if action.columns is not None:
-                    columns = legend.get_int("ncols")
+                    columns = _legend_column_count(legend.get_int("ncols"))
                     _require_equal("legend columns", columns, action.columns)
                     observed["columns"] = columns
                 if action.title is not None:
