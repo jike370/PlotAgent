@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import ctypes
 import hashlib
 import json
 import os
@@ -9,8 +10,8 @@ import platform
 import shutil
 import subprocess
 import sys
+import threading
 import time
-import tracemalloc
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,7 +39,7 @@ class OperationalResult:
     domain: str
     status: str
     duration_ms: float
-    peak_python_mb: float | None
+    peak_working_set_mb: float | None
     observation: str
     evidence: str
 
@@ -59,6 +60,60 @@ def _write_large_csv(path: Path, *, rows: int = 100_000) -> None:
             writer.writerow((index / 1000, (index % 997) / 10, f"组{index % 4 + 1}"))
 
 
+class _ProcessMemoryCounters(ctypes.Structure):
+    _fields_ = [
+        ("cb", ctypes.c_ulong),
+        ("page_fault_count", ctypes.c_ulong),
+        ("peak_working_set_size", ctypes.c_size_t),
+        ("working_set_size", ctypes.c_size_t),
+        ("quota_peak_paged_pool_usage", ctypes.c_size_t),
+        ("quota_paged_pool_usage", ctypes.c_size_t),
+        ("quota_peak_non_paged_pool_usage", ctypes.c_size_t),
+        ("quota_non_paged_pool_usage", ctypes.c_size_t),
+        ("pagefile_usage", ctypes.c_size_t),
+        ("peak_pagefile_usage", ctypes.c_size_t),
+    ]
+
+
+def _windows_working_set_bytes() -> int | None:
+    if os.name != "nt":
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+    psapi.GetProcessMemoryInfo.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(_ProcessMemoryCounters),
+        ctypes.c_ulong,
+    ]
+    psapi.GetProcessMemoryInfo.restype = ctypes.c_int
+    counters = _ProcessMemoryCounters()
+    counters.cb = ctypes.sizeof(counters)
+    if not psapi.GetProcessMemoryInfo(
+        kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb
+    ):
+        return None
+    return int(counters.working_set_size)
+
+
+def _start_memory_sampler() -> tuple[threading.Event, threading.Thread, list[int]]:
+    stop = threading.Event()
+    samples: list[int] = []
+
+    def sample() -> None:
+        while not stop.wait(0.02):
+            value = _windows_working_set_bytes()
+            if value is not None:
+                samples.append(value)
+
+    first = _windows_working_set_bytes()
+    if first is not None:
+        samples.append(first)
+    thread = threading.Thread(target=sample, name="release-memory-sampler", daemon=True)
+    thread.start()
+    return stop, thread, samples
+
+
 def _import_case(
     output: Path,
     *,
@@ -70,7 +125,7 @@ def _import_case(
 ) -> OperationalResult:
     workspace = output / "workspaces" / case_id
     started = time.perf_counter()
-    tracemalloc.start()
+    stop_sampling, sampler, memory_samples = _start_memory_sampler()
     try:
         with ProjectStore.create(workspace, project_id=f"project:{case_id}") as project:
             outcome = ProjectImportService(project).import_resource(
@@ -102,8 +157,8 @@ def _import_case(
         status = "FAIL"
         observation = f"{type(exc).__name__}: {exc}"
     finally:
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
+        stop_sampling.set()
+        sampler.join(timeout=1)
     duration_ms = (time.perf_counter() - started) * 1000
     shutil.rmtree(workspace, ignore_errors=True)
     return OperationalResult(
@@ -111,7 +166,9 @@ def _import_case(
         domain="import",
         status=status,
         duration_ms=round(duration_ms, 3),
-        peak_python_mb=round(peak / 1024 / 1024, 3),
+        peak_working_set_mb=(
+            round(max(memory_samples) / 1024 / 1024, 3) if memory_samples else None
+        ),
         observation=observation,
         evidence=str(source.relative_to(REPOSITORY))
         if source.is_relative_to(REPOSITORY)
@@ -149,7 +206,7 @@ def _pytest_case(output: Path, nodeid: str) -> OperationalResult:
         domain="batch_state",
         status="PASS" if completed.returncode == 0 else "FAIL",
         duration_ms=round(duration_ms, 3),
-        peak_python_mb=None,
+        peak_working_set_mb=None,
         observation=f"{nodeid}; {summary}",
         evidence=str(log.relative_to(output)),
     )
@@ -223,14 +280,14 @@ def execute(output: Path) -> tuple[OperationalResult, ...]:
         f"- FAIL: {metadata['fail_count']}",
         "- Real model calls: 0",
         "",
-        "| Case | Domain | Status | Duration ms | Peak Python MB | Observation |",
+        "| Case | Domain | Status | Duration ms | Peak working set MB | Observation |",
         "|---|---|---:|---:|---:|---|",
     ]
     for item in results:
         observation = item.observation.replace("|", "\\|").replace("\n", " ")
         lines.append(
             f"| {item.case_id} | {item.domain} | {item.status} | "
-            f"{item.duration_ms:.3f} | {item.peak_python_mb or ''} | {observation} |"
+            f"{item.duration_ms:.3f} | {item.peak_working_set_mb or ''} | {observation} |"
         )
     (output / "REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return tuple(results)

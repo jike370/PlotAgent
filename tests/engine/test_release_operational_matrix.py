@@ -36,5 +36,5 @@ def test_large_import_probe_uses_real_csv_and_reports_a_committed_dataset(
     assert "datasets=1" in result.observation
     assert "rows=[1000]" in result.observation
     assert result.duration_ms > 0
-    assert result.peak_python_mb is not None and result.peak_python_mb > 0
+    assert result.peak_working_set_mb is not None and result.peak_working_set_mb > 0
     assert not (tmp_path / "evidence" / "workspaces" / "IMPORT-CSV-1K").exists()
