@@ -42,8 +42,99 @@ const defaultSeriesStyle = {
   fill_stroke_style: 'solid',
 } as const
 
+const historyMetadataKeys = new Set([
+  'operation',
+  'action_id',
+  'expected_plot_version',
+  'target',
+  'target_alias',
+])
+
+const preciselyReversibleParameters: Readonly<Record<string, ReadonlySet<string>>> = {
+  set_title: new Set(['text']),
+  set_axis: new Set([
+    'label',
+    'scale',
+    'reverse',
+    'minimum',
+    'maximum',
+    'tick_labels_visible',
+    'major_ticks_visible',
+    'minor_ticks_visible',
+    'tick_direction',
+    'axis_line_visible',
+    'axis_title_visible',
+  ]),
+  set_series_style: new Set([
+    'visible',
+    'line_stroke_color',
+    'line_width_pt',
+    'line_style',
+    'line_opacity',
+    'marker_shape',
+    'marker_size_pt',
+    'marker_interior',
+    'marker_fill_color',
+    'marker_stroke_color',
+    'marker_stroke_width_pt',
+    'marker_opacity',
+    'fill_color',
+    'fill_opacity',
+    'fill_stroke_color',
+    'fill_stroke_width_pt',
+    'fill_stroke_style',
+  ]),
+  set_colormap: new Set([
+    'palette',
+    'reverse',
+    'minimum',
+    'maximum',
+    'midpoint',
+    'mode',
+    'levels',
+    'missing_color',
+    'colorbar_visible',
+    'colorbar_anchor',
+    'colorbar_title',
+    'colorbar_tick_format',
+  ]),
+  set_error_style: new Set([
+    'bar_color',
+    'bar_width_pt',
+    'cap_size_pt',
+    'bar_opacity',
+    'band_fill_color',
+    'band_fill_opacity',
+    'band_stroke_color',
+    'band_stroke_width_pt',
+  ]),
+  set_data_labels: new Set([
+    'visible',
+    'value_format',
+    'prefix',
+    'suffix',
+    'position',
+    'rotation_deg',
+    'font_family',
+    'font_size_pt',
+    'font_weight',
+    'font_color',
+  ]),
+  set_legend: new Set(['visible', 'anchor']),
+  set_chart_parameter: new Set(['parameter', 'value']),
+}
+
+function hasOnlyPreciselyReversibleParameters(value: Record<string, JsonValue>, operation: string): boolean {
+  const allowed = preciselyReversibleParameters[operation]
+  if (allowed === undefined) return false
+  return Object.entries(value).every(([key, fieldValue]) => (
+    fieldValue === null || historyMetadataKeys.has(key) || allowed.has(key)
+  ))
+}
+
 function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValue; redo: JsonValue } | undefined {
   if (!isJsonRecord(value) || typeof value.operation !== 'string') return undefined
+  if (!hasOnlyPreciselyReversibleParameters(value, value.operation)) return undefined
   const target = typeof value.target === 'string'
     ? value.target
     : typeof value.target_alias === 'string'

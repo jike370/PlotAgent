@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import engineProfileCatalog from '../../../shared/generated/engine-profile-catalog.json'
 import type { ProductPlot } from './productState'
 import { plotHistoryEntry } from './plotHistory'
 
@@ -101,5 +102,35 @@ describe('plot history', () => {
         operation: 'set_series_style', target: 'series:one', visible: true,
       }],
     })
+  })
+
+  it('refuses a partial undo when an action contains parameters without an exact inverse', () => {
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_title', target: 'plot:one', text: '新标题', font_size_pt: 14,
+    }])).toBeUndefined()
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_axis', target: 'axis:y', label: 'Intensity', major_grid_visible: true,
+    }])).toBeUndefined()
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_legend', target: 'legend:one', visible: false, columns: 2, title: 'Groups',
+    }])).toBeUndefined()
+  })
+
+  it('constructs the basic reversible edit history for every formal chart profile', () => {
+    expect(engineProfileCatalog.profiles).toHaveLength(34)
+    for (const profile of engineProfileCatalog.profiles) {
+      const profilePlot = {
+        ...plot,
+        chartId: profile.profile_id,
+      } as ProductPlot
+      const entry = plotHistoryEntry(profilePlot, [
+        { operation: 'set_title', target: 'plot:one', text: `${profile.profile_id} title` },
+        { operation: 'set_axis', target: 'axis:y', label: 'Signal' },
+        { operation: 'set_series_style', target: 'series:one', visible: false },
+      ])
+      expect(entry, profile.profile_id).toBeDefined()
+      expect(entry?.undoActions, profile.profile_id).toHaveLength(3)
+      expect(entry?.redoActions, profile.profile_id).toHaveLength(3)
+    }
   })
 })
