@@ -478,6 +478,166 @@ def test_repair_can_stage_a_revised_intent_without_an_extra_question(tmp_path: P
         }
 
 
+def test_repair_host_requires_the_next_intent_version_and_preserves_item_scope(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = envelope().model_copy(
+            update={
+                "project_revision": domain.revision,
+                "selected_sources": (
+                    SourceDatasetRef(
+                        source_dataset_id=source.source_dataset_id,
+                        source_version=source.source_version,
+                        content_hash=source.content_hash,
+                    ),
+                ),
+            }
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action("task:test")
+        first_id = str(cast(dict[str, object], first["activation"])["activation_id"])
+        ledger.mark_activation_running(first_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=first_id,
+                task_id="task:test",
+                task_version=1,
+                intent=intent(first_id),
+            )
+        )
+        coordinator.next_action("task:test")
+        checkpoint = ledger.get_task("task:test")
+        checkpoint = ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="executing",
+            reason_code="TEST_CONFIRMED",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_ITEM_STARTED",
+        )
+        failure = TaskError(
+            code="WORKFLOW_SOURCES_NOT_COMBINED",
+            category="semantic_conflict",
+            message="The confirmed plan omitted its multi-source alignment.",
+            retryable=False,
+            requires_user=True,
+            side_effect_state="known_none",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="running",
+            next_state="repairable_failed",
+            reason_code="TEST_ITEM_FAILED",
+            error=failure,
+        )
+        report = VerificationReport(
+            report_id="verification:test-plan-revision",
+            task_id="task:test",
+            task_version=checkpoint.task_version,
+            intent=checkpoint.intent,
+            item_id="item:test.1",
+            status="failed",
+            claims=(
+                VerificationClaim(
+                    claim_id="claim:test-plan-revision",
+                    status="failed",
+                    expected="The confirmed item resolves to one prepared view.",
+                    observed=failure.message,
+                    repair_scope=("item:test.1",),
+                    error=failure,
+                ),
+            ),
+            content_hash="0" * 64,
+            verified_at="2026-08-18T10:01:00Z",
+        )
+        report = report.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    report.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        checkpoint = ledger.record_verification_report(report)
+        ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="partial",
+            reason_code="TEST_PARTIAL",
+        )
+        repair = coordinator.next_action("task:test")
+        repair_activation = cast(dict[str, object], repair["activation"])
+        repair_id = str(repair_activation["activation_id"])
+        repair_version = int(cast(int, repair_activation["task_version"]))
+        ledger.mark_activation_running(repair_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        prepared = host.prepare(repair_id)
+        assert "same intent_id, the next intent_version" in cast(
+            str, prepared["system_prompt"]
+        )
+        context = cast(dict[str, object], prepared["context"])
+        revised = intent(
+            repair_id,
+            intent_version=2,
+            task_version=repair_version,
+            context_hash=cast(str, context["content_hash"]),
+        )
+        accepted = host.validate_yield(
+            repair_id,
+            cast(
+                JsonValue,
+                AgentIntentReady(
+                    activation_id=repair_id,
+                    task_id="task:test",
+                    task_version=repair_version,
+                    intent=revised,
+                ).model_dump(mode="json"),
+            ),
+        )
+        assert accepted.outcome == "intent_ready"
+
+        stale_revision = revised.model_copy(
+            update={"intent_version": 1, "content_hash": "0" * 64}
+        )
+        stale_revision = stale_revision.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    stale_revision.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        with pytest.raises(AgentFoundationError) as invalid:
+            host.validate_yield(
+                repair_id,
+                cast(
+                    JsonValue,
+                    AgentIntentReady(
+                        activation_id=repair_id,
+                        task_id="task:test",
+                        task_version=repair_version,
+                        intent=stale_revision,
+                    ).model_dump(mode="json"),
+                ),
+            )
+        assert invalid.value.code == "INTENT_REVISION_INVALID"
+
+
 def test_context_authority_stays_current_until_yield_then_waits_for_confirmation(
     tmp_path: Path,
 ) -> None:

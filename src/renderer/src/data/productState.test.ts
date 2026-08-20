@@ -427,6 +427,42 @@ describe('product plot state', () => {
     expect(plan?.resumable).toBe(false)
   })
 
+  it('does not offer unchanged retry for a persisted plan-revision failure', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:missing-combine',
+        items: [{
+          item_id: 'item:missing-combine',
+          task_kind: 'create',
+          profile_id: 'X38',
+          sources: [
+            { source_alias: 'data_1', source_dataset_id: 'source:one' },
+            { source_alias: 'data_2', source_dataset_id: 'source:two' },
+          ],
+          bindings: [],
+          visual_actions: [],
+        }],
+      },
+      state: 'partial',
+      item_progress: [{
+        item_id: 'item:missing-combine',
+        state: 'repairable_failed',
+        attempt_count: 1,
+        last_error: {
+          code: 'WORKFLOW_SOURCES_NOT_COMBINED',
+          category: 'deterministic_technical',
+          message: '多来源尚未合并。',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      }],
+    })
+
+    expect(plan?.state).toBe('partially_succeeded')
+    expect(plan?.resumable).toBe(false)
+  })
+
   it('preserves the binding source when field ids repeat across datasets', () => {
     const plan = readWorkflowPlan({
       plan: {

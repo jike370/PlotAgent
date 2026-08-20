@@ -880,6 +880,12 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
   return { kind: 'rejected', title: '无法识别结果', message: 'Core 未返回受支持的工作流结果。' }
 }
 
+const planRevisionRequiredErrorCodes = new Set([
+  'WORKFLOW_BINDING_OUTPUT_MISSING',
+  'WORKFLOW_SOURCES_NOT_COMBINED',
+  'WORKFLOW_SOURCE_UNUSED',
+])
+
 export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined {
   const root = isJsonRecord(value) ? value : undefined
   const durableTask = root !== undefined && isJsonRecord(root.task) ? root.task : undefined
@@ -1045,6 +1051,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
     resumable: state === 'partially_succeeded'
       && steps.some((step) => step.failure?.retryable === true
+        && !planRevisionRequiredErrorCodes.has(step.failure.code)
         && step.failure.category === 'deterministic_technical'
         && step.failure.requiresUser !== true
         && step.failure.sideEffectState === 'known_none'),

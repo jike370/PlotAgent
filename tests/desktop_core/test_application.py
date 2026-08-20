@@ -13,6 +13,7 @@ import pytest
 from plotagent.contracts.agent_tasks import AgentIntentReady, TaskIntent
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
+from plotagent.desktop_core.agent_execution import DurableTaskExecutionService
 from plotagent.desktop_core.application import DesktopApplication
 from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue
@@ -813,10 +814,14 @@ def _accept_scoped_retry(
         "agent.tasks.activation.running",
         {"project_id": project_id, "activation_id": activation_id},
     )
-    harness.call(
+    repair_environment = harness.call(
         "agent.activations.prepare",
         {"project_id": project_id, "activation_id": activation_id},
     )
+    repair_prompt = cast(str, repair_environment["system_prompt"])
+    assert "return intent_ready with the same intent_id" in repair_prompt
+    assert "WORKFLOW_SOURCES_NOT_COMBINED" in repair_prompt
+    assert "shown to the user for reconfirmation" in repair_prompt
     validated = harness.call(
         "agent.yields.validate",
         {
@@ -2089,6 +2094,12 @@ def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
         "item:repair-needs-input.1": 1,
         "item:repair-needs-input.2": 2,
     }
+
+
+def test_multi_source_plan_structure_failure_requires_agent_revision() -> None:
+    assert DurableTaskExecutionService._classify_failure(
+        "WORKFLOW_SOURCES_NOT_COMBINED"
+    ) == ("semantic_conflict", False, True)
 
 
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:

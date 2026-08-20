@@ -1409,6 +1409,106 @@ describe('AgentFoundationRuntime', () => {
       })
   })
 
+  it('returns an Agent-revised plan for reconfirmation instead of retrying an invalid plan', async () => {
+    class RevisionCore {
+      readonly calls: string[] = []
+      private state = 'partial'
+      private pumpCalls = 0
+
+      async request(method: string): Promise<unknown> {
+        this.calls.push(method)
+        if (method === 'agent.tasks.list') {
+          return { tasks: [{ task_id: 'task:revise', state: this.state, intent: { intent_id: 'intent:revise' } }] }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: {
+              task_id: 'task:revise',
+              task_version: this.state === 'partial' ? 8 : 11,
+              state: this.state,
+              items: [{
+                item_id: 'item:revise.1',
+                state: this.state === 'partial' ? 'repairable_failed' : 'staged',
+                attempt_count: 1,
+                last_error: this.state === 'partial'
+                  ? {
+                      code: 'WORKFLOW_SOURCES_NOT_COMBINED',
+                      category: 'semantic_conflict',
+                      retryable: false,
+                      requires_user: true,
+                      side_effect_state: 'known_none',
+                    }
+                  : null,
+              }],
+            },
+            plan: { plan_id: this.state === 'partial' ? 'plan:revise' : 'plan:revise.v2', items: [] },
+            plan_hash: 'b'.repeat(64),
+            confirmation_state: this.state === 'partial' ? 'confirmed' : 'pending',
+          }
+        }
+        if (method === 'agent.tasks.pump.next') {
+          this.pumpCalls += 1
+          return this.pumpCalls === 1
+            ? {
+                kind: 'run_activation',
+                activation: {
+                  activation_id: 'activation:revise',
+                  task_id: 'task:revise',
+                  task_version: 9,
+                  reason: 'verification_failed',
+                  task_state: 'repairing',
+                  permission_phase: 'p0_read',
+                  allowed_tools: ['inspect_source'],
+                  verification_report_ids: ['verification:revise.1.attempt-1'],
+                },
+              }
+            : { kind: 'wait', reason: 'awaiting_reconfirmation', task_state: 'awaiting_reconfirmation' }
+        }
+        if (method === 'agent.tasks.activation.running') return { state: 'repairing' }
+        if (method === 'agent.tasks.yield.accept') {
+          this.state = 'awaiting_reconfirmation'
+          return { state: this.state }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      }
+    }
+    const core = new RevisionCore()
+    const runtime = new AgentFoundationRuntime({
+      core,
+      emit: () => undefined,
+      createRuntime: () => ({
+        abort: () => false,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
+          outcome: 'intent_ready',
+          activation_id: activation.activation_id,
+          task_id: activation.task_id,
+          task_version: activation.task_version,
+          intent: {
+            intent_id: 'intent:revise',
+            intent_version: 2,
+            task_id: activation.task_id,
+            task_version: activation.task_version,
+            created_by_activation_id: activation.activation_id,
+            summary: '按共同 X 对齐六个来源后创建 X38。',
+            items: [],
+            context_hash: 'a'.repeat(64),
+            content_hash: 'b'.repeat(64),
+          },
+        }),
+      }),
+    })
+
+    await runtime.list('project:test')
+    await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:revise' }))
+      .resolves.toMatchObject({
+        task: { state: 'awaiting_reconfirmation' },
+        plan: { plan_id: 'plan:revise.v2' },
+        confirmation_state: 'pending',
+      })
+    expect(core.calls).toContain('agent.tasks.yield.accept')
+    expect(core.calls).not.toContain('agent.tasks.execute')
+  })
+
   it('treats an already verified revised plan as an idempotent execution success', async () => {
     const calls: string[] = []
     const view = {

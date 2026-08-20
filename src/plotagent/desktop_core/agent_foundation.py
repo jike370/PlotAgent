@@ -292,6 +292,35 @@ class DurableAgentCoreHost:
                         "INTENT_REVISION_INVALID",
                         "A user continuation must create the next version of the existing intent.",
                     )
+            elif activation.task_state == "repairing":
+                prior_ref = activation.confirmed_intent
+                if (
+                    prior_ref is None
+                    or intent.intent_id != prior_ref.intent_id
+                    or intent.intent_version != prior_ref.intent_version + 1
+                ):
+                    raise AgentFoundationError(
+                        "INTENT_REVISION_INVALID",
+                        "A plan repair must create the next version of the confirmed intent.",
+                    )
+                prior_intent = self.ledger.get_intent(activation.task_id)
+                prior_by_id = {item.item_id: item for item in prior_intent.items}
+                revised_by_id = {item.item_id: item for item in intent.items}
+                if set(revised_by_id) != set(prior_by_id):
+                    raise AgentFoundationError(
+                        "REPAIR_SCOPE_INVALID",
+                        "A plan repair must preserve every confirmed task item.",
+                    )
+                state_by_id = dict(activation.item_states)
+                if any(
+                    state_by_id.get(item_id) == "succeeded"
+                    and revised_by_id[item_id] != prior_item
+                    for item_id, prior_item in prior_by_id.items()
+                ):
+                    raise AgentFoundationError(
+                        "REPAIR_SCOPE_INVALID",
+                        "A plan repair cannot change an already verified successful item.",
+                    )
             if intent.context_hash != runtime.context.content_hash:
                 raise AgentFoundationError(
                     "YIELD_CONTEXT_STALE", "The Agent intent was built from another context."
@@ -944,15 +973,25 @@ class DurableAgentCoreHost:
     def _environment(self, runtime: _ActivationRuntime) -> dict[str, object]:
         definitions = runtime.gateway.allowed_definitions(runtime.activation)
         system_prompt = self._system_prompt(runtime.context)
-        if runtime.activation.reason == "verification_failed":
+        if runtime.activation.task_state == "repairing":
             system_prompt += (
-                " This activation is a scoped technical recovery. Inspect only the failed "
-                "verification evidence and affected items named in the context. If the same "
-                "confirmed operation has a deterministic technical failure, is retryable, "
-                "requires no user input, has known-none side effects, and can be retried without "
-                "changing fields, chart semantics, or output scope, return technical_repair_ready "
-                "with exactly the repair operation retry_execution. Otherwise return needs_input, "
-                "blocked, or unsupported; never disguise a semantic failure as a technical retry."
+                " This activation is a scoped recovery. Inspect only the failed "
+                "verification evidence and affected items named in the context. Preserve every "
+                "task item ID and copy every already-succeeded item exactly. If the same confirmed "
+                "operation has a deterministic technical failure, is retryable, requires no user "
+                "input, has known-none side effects, and can be retried without changing fields, "
+                "chart semantics, or output scope, return technical_repair_ready with exactly the "
+                "repair operation retry_execution. If the evidence instead proves that the "
+                "confirmed structured plan is incomplete or invalid, and the selected context "
+                "already contains enough evidence to correct it without a new semantic choice, "
+                "return intent_ready with the same intent_id, the next intent_version, and only "
+                "the necessary correction to unfinished items. For example, a multi-source item "
+                "rejected with WORKFLOW_SOURCES_NOT_COMBINED must declare concatenate_sources or "
+                "align_sources_on_x as appropriate and bind the operation outputs. The revised "
+                "intent will be shown to the user for reconfirmation; never execute it silently. "
+                "Return needs_input only when a genuinely missing semantic fact prevents that "
+                "revision. Return blocked or unsupported only when their typed conditions hold; "
+                "never disguise a semantic plan failure as an unchanged technical retry."
             )
         elif runtime.activation.reason in {"user_answered", "user_corrected"}:
             if runtime.activation.confirmed_intent is None:

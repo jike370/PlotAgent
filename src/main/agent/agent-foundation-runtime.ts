@@ -86,6 +86,12 @@ const PLAN_VISIBLE_TASK_STATES = new Set([
   'completed_verified',
 ])
 
+const PLAN_REVISION_REQUIRED_ERROR_CODES = new Set([
+  'WORKFLOW_BINDING_OUTPUT_MISSING',
+  'WORKFLOW_SOURCES_NOT_COMBINED',
+  'WORKFLOW_SOURCE_UNUSED',
+])
+
 function record(value: unknown, label: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new AgentFoundationRuntimeError('AGENT_V2_PROTOCOL_INVALID', `${label} was invalid.`)
@@ -157,7 +163,8 @@ function hasSafeDeterministicRetry(task: Record<string, unknown>): boolean {
     const error = item.last_error
     if (error === null || typeof error !== 'object' || Array.isArray(error)) return false
     const detail = error as Record<string, unknown>
-    return detail.category === 'deterministic_technical'
+    return !PLAN_REVISION_REQUIRED_ERROR_CODES.has(String(detail.code))
+      && detail.category === 'deterministic_technical'
       && detail.retryable === true
       && detail.requires_user === false
       && detail.side_effect_state === 'known_none'

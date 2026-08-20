@@ -265,6 +265,116 @@ def test_compiler_accepts_agent_declared_concatenate_identity_field() -> None:
     assert plan.items[0].bindings[-1].field_id.startswith("field:workflow_")
 
 
+def test_compiler_rejects_uncombined_multi_source_item_before_confirmation() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("X38",),
+        }
+    )
+    draft = TaskDraft(
+        draft_id="draft:missing-align",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="错误地跨来源直接绑定系列",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:missing-align.1",
+                plot_alias="plot_1",
+                profile_id="X38",
+                source_aliases=("data_1", "data_2"),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x", source_alias="data_1", field_alias="data_1_time"
+                    ),
+                    DraftFieldBinding(
+                        role="series_1",
+                        source_alias="data_1",
+                        field_alias="data_1_response",
+                    ),
+                    DraftFieldBinding(
+                        role="series_2",
+                        source_alias="data_2",
+                        field_alias="data_2_response",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "WORKFLOW_SOURCES_NOT_COMBINED"
+    assert validation.message is not None
+    assert "align_sources_on_x" in validation.message
+
+
+def test_compiler_rejects_combine_operation_that_omits_a_declared_source() -> None:
+    base = _context()
+    third_source = base.sources[0].model_copy(
+        update={
+            "source_alias": "data_3",
+            "source_dataset_id": "source:three",
+            "content_hash": "c" * 64,
+            "display_name": "input.xlsx > Sheet3",
+        }
+    )
+    third_fields = tuple(
+        field.model_copy(
+            update={
+                "field_alias": field.field_alias.replace("data_1", "data_3"),
+                "source_alias": "data_3",
+                "field_id": field.field_id.replace("data_1", "data_3"),
+            }
+        )
+        for field in base.fields
+        if field.source_alias == "data_1"
+    )
+    context = base.model_copy(
+        update={
+            "sources": (*base.sources, third_source),
+            "fields": (*base.fields, *third_fields),
+            "selected_source_aliases": ("data_1", "data_2", "data_3"),
+            "selected_profile_ids": ("K02",),
+        }
+    )
+    draft = TaskDraft(
+        draft_id="draft:partial-concat",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="错误地遗漏第三个数据来源",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:partial-concat.1",
+                plot_alias="plot_1",
+                profile_id="K02",
+                source_aliases=("data_1", "data_2", "data_3"),
+                data_operations=(
+                    ConcatenateSources(source_aliases=("data_1", "data_2")),
+                ),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x", source_alias="data_1", field_alias="data_1_time"
+                    ),
+                    DraftFieldBinding(
+                        role="y", source_alias="data_1", field_alias="data_1_response"
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "WORKFLOW_SOURCES_NOT_COMBINED"
+
+
 def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series() -> None:
     context = _context().model_copy(
         update={

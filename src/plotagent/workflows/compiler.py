@@ -423,12 +423,22 @@ class DraftCompiler:
                     raise WorkflowCompileError(
                         "SOURCE_ALIAS_INVALID", "数据拼接引用了已不可用的数据表。"
                     )
+                if set(operation.source_aliases) != set(available):
+                    raise WorkflowCompileError(
+                        "WORKFLOW_SOURCES_NOT_COMBINED",
+                        "同一任务项的全部数据来源必须在一次明确的数据合并操作中处理。",
+                    )
                 head = operation.source_aliases[0]
                 available = {
                     head: available[head] | {operation.source_label_field},
                 }
                 continue
             if operation.operation == "align_sources_on_x":
+                if set(operation.source_aliases) != set(available):
+                    raise WorkflowCompileError(
+                        "WORKFLOW_SOURCES_NOT_COMBINED",
+                        "同一任务项的全部数据来源必须在一次明确的数据合并操作中处理。",
+                    )
                 for source_alias, x_alias, value_alias in zip(
                     operation.source_aliases,
                     operation.x_field_aliases,
@@ -473,6 +483,12 @@ class DraftCompiler:
                 available[source_alias] = set(operation.index_field_aliases) | set(outputs)
             else:
                 available[source_alias].update(outputs)
+        if len(available) != 1:
+            raise WorkflowCompileError(
+                "WORKFLOW_SOURCES_NOT_COMBINED",
+                "同一任务项的多个数据来源必须通过 concatenate_sources 或 "
+                "align_sources_on_x 明确合并。",
+            )
 
     @staticmethod
     def _operation_fields(operation: DataOperation) -> tuple[tuple[str, ...], tuple[str, ...]]:

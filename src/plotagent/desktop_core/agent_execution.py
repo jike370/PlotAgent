@@ -45,6 +45,14 @@ _TaskErrorCategory = Literal[
     "runtime",
 ]
 
+_PLAN_REVISION_REQUIRED_CODES = frozenset(
+    {
+        "WORKFLOW_BINDING_OUTPUT_MISSING",
+        "WORKFLOW_SOURCES_NOT_COMBINED",
+        "WORKFLOW_SOURCE_UNUSED",
+    }
+)
+
 
 class DurableExecutionError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
@@ -798,6 +806,11 @@ class DurableTaskExecutionService:
     @staticmethod
     def _classify_failure(code: str) -> tuple[_TaskErrorCategory, bool, bool]:
         normalized = code.upper()
+        if normalized in _PLAN_REVISION_REQUIRED_CODES:
+            # These failures prove that the confirmed structured plan is invalid.
+            # Re-running the immutable plan cannot help: the Agent must stage a
+            # corrected intent and the user must reconfirm it.
+            return "semantic_conflict", False, True
         if any(token in normalized for token in ("TIMEOUT", "UNAVAILABLE", "DISCONNECT")):
             return "transient_external", True, False
         if any(token in normalized for token in ("STALE", "REVISION", "CONFLICT")):
