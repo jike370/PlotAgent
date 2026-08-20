@@ -16,7 +16,7 @@
 - Windows 11 x64；
 - 正式 Electron 入口；
 - 打包版 Python Core；
-- 当前声明的单一 Origin exact version；
+- 当前声明的单一 Origin exact version：OriginPro 2024、文件版本 10.1.0（本机 Build 178）；预检必须读取 `Origin64.exe` 的 Windows 文件版本，不能根据文件名或安装路径猜版本；
 - 同一提交、干净工作树、冻结输入和独立输出目录；
 - Pi/provider状态与本地 Core 状态分开记录。
 
