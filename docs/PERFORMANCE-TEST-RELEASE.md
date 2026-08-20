@@ -28,6 +28,16 @@
 - OPJU：34个 representative 在声明的 Origin 版本 live+fresh-reopen；minimal/edge 由同一合同、validator和稳定错误覆盖；
 - 当前 renderer 变化后，K06、X13、X38、X40必须重新生成视觉和原生产物证据。
 
+冻结夹具位于 `scripts/release_matrix_cases.py`，离线阶段执行命令为：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_matrix.py
+```
+
+离线阶段必须得到306个唯一MatrixKey、68份PNG、68份SVG；预期只有34个
+`representative:opju` 保持 `UNVERIFIED`，等待后续真实Origin live+fresh阶段关闭。
+离线报告不得把这34项写成PASS，也不得用历史OPJU替代当前提交的原生证据。
+
 正式图清单以 [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) 为准。K16、K25、S01、S21及其他删除图只验证不可发现与 `CHART_TYPE_REMOVED`，不计入34图通过数。
 
 ## 4. 图形门禁
