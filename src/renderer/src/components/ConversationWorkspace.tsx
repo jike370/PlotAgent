@@ -51,6 +51,7 @@ import {
   type ConversationTimelineItem,
 } from '../data/conversationPersistence'
 import { parsePlotMentions, registerPlotReferences, type PlotReference } from '../data/plotReferences'
+import { AgentMessage } from './ConversationPrimitives'
 import {
   fieldMatchesRole,
   suggestedFieldMapping,
@@ -254,10 +255,7 @@ function InlineNotice({ notice }: { notice: ProductNotice }): React.JSX.Element 
 }
 
 function NoticeMessage({ notice }: { notice: ProductNotice }): React.JSX.Element {
-  return <div className="message message--agent conversation-history-message">
-    <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
-    <div className="agent-response"><InlineNotice notice={notice} /></div>
-  </div>
+  return <AgentMessage className="conversation-history-message"><InlineNotice notice={notice} /></AgentMessage>
 }
 
 function DatasetObject({
@@ -895,20 +893,21 @@ function ActivityMessage({
     ? 'OPJU 已生成，正在完成保存…'
     : '正在生成并验证 OPJU…'
   else if (busyAction.startsWith('export-')) label = '正在生成导出文件…'
-  return <div className="message message--agent conversation-activity" role="status" aria-live="polite">
-    <div className="agent-avatar" aria-hidden="true"><span>PA</span></div>
-    <div className="activity-message"><span className="activity-pulse" aria-hidden="true" />{label}
+  return <AgentMessage className="conversation-activity" live>
+    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><span>{label}</span>
       {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
-  </div>
+  </AgentMessage>
 }
 
 function ConversationTextMessage({ message }: { message: ConversationTextItem }): React.JSX.Element {
+  const paragraphs = [message.text, ...(message.questions ?? [])]
+    .filter((text, index, values) => text.trim().length > 0 && values.indexOf(text) === index)
   return message.role === 'user'
     ? <div className="message message--user"><div className="message-content">{message.text}</div><time className="message-time">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div>
-    : <div className={`message message--agent conversation-history-message conversation-history-message--${message.kind ?? 'info'}`}>
-        <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response">{message.title && <strong>{message.title}</strong>}<p>{message.text}</p>{message.questions?.map((question) => <p className="agent-question" key={question}>{question}</p>)}</div>
-      </div>
+    : <AgentMessage className={`conversation-history-message conversation-history-message--${message.kind ?? 'info'}`}>
+        {message.title && <strong>{message.title}</strong>}{paragraphs.map((paragraph, index) => <p className={index === 0 ? undefined : 'agent-question'} key={paragraph}>{paragraph}</p>)}
+      </AgentMessage>
 }
 
 function ExportResult({
@@ -1062,16 +1061,13 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="conversation-scroll">
           <div className="conversation-feed product-conversation-feed">
             {datasets.length === 0 ? (
-              <div className="message message--agent conversation-prompt"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>上传数据文件，并告诉我你想画什么图。</p></div></div>
+              <AgentMessage className="conversation-prompt"><p>上传数据文件，并告诉我你想画什么图。</p></AgentMessage>
             ) : (
-              <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
+              <AgentMessage><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></AgentMessage>
             )}
             {timeline.map((item) => {
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
-              if (item.type === 'plan') return <div className="message message--agent" key={item.id}>
-                <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
-                <div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></div>
-              </div>
+              if (item.type === 'plan') return <AgentMessage key={item.id}><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
               if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
               return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
@@ -1079,7 +1075,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
-            {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
+            {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>
       )}

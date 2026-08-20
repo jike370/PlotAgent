@@ -578,7 +578,7 @@ describe('PlotAgent real desktop workflow', () => {
     const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
     await user.type(composer, '用这些数据画图。')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
-    expect((await screen.findAllByText('请选择图类。')).length).toBeGreaterThan(0)
+    expect(await screen.findAllByText('请选择图类。')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -1292,7 +1292,7 @@ describe('PlotAgent real desktop workflow', () => {
         { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
     }))
-    expect((await screen.findAllByText('第二个数据表的 Y 字段是哪一列？')).length).toBeGreaterThan(0)
+    expect(await screen.findAllByText('第二个数据表的 Y 字段是哪一列？')).toHaveLength(1)
     expect(screen.queryByText('Core 未返回批量任务计划。')).not.toBeInTheDocument()
   })
 
@@ -1838,7 +1838,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '示例' }))
 
-    expect((await screen.findAllByText('哪一列应作为 Y？')).length).toBeGreaterThan(0)
+    expect(await screen.findAllByText('哪一列应作为 Y？')).toHaveLength(1)
     await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '使用 Response_mV。')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 

@@ -10,7 +10,7 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 **Creative North Star: “校准工作台”**
 
-界面像白昼实验室里整理干净、经过校准的仪器工作台。信息密度可以高，但每个对象都有明确归属；图表与数据是视觉主角，产品界面退居其后。整体气质严谨、清晰、有探索感，操作反馈直接而克制。当前视觉基线采用参考 PLOT 前端的灰白黑配色、组件比例和对话区尺寸，但不继承其三栏信息架构、常驻模型配置、Debug 或常驻版本栏。
+界面像白昼实验室里整理干净、经过校准的仪器工作台。信息密度可以高，但每个对象都有明确归属；图表与数据是视觉主角，产品界面退居其后。整体气质严谨、清晰、有探索感，操作反馈直接而克制。当前视觉基线采用冷灰蓝工作区与深墨色主操作，并吸收 Beautiful UI 的 AI-native 交互语法：对话、实时运行状态、确认卡、任务行、结构化表格和组合输入栏。它不复制参考站主题，也不继承三栏信息架构、常驻模型配置、Debug 或常驻版本栏。
 
 产品采用接近 ChatGPT 的项目与对话结构，但数据集、绘图批次、图表版本和导出结果必须以明确的结构化对象出现。默认界面保持轻量，需要精确控制时才进入聚焦编辑，不让专业参数长期占据主对话。
 
@@ -20,7 +20,7 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 **Key Characteristics:**
 
-- 灰白黑产品界面、纯白图表画布与低干扰工作区
+- 冷灰蓝产品界面、纯白图表画布与低干扰工作区
 - 对话优先、对象明确、复杂度逐步展开
 - 密集但有秩序的科研信息
 - 状态变化驱动的克制动效
@@ -28,29 +28,29 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 ## 2. Colors
 
-采用参考 PLOT 前端的 Restrained 灰白黑色板。下列 8-bit sRGB 色值是当前产品界面的视觉真值；实现可保留语义化 token 名称，但不得重新加入绿色品牌底色。科研图表继续使用独立的 Origin 对照色板，不能从产品界面色板继承颜色。
+采用低色度冷灰蓝色板。下列 8-bit sRGB 色值是当前产品界面的视觉真值；实现保留语义化 token 名称，不加入绿色品牌底色。科研图表继续使用独立的 Origin 对照色板，不能从产品界面色板继承颜色。
 
 ### Neutral and action
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `bg-page` | `#f3f4f6` | 应用窗口外层与分隔背景 |
-| `bg-shell` | `#fafafa` | 对话工作区背景 |
+| `bg-page` | `#eef2f7` | 应用窗口外层与分隔背景 |
+| `bg-shell` | `#fbfcfe` | 对话工作区背景 |
 | `bg-panel` | `#ffffff` | 左侧栏、弹层、对象主表面与图表画布 |
-| `bg-muted` | `#f5f5f5` | 次级工具、分组和 hover 基础 |
-| `bg-subtle` | `#e7e7e7` | 强 hover 与轻量分隔 |
-| `bg-selected` | `#e6e6e6` | 当前项目、对话、筛选和选中对象 |
-| `bg-editor` | `#f2f2f2` | 专业编辑工作区 chrome |
-| `border` | `#d4d4d4` | 输入、对象和分区边界 |
-| `border-soft` | `rgba(115,115,115,0.28)` | 低权重分隔线 |
-| `border-strong` | `#a3a3a3` | 活跃边界与高权重分隔 |
-| `text` | `#171717` | 正文、标题和主操作 |
-| `text-muted` | `#5f6368` | 次级信息、说明和 placeholder |
-| `text-chip` | `#2f2f2f` | 标签和上下文 token |
-| `accent` | `#171717` | 主按钮、当前操作和高权重选中 |
-| `accent-strong` | `#000000` | 主按钮 hover/active |
-| `accent-soft` | `#e5e5e5` | 次级操作 hover |
-| `user-message` | `#f0f0f0` | 用户消息气泡 |
+| `bg-muted` | `#f0f4f8` | 次级工具、分组和 hover 基础 |
+| `bg-subtle` | `#e4eaf1` | 强 hover 与轻量分隔 |
+| `bg-selected` | `#e7eef8` | 当前项目、对话、筛选和选中对象 |
+| `bg-editor` | `#f2f5f9` | 专业编辑工作区 chrome |
+| `border` | `#d7dee8` | 输入、对象和分区边界 |
+| `border-soft` | `rgba(91,109,134,0.20)` | 低权重分隔线 |
+| `border-strong` | `#aeb9c8` | 活跃边界与高权重分隔 |
+| `text` | `#18212f` | 正文、标题和主操作 |
+| `text-muted` | `#66758b` | 次级信息、说明和 placeholder |
+| `text-chip` | `#405069` | 标签和上下文 token |
+| `accent` | `#17283e` | 主按钮、当前操作和高权重选中 |
+| `accent-strong` | `#0d1929` | 主按钮 hover/active |
+| `accent-soft` | `#e7edf5` | 次级操作 hover |
+| `user-message` | `#edf2f8` | 用户消息气泡 |
 
 ### Semantic state
 
@@ -59,7 +59,7 @@ description: 面向通用科研用户的对话式本地绘图工作台
 | Success | `#16805d` | `#e8f6ef` |
 | Warning / NeedsInput | `#a15c00` | `#fff3d8` |
 | Danger | `#b42318` | `#fdecec` |
-| Info / keyboard focus | `#2563eb` | `#e8f0ff` |
+| Info / keyboard focus | `#4263eb` | `#e9edff` |
 
 正文 `#171717` 和次级文字 `#5f6368` 在白色/近白背景上满足 WCAG AA。参考实现的 placeholder `#6b7b78` 在白底约为 `4.44:1`，当前统一使用 `#5f6368`。
 
@@ -100,13 +100,15 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 ## 5. Reference component grammar
 
-参考 PLOT 前端提供组件的视觉基线，不提供产品对象模型。所有组件必须以 PlotAgent 的真实状态、字段和动作重新实现。
+Beautiful UI 提供 AI 界面的交互语法和视觉参照，不提供 PlotAgent 的领域模型。采用 Loading/Thinking、Approval、Task Rows、Chat、Prompt Bar、Diff/Table、Sidebar 和 Fine-tune Inspector 八类模式；不采用与当前产品无关的 Flowchart、Code Block、Recommendation/Confidence 等组件。所有组件必须以 PlotAgent 的真实状态、字段和动作重新实现。
+
+为控制施工风险，本阶段不整包引入 Tailwind、shadcn 或另一套 design-system runtime，也不复制参考站源码。现有 React、Lucide 与 CSS token 足以表达已选模式；只有未来出现复杂且无法可靠自建的无障碍控件时，才按单组件引入开源 primitive。未采用方案包括整站换壳、引入 assistant-ui 和迁移至 Tailwind/shadcn，原因是会扩大样式迁移面、测试面和桌面包依赖，而不会直接增加绘图能力。
 
 - **间距：** `4 / 8 / 12 / 16 / 20 / 24px` 六级；同级组件不创建任意间距。
 - **圆角：** `6 / 8 / 10 / 14px`；`999px` 只用于状态、筛选、文件、对象引用等 pill，不用于卡片和输入框。
 - **按钮：** 黑色主按钮、灰色次按钮、文本/图标三级；主提交按钮高 40px，普通工具按钮 32–36px，紧凑菜单项仍保持至少 32px 点击热区。
 - **输入：** 白/透明表面、清晰边界、蓝色 `2px` 键盘焦点；default、hover、focus、active、disabled、loading、error 必须完整。
-- **消息：** 用户消息使用 `#f0f0f0` 气泡并靠右；Agent 文字、任务进度和结构化结果靠左，不能让所有对象都变成相同卡片。
+- **消息：** 用户消息使用 `#edf2f8` 气泡并靠右；Agent 文字、任务进度和结构化结果靠左，不能让所有对象都变成相同卡片。
 - **提案与结果：** 沿用白色表面、10px 圆角、16px 内边距和紧凑动作组；数据、映射、警告、确认和产物必须来自真实对象。
 - **标签与引用：** pill 仅表达状态、文件、图形、对象引用和作用范围；不能把普通元数据全部胶囊化。
 - **菜单与弹层：** 使用标准 Popover/Dialog/Drawer，禁止在 overflow 容器内创建会被裁切的绝对定位菜单；Dialog 必须完成初始焦点、Tab 圈闭、Escape 和焦点恢复。
@@ -117,17 +119,17 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 主对话采用参考前端的阅读宽度和输入区尺度，同时允许复杂科研对象在同一内容轴内按需展开：
 
-- 左侧项目/对话栏基准宽度 `258px`；最小窗口压缩到 `230px`。主对话永远不恢复常驻右栏。
-- 工作区标题栏基准高度 `58px`。
-- 对话内容轴基准宽度 `920px`，左右内边距使用 `max(28px, calc((100% - 920px) / 2))`，上下节奏以 `24px` 为基准。
+- 左侧项目/对话栏基准宽度 `272px`；最小窗口压缩到 `230px`。主对话永远不恢复常驻右栏。
+- 工作区标题栏基准高度 `62px`。
+- 对话内容轴基准宽度 `980px`，左右内边距不小于 `28px`，上下节奏以 `24px` 为基准。
 - 普通 Agent 消息或提案默认最大宽度 `780px`；用户消息最大 `640px` 或内容轴的 `82%`；单图预览默认最大 `720px`。
-- Dataset、Mapping、Batch、ChangeSet、ExportRecord 等确实需要横向信息的结构化对象可扩展到完整 `920px` 内容轴，但默认只展示摘要，详情按需展开。
-- Composer 基准宽度 `840px`，距窗口底部 `22px`；文本区默认高 `40px`、最大高 `140px`。对象引用、作用范围、附件和图形选择在输入区上沿渐进展开。
+- Dataset、Mapping、Batch、ChangeSet、ExportRecord 等确实需要横向信息的结构化对象可扩展到完整 `980px` 内容轴，但默认只展示摘要，详情按需展开。
+- Composer 基准宽度 `900px`，距窗口底部 `20px`；文本区默认高 `58px`、最大高 `140px`。对象引用、作用范围、附件和图形选择在输入区上沿渐进展开。
 - 对话正文行宽保持 `65–75ch`；结构化表格和图形预览不受正文字符行宽限制。
 
 ## 7. Mature product patterns
 
-除参考 PLOT 的视觉语言外，交互设计只吸收成熟工具中能降低用户成本的通用模式，不拼贴其外观：
+除 Beautiful UI 的 AI 界面模式外，交互设计只吸收成熟工具中能降低用户成本的通用模式，不拼贴其外观：
 
 - **Windows desktop：** 标准控件、可预测 Tab 顺序、明确初始焦点、统一焦点视觉和键盘完整可达。
 - **Notion：** 同一权威对象可以在对话、资源库和专业工作区用不同视图表达；显式项目对象引用是后续增强，不依赖隐藏记忆。
@@ -136,6 +138,8 @@ description: 面向通用科研用户的对话式本地绘图工作台
 - **Raycast：** `Ctrl+K`、搜索和 Action menu 提供专家效率，同时所有关键动作仍可通过可见界面发现。
 
 模式来源：[Microsoft Windows keyboard interactions](https://learn.microsoft.com/en-us/windows/apps/develop/input/keyboard-interactions)、[Microsoft accessible Windows apps](https://learn.microsoft.com/en-au/windows/apps/design/accessibility/developing-inclusive-windows-apps)、[Notion database views](https://www.notion.com/help/category/database-views)、[Notion keyboard shortcuts](https://www.notion.com/help/keyboard-shortcuts)、[Linear board layout](https://linear.app/docs/board-layout)、[Figma properties panel](https://help.figma.com/hc/en-us/articles/360039832014-Design-Prototype-and-view-Code-in-the-Properties-Panel)、[Raycast keyboard shortcuts](https://manual.raycast.com/keyboard-shortcuts)。这些来源只作为交互原则依据，不改变 PlotAgent 已冻结的本地、明确选图、无常驻右栏和非分析平台边界。
+
+AI 界面模式来源：[Beautiful UI](https://www.beautifului.dev/)；其公开组件采用 MIT License。PlotAgent 仅复用通用交互模式和信息层级，领域状态、组件实现、文案和视觉 token 均在本项目内维护。
 
 ## 8. Core Interaction Patterns
 
@@ -181,8 +185,8 @@ description: 面向通用科研用户的对话式本地绘图工作台
 - **Do** 使用清晰焦点、键盘路径、色盲友好状态和 `prefers-reduced-motion`。
 - **Do** 把常用操作放在对话中，把精确参数逐步展开到聚焦编辑。
 - **Do** 把 PreparedDataset/Plot Data 标为绘图复现产物，把固定计算参数、排除计数与预计算来源做成可检查的结构化详情。
-- **Do** 使用参考版 6/8/10/14px 圆角和六级间距，并保持按钮、输入框和对象容器的一致状态语法。
-- **Do** 让主对话遵守 920px 内容轴和 840px Composer；只有真实横向信息需要时，结构化对象才扩展到内容轴全宽。
+- **Do** 使用 7/10/12/16px 圆角和六级间距，并保持按钮、输入框和对象容器的一致状态语法。
+- **Do** 让主对话遵守 980px 内容轴和 900px Composer；只有真实横向信息需要时，结构化对象才扩展到内容轴全宽。
 
 ### Don't:
 
