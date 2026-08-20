@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import engineProfileCatalog from '../../../shared/generated/engine-profile-catalog.json'
 import {
   allChartCatalog,
   chartCatalog,
@@ -75,5 +76,27 @@ describe('chart catalog', () => {
       optionalFields: ['group'],
       repeatableRolePrefixes: [],
     })
+  })
+
+  it('projects the corrected public editing surface', () => {
+    const pointError = engineProfileCatalog.profiles.find((profile) => profile.profile_id === 'K06')
+    const errorBand = engineProfileCatalog.profiles.find((profile) => profile.profile_id === 'K07')
+    const pointErrorStyle = pointError?.capabilities.find(
+      (capability) => capability.operation === 'set_error_style',
+    )
+    const errorBandStyle = errorBand?.capabilities.find(
+      (capability) => capability.operation === 'set_error_style',
+    )
+
+    expect(chartProductMetadata.X38?.editCapabilities).toContain('axis_range')
+    expect(pointErrorStyle?.parameters).toEqual([
+      'bar_color', 'bar_width_pt', 'cap_size_pt', 'bar_opacity',
+    ])
+    expect(errorBandStyle?.parameters).toEqual([
+      'band_fill_color', 'band_fill_opacity', 'band_stroke_color', 'band_stroke_width_pt',
+    ])
+    expect(engineProfileCatalog.profiles.every((profile) => (
+      profile.capabilities.every((capability) => capability.operation !== 'add_annotation')
+    ))).toBe(true)
   })
 })

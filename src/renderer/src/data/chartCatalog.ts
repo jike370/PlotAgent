@@ -80,7 +80,7 @@ const recent = new Set(['K01', 'K03', 'K13', 'K21'])
 
 export type EditCapability =
   | 'plot_title' | 'axis_label' | 'axis_range' | 'axis_scale' | 'axis_reverse'
-  | 'legend_visibility' | 'legend_position' | 'safe_annotation' | 'line_style'
+  | 'legend_visibility' | 'legend_position' | 'line_style'
   | 'marker_style' | 'fill_style' | 'colormap' | 'error_style' | 'data_labels'
   | 'chart_parameters'
 
@@ -113,7 +113,6 @@ const capabilityMap = (profile: EngineProfile): EditCapability[] => {
     ...(legend.has('visible') ? ['legend_visibility' as const] : []),
     ...(legend.has('anchor') ? ['legend_position' as const] : []),
     ...(capabilities.has('set_chart_parameter') ? ['chart_parameters' as const] : []),
-    ...(capabilities.has('add_annotation') ? ['safe_annotation' as const] : []),
   ]
 }
 

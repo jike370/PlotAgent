@@ -2807,11 +2807,11 @@ input[type="checkbox"] {
 .focus-body {
   min-height: 0;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .focus-body.has-panel {
-  grid-template-columns: 42px minmax(0, 1fr) 252px;
+  grid-template-columns: minmax(0, 1fr) 252px;
 }
 
 .focus-body.is-simple {
@@ -2820,51 +2820,6 @@ input[type="checkbox"] {
 
 .focus-body.is-simple.has-panel {
   grid-template-columns: minmax(0, 1fr) 292px;
-}
-
-.annotation-toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 8px 0;
-  border-right: 1px solid var(--border);
-  background: var(--canvas);
-}
-
-.annotation-toolbar button {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-}
-
-.annotation-toolbar button:hover,
-.annotation-toolbar button.is-active {
-  color: var(--focus);
-  background: var(--focus-soft);
-}
-
-.annotation-toolbar button:disabled {
-  color: var(--faint);
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.annotation-toolbar button:disabled:hover {
-  color: var(--faint);
-  background: transparent;
-}
-
-.annotation-toolbar span {
-  width: 22px;
-  height: 1px;
-  margin: 3px 0;
-  background: var(--border);
 }
 
 .focus-stage {
@@ -2971,8 +2926,7 @@ input[type="checkbox"] {
   display: block;
 }
 
-.draggable-legend,
-.draggable-annotation {
+.draggable-legend {
   position: absolute;
   z-index: 2;
   border: 1px solid transparent;
@@ -3021,19 +2975,8 @@ input[type="checkbox"] {
   background: var(--plot-amber);
 }
 
-.draggable-annotation {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 5px;
-  color: var(--plot-red);
-  font-size: 8px;
-}
-
 .draggable-legend:hover,
-.draggable-annotation:hover,
-.draggable-legend:focus-visible,
-.draggable-annotation:focus-visible {
+.draggable-legend:focus-visible {
   border-color: var(--focus);
 }
 

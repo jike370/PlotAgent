@@ -56,7 +56,6 @@ const commonCapabilities = {
   ],
   set_axis: ['label', 'scale', 'bounds', 'reverse', 'tick_labels_visible', 'major_ticks_visible', 'minor_ticks_visible', 'tick_direction', 'axis_line_visible', 'axis_title_visible'],
   set_legend: ['visible', 'anchor'],
-  add_annotation: ['text'],
 } as const
 
 describe('FocusEditor Agent Native actions', () => {
@@ -144,6 +143,65 @@ describe('FocusEditor Agent Native actions', () => {
     ))).toEqual(['set_colormap', 'set_error_style', 'set_data_labels'])
   })
 
+  it('keeps error-bar and error-band controls within their profile contracts', async () => {
+    const user = userEvent.setup()
+    const onBarPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
+    const barView = render(<FocusEditor
+      initialIndex={0}
+      plot={plot('K06', {
+        ...commonCapabilities,
+        set_error_style: ['bar_color', 'bar_width_pt', 'cap_size_pt', 'bar_opacity'],
+      })}
+      onPatch={onBarPatch}
+      onClose={() => undefined}
+    />)
+
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '误差' }))
+    expect(screen.getByRole('heading', { name: '误差棒' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('误差带填充颜色')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '应用误差样式' }))
+    await waitFor(() => expect(onBarPatch).toHaveBeenCalledOnce())
+    expect(onBarPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_error_style',
+      bar_color: expect.any(String),
+      bar_width_pt: expect.any(Number),
+      cap_size_pt: expect.any(Number),
+      bar_opacity: expect.any(Number),
+    }))
+    expect(onBarPatch.mock.calls[0]?.[0]).not.toHaveProperty('band_fill_color')
+    barView.unmount()
+
+    const onBandPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
+    render(<FocusEditor
+      initialIndex={0}
+      plot={plot('K07', {
+        ...commonCapabilities,
+        set_error_style: [
+          'band_fill_color', 'band_fill_opacity',
+          'band_stroke_color', 'band_stroke_width_pt',
+        ],
+      })}
+      onPatch={onBandPatch}
+      onClose={() => undefined}
+    />)
+
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '误差' }))
+    expect(screen.getByRole('heading', { name: '误差带' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('误差棒端帽大小')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '应用误差样式' }))
+    await waitFor(() => expect(onBandPatch).toHaveBeenCalledOnce())
+    expect(onBandPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_error_style',
+      band_fill_color: expect.any(String),
+      band_fill_opacity: expect.any(Number),
+      band_stroke_color: expect.any(String),
+      band_stroke_width_pt: expect.any(Number),
+    }))
+    expect(onBandPatch.mock.calls[0]?.[0]).not.toHaveProperty('bar_color')
+  })
+
   it('does not expose edits omitted by the profile capability contract', async () => {
     const user = userEvent.setup()
     render(<FocusEditor
@@ -228,6 +286,33 @@ describe('FocusEditor Agent Native actions', () => {
     })))
   })
 
+  it('exposes and submits X38 numeric axis bounds', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor
+      initialIndex={0}
+      plot={plot('X38', commonCapabilities)}
+      onPatch={onPatch}
+      onClose={() => undefined}
+    />)
+
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '坐标轴' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '作用坐标轴' }), 'x')
+    await user.clear(screen.getByRole('spinbutton', { name: '轴最小值' }))
+    await user.type(screen.getByRole('spinbutton', { name: '轴最小值' }), '30')
+    await user.clear(screen.getByRole('spinbutton', { name: '轴最大值' }))
+    await user.type(screen.getByRole('spinbutton', { name: '轴最大值' }), '90')
+    await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+      operation: 'set_axis',
+      target: 'axis:test.x',
+      minimum: 30,
+      maximum: 90,
+    })))
+  })
+
   it('edits series visibility and axis visibility without phrase routing', async () => {
     const user = userEvent.setup()
     const onPatch = vi.fn(async () => undefined)
@@ -272,28 +357,6 @@ describe('FocusEditor Agent Native actions', () => {
     await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
       operation: 'set_legend', target: 'legend:test.main', anchor: 'right',
     })))
-  })
-
-  it('adds only the public text annotation shape', async () => {
-    const user = userEvent.setup()
-    const onPatch = vi.fn(async () => undefined)
-    render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
-
-    await user.click(screen.getByRole('button', { name: '文本标注' }))
-    await user.type(screen.getByRole('textbox', { name: '标注文本' }), 'Peak')
-    await user.type(screen.getByRole('spinbutton', { name: '标注 X 坐标' }), '2')
-    await user.type(screen.getByRole('spinbutton', { name: '标注 Y 坐标' }), '4')
-    await user.click(screen.getByRole('button', { name: '添加标注' }))
-
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
-      operation: 'add_annotation',
-      target: 'plot:test',
-      text: 'Peak',
-      x: 2,
-      y: 4,
-      coordinate_system: 'data',
-    })))
-    expect(screen.getByRole('button', { name: '参考带' })).toBeDisabled()
   })
 
   it('renders and submits profile-declared chart parameters generically', async () => {

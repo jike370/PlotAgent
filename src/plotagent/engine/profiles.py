@@ -127,11 +127,13 @@ _COLORMAP_T1 = (
     "colorbar_title",
     "colorbar_tick_format",
 )
-_ERROR_T1 = (
+_ERROR_BAR_T1 = (
     "bar_color",
     "bar_width_pt",
     "cap_size_pt",
     "bar_opacity",
+)
+_ERROR_BAND_T1 = (
     "band_fill_color",
     "band_fill_opacity",
     "band_stroke_color",
@@ -157,7 +159,7 @@ def _capabilities(
     series: tuple[str, ...],
     legend: bool,
     colormap: bool,
-    error: bool,
+    error: tuple[str, ...],
     labels: bool,
     chart: tuple[str, ...],
 ) -> tuple[EngineCapability, ...]:
@@ -174,7 +176,7 @@ def _capabilities(
     if colormap:
         result.append(EngineCapability(operation="set_colormap", parameters=_COLORMAP_T1))
     if error:
-        result.append(EngineCapability(operation="set_error_style", parameters=_ERROR_T1))
+        result.append(EngineCapability(operation="set_error_style", parameters=error))
     if labels:
         result.append(EngineCapability(operation="set_data_labels", parameters=_LABEL_T1))
     if chart:
@@ -190,7 +192,7 @@ def _profile(
     series: tuple[str, ...] = (),
     legend: bool = False,
     colormap: bool = False,
-    error: bool = False,
+    error: tuple[str, ...] = (),
     labels: bool = False,
     chart: tuple[str, ...] = (),
 ) -> EngineProfile:
@@ -350,7 +352,7 @@ K06_POINT_ERROR_PROFILE = _profile(
         "marker_opacity",
     ),
     legend=True,
-    error=True,
+    error=_ERROR_BAR_T1,
 )
 
 K07_ERROR_BAND_PROFILE = _profile(
@@ -368,7 +370,7 @@ K07_ERROR_BAND_PROFILE = _profile(
     },
     series=("line_stroke_color", "line_width_pt", "line_style", "line_opacity"),
     legend=True,
-    error=True,
+    error=_ERROR_BAND_T1,
 )
 
 K08_COLUMN_PROFILE = _profile(
@@ -1066,7 +1068,7 @@ X38_OFFSET_STACK_PROFILE = _profile(
             },
         ),
     },
-    axis=("label", "scale", "reverse"),
+    axis=("label", "scale", "bounds", "reverse"),
     series=("line_stroke_color", "line_width_pt", "line_style", "line_opacity"),
     legend=True,
 )

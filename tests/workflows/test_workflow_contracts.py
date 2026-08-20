@@ -136,6 +136,47 @@ def test_compiler_resolves_agent_aliases_and_rejects_unknown_targets() -> None:
     assert validation.error_code == "TARGET_ALIAS_INVALID"
 
 
+def test_compiler_accepts_x38_numeric_axis_bounds() -> None:
+    context = _context().model_copy(update={"selected_profile_ids": ("X38",)})
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(
+                    update={
+                        "profile_id": "X38",
+                        "bindings": (
+                            DraftFieldBinding(
+                                role="x",
+                                source_alias="data_1",
+                                field_alias="data_1_time",
+                            ),
+                            DraftFieldBinding(
+                                role="series_1",
+                                source_alias="data_1",
+                                field_alias="data_1_response",
+                            ),
+                        ),
+                        "visual_actions": (
+                            DraftSetAxis(
+                                target_alias="x_axis",
+                                minimum=30,
+                                maximum=90,
+                            ),
+                        ),
+                    }
+                ),
+            )
+        }
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+
+    action = plan.items[0].visual_actions[0]
+    assert isinstance(action, DraftSetAxis)
+    assert action.target_alias == "x_axis"
+    assert (action.minimum, action.maximum) == (30, 90)
+
+
 def test_compiler_rejects_incompatible_field_types_before_confirmation() -> None:
     context = _context().model_copy(
         update={

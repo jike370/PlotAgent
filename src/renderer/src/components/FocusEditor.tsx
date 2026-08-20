@@ -1,31 +1,23 @@
 import { useRef, useState } from 'react'
 import {
-  AlignCenter,
   ArrowLeft,
-  ArrowUpRight,
-  Baseline,
   Check,
   ChevronDown,
-  Circle,
   Columns2,
   Download,
   Eye,
   FileImage,
   FileType2,
-  Grid2X2,
   Image,
   Layers3,
   Link2,
   Lock,
   Maximize2,
-  MousePointer2,
   Move,
   Redo2,
-  RectangleHorizontal,
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
-  Type,
   Undo2,
   X,
 } from 'lucide-react'
@@ -64,9 +56,7 @@ interface Position {
 
 type ParameterTab =
   | 'general' | 'style' | 'specialist' | 'axis' | 'legend'
-  | 'colormap' | 'uncertainty' | 'labels' | 'annotation'
-type AnnotationKind = 'text' | 'reference_line' | 'reference_band'
-type AnnotationAxis = 'x' | 'y'
+  | 'colormap' | 'uncertainty' | 'labels'
 type EditState = 'idle' | 'saving' | 'saved' | 'error'
 
 const symbolNames: Record<string, string> = {
@@ -225,11 +215,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
   const [titleFontWeight, setTitleFontWeight] = useState('normal')
   const [titleItalic, setTitleItalic] = useState(false)
   const [titleColor, setTitleColor] = useState('#111827')
-  const [annotationKind, setAnnotationKind] = useState<AnnotationKind>('text')
-  const [annotationAxis, setAnnotationAxis] = useState<AnnotationAxis>('y')
-  const [annotationText, setAnnotationText] = useState('')
-  const [annotationStart, setAnnotationStart] = useState('')
-  const [annotationEnd, setAnnotationEnd] = useState('')
   const [legendVisible, setLegendVisible] = useState(plot?.style.legendVisible ?? true)
   const [legendPlacement, setLegendPlacement] = useState(plot?.style.legendPlacement ?? 'inside')
   const [legendColumns, setLegendColumns] = useState(1)
@@ -301,8 +286,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     plot?.dataLabelStyles[0]?.fontColor ?? '#111827',
   )
   const [legendPosition, setLegendPosition] = useState<Position>({ x: 68, y: 17 })
-  const [annotationPosition, setAnnotationPosition] = useState<Position>({ x: 53, y: 37 })
-  const dragStart = useRef<{ pointerX: number; pointerY: number; position: Position; type: 'legend' | 'annotation' } | null>(null)
+  const dragStart = useRef<{ pointerX: number; pointerY: number; position: Position } | null>(null)
 
   const selectSeries = (index: number): void => {
     if (!plot) return
@@ -375,13 +359,12 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     setAxisTitleVisible(axisState?.axisTitleVisible ?? true)
   }
 
-  const startDrag = (event: React.PointerEvent<HTMLButtonElement>, type: 'legend' | 'annotation'): void => {
+  const startDrag = (event: React.PointerEvent<HTMLButtonElement>): void => {
     event.currentTarget.setPointerCapture(event.pointerId)
     dragStart.current = {
       pointerX: event.clientX,
       pointerY: event.clientY,
-      position: type === 'legend' ? legendPosition : annotationPosition,
-      type,
+      position: legendPosition,
     }
   }
 
@@ -391,11 +374,10 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
       x: Math.max(4, Math.min(86, dragStart.current.position.x + (event.clientX - dragStart.current.pointerX) / 8)),
       y: Math.max(5, Math.min(78, dragStart.current.position.y + (event.clientY - dragStart.current.pointerY) / 6)),
     }
-    if (dragStart.current.type === 'legend') setLegendPosition(next)
-    else setAnnotationPosition(next)
+    setLegendPosition(next)
   }
 
-  const keyboardMove = (event: React.KeyboardEvent<HTMLButtonElement>, type: 'legend' | 'annotation'): void => {
+  const keyboardMove = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
     const delta = event.shiftKey ? 3 : 1
     const movement = {
       ArrowLeft: { x: -delta, y: 0 },
@@ -406,8 +388,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     if (!movement) return
     event.preventDefault()
     const update = (current: Position): Position => ({ x: current.x + movement.x, y: current.y + movement.y })
-    if (type === 'legend') setLegendPosition(update)
-    else setAnnotationPosition(update)
+    setLegendPosition(update)
   }
 
   const availableItems = plot ? [{ title: plot.title, file: plot.plotId, series: 'control' as const }] : focusItems
@@ -453,7 +434,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     ...(colorMapParameters.size > 0 ? ['colormap'] : []),
     ...(errorParameters.size > 0 ? ['error_style'] : []),
     ...(dataLabelParameters.size > 0 ? ['data_labels'] : []),
-    ...(engineCapabilities.add_annotation ? ['safe_annotation'] : []),
   ])
   const hasSpecialistEdits = chartParameterNames.length > 0
   const selectedSeriesId = plot?.seriesIds[seriesTargetIndex]
@@ -595,16 +575,18 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
   }
 
   const applyErrorStyle = async (): Promise<void> => {
-    await applyPatch('set_error_style', selectedSeriesId, {
-      bar_color: errorColor,
-      bar_width_pt: errorWidth,
-      cap_size_pt: errorCapSize,
-      bar_opacity: errorOpacity,
-      band_fill_color: bandFillColor,
-      band_fill_opacity: bandFillOpacity,
-      band_stroke_color: bandStrokeColor,
-      band_stroke_width_pt: bandStrokeWidth,
-    })
+    const values: Record<string, JsonValue> = {}
+    if (errorParameters.has('bar_color')) values.bar_color = errorColor
+    if (errorParameters.has('bar_width_pt')) values.bar_width_pt = errorWidth
+    if (errorParameters.has('cap_size_pt')) values.cap_size_pt = errorCapSize
+    if (errorParameters.has('bar_opacity')) values.bar_opacity = errorOpacity
+    if (errorParameters.has('band_fill_color')) values.band_fill_color = bandFillColor
+    if (errorParameters.has('band_fill_opacity')) values.band_fill_opacity = bandFillOpacity
+    if (errorParameters.has('band_stroke_color')) values.band_stroke_color = bandStrokeColor
+    if (errorParameters.has('band_stroke_width_pt')) {
+      values.band_stroke_width_pt = bandStrokeWidth
+    }
+    await applyPatch('set_error_style', selectedSeriesId, values)
   }
 
   const applyDataLabels = async (): Promise<void> => {
@@ -618,25 +600,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
       font_size_pt: labelFontSize,
       font_weight: labelFontWeight,
       font_color: labelFontColor,
-    })
-  }
-
-  const openAnnotationEditor = (kind: AnnotationKind): void => {
-    setPanelOpen(true)
-    setParameterTab('annotation')
-    setAnnotationKind(kind)
-  }
-
-  const applyAnnotation = async (): Promise<void> => {
-    if (!plot || annotationKind !== 'text') return
-    const coordinate = Number(annotationStart)
-    const end = Number(annotationEnd)
-    await applyPatch('add_annotation', plot.plotId, {
-      annotation_id: `annotation:ui.${plot.plotId.replace('plot:', '')}.v${plot.plotVersion + 1}`,
-      text: annotationText.trim(),
-      x: coordinate,
-      y: end,
-      coordinate_system: 'data',
     })
   }
 
@@ -672,18 +635,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
       </header>
 
       <div className={`focus-body${panelOpen ? ' has-panel' : ''}${simplePanel ? ' is-simple' : ''}`}>
-        {!simplePanel && <aside className="annotation-toolbar" aria-label="标注工具">
-          <button className="is-active" type="button" aria-label="选择工具"><MousePointer2 size={17} /></button>
-          <button type="button" aria-label="文本标注" disabled={!editCapabilities.has('safe_annotation')} onClick={() => openAnnotationEditor('text')}><Type size={17} /></button>
-          <button type="button" aria-label="箭头标注" disabled title="首版不提供箭头标注"><ArrowUpRight size={17} /></button>
-          <button type="button" aria-label="参考带" disabled title="公共动作当前仅开放文本标注"><RectangleHorizontal size={17} /></button>
-          <button type="button" aria-label="参考线" disabled title="公共动作当前仅开放文本标注"><Baseline size={17} /></button>
-          <button type="button" aria-label="圆形标注" disabled title="首版不提供任意形状"><Circle size={17} /></button>
-          <span />
-          <button type="button" aria-label="显示网格" disabled title="网格编辑尚未进入资格范围"><Grid2X2 size={17} /></button>
-          <button type="button" aria-label="对齐" disabled title="任意对象对齐尚未进入资格范围"><AlignCenter size={17} /></button>
-        </aside>}
-
         <main className="focus-stage">
           <div className="stage-toolbar">
             <div className="scope-control" aria-label="编辑作用范围">
@@ -714,27 +665,15 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                 className="draggable-legend"
                 type="button"
                 style={{ left: `${legendPosition.x}%`, top: `${legendPosition.y}%` }}
-                onPointerDown={(event) => startDrag(event, 'legend')}
+                onPointerDown={startDrag}
                 onPointerMove={moveDrag}
                 onPointerUp={() => { dragStart.current = null }}
-                onKeyDown={(event) => keyboardMove(event, 'legend')}
+                onKeyDown={keyboardMove}
                 aria-label="图例，可拖动或用方向键移动"
               >
                 <Move size={12} aria-hidden="true" />
                 <span><i className="legend-line legend-line--blue" />Control</span>
                 <span><i className="legend-line legend-line--amber" />Treated</span>
-              </button>}
-              {!plot?.preview?.url && <button
-                className="draggable-annotation"
-                type="button"
-                style={{ left: `${annotationPosition.x}%`, top: `${annotationPosition.y}%` }}
-                onPointerDown={(event) => startDrag(event, 'annotation')}
-                onPointerMove={moveDrag}
-                onPointerUp={() => { dragStart.current = null }}
-                onKeyDown={(event) => keyboardMove(event, 'annotation')}
-                aria-label="峰值标注，可拖动或用方向键移动"
-              >
-                <span>峰值区</span><ArrowUpRight size={14} />
               </button>}
             </div>
             {compareOpen && plot && (
@@ -757,7 +696,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                 ...(!simplePanel && hasSpecialistEdits ? [['specialist', '专属']] : []),
                 ['axis', '坐标轴'],
                 ['legend', '图例'],
-                ...(!simplePanel ? [['annotation', '标注']] : []),
               ] as [ParameterTab, string][]).map(([value, label]) => (
                 <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
               ))}
@@ -824,12 +762,16 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
 
             {parameterTab === 'uncertainty' && (
               <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyErrorStyle() }}>
-                <h3>误差棒</h3>
-                <label><span>颜色</span><input aria-label="误差棒颜色" type="color" value={errorColor} onChange={(event) => setErrorColor(event.target.value)} /></label>
-                <label><span>线宽</span><div className="unit-input"><input aria-label="误差棒线宽" type="number" min="0.1" max="20" step="0.1" value={errorWidth} onChange={(event) => setErrorWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>
-                <label><span>端帽大小</span><div className="unit-input"><input aria-label="误差棒端帽大小" type="number" min="0" max="72" step="0.5" value={errorCapSize} onChange={(event) => setErrorCapSize(event.target.valueAsNumber)} /><span>pt</span></div></label>
-                <label><span>不透明度</span><div className="unit-input"><input aria-label="误差棒不透明度" type="range" min="0" max="1" step="0.05" value={errorOpacity} onChange={(event) => setErrorOpacity(event.target.valueAsNumber)} /><span>{Math.round(errorOpacity * 100)}%</span></div></label>
-                <details className="parameter-subsection"><summary>误差带</summary><label><span>填充颜色</span><input aria-label="误差带填充颜色" type="color" value={bandFillColor} onChange={(event) => setBandFillColor(event.target.value)} /></label><label><span>填充不透明度</span><div className="unit-input"><input aria-label="误差带不透明度" type="range" min="0" max="1" step="0.05" value={bandFillOpacity} onChange={(event) => setBandFillOpacity(event.target.valueAsNumber)} /><span>{Math.round(bandFillOpacity * 100)}%</span></div></label><label><span>边缘颜色</span><input aria-label="误差带边缘颜色" type="color" value={bandStrokeColor} onChange={(event) => setBandStrokeColor(event.target.value)} /></label><label><span>边缘宽度</span><div className="unit-input"><input aria-label="误差带边缘宽度" type="number" min="0" max="20" step="0.1" value={bandStrokeWidth} onChange={(event) => setBandStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details>
+                {errorParameters.has('bar_color') && <h3>误差棒</h3>}
+                {errorParameters.has('bar_color') && <label><span>颜色</span><input aria-label="误差棒颜色" type="color" value={errorColor} onChange={(event) => setErrorColor(event.target.value)} /></label>}
+                {errorParameters.has('bar_width_pt') && <label><span>线宽</span><div className="unit-input"><input aria-label="误差棒线宽" type="number" min="0.1" max="20" step="0.1" value={errorWidth} onChange={(event) => setErrorWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                {errorParameters.has('cap_size_pt') && <label><span>端帽大小</span><div className="unit-input"><input aria-label="误差棒端帽大小" type="number" min="0" max="72" step="0.5" value={errorCapSize} onChange={(event) => setErrorCapSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}
+                {errorParameters.has('bar_opacity') && <label><span>不透明度</span><div className="unit-input"><input aria-label="误差棒不透明度" type="range" min="0" max="1" step="0.05" value={errorOpacity} onChange={(event) => setErrorOpacity(event.target.valueAsNumber)} /><span>{Math.round(errorOpacity * 100)}%</span></div></label>}
+                {[...errorParameters].some((parameter) => parameter.startsWith('band_')) && <h3>误差带</h3>}
+                {errorParameters.has('band_fill_color') && <label><span>填充颜色</span><input aria-label="误差带填充颜色" type="color" value={bandFillColor} onChange={(event) => setBandFillColor(event.target.value)} /></label>}
+                {errorParameters.has('band_fill_opacity') && <label><span>填充不透明度</span><div className="unit-input"><input aria-label="误差带不透明度" type="range" min="0" max="1" step="0.05" value={bandFillOpacity} onChange={(event) => setBandFillOpacity(event.target.valueAsNumber)} /><span>{Math.round(bandFillOpacity * 100)}%</span></div></label>}
+                {errorParameters.has('band_stroke_color') && <label><span>边缘颜色</span><input aria-label="误差带边缘颜色" type="color" value={bandStrokeColor} onChange={(event) => setBandStrokeColor(event.target.value)} /></label>}
+                {errorParameters.has('band_stroke_width_pt') && <label><span>边缘宽度</span><div className="unit-input"><input aria-label="误差带边缘宽度" type="number" min="0" max="20" step="0.1" value={bandStrokeWidth} onChange={(event) => setBandStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
                 <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用误差样式</button>
               </form>
             )}
@@ -896,16 +838,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                 {legendParameters.has('columns') && <section className="parameter-section"><h3>排版与边框</h3>{legendParameters.has('title') && <label><span>标题</span><input aria-label="图例标题" value={legendTitle} onChange={(event) => setLegendTitle(event.target.value)} /></label>}<label><span>列数</span><input aria-label="图例列数" type="number" min="1" max="8" value={legendColumns} onChange={(event) => setLegendColumns(event.target.valueAsNumber)} /></label>{legendParameters.has('font_size_pt') && <label><span>字号</span><div className="unit-input"><input aria-label="图例字号" type="number" min="5" max="72" step="0.5" value={legendFontSize} onChange={(event) => setLegendFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}{legendParameters.has('font_color') && <label><span>文字颜色</span><input aria-label="图例文字颜色" type="color" value={legendFontColor} onChange={(event) => setLegendFontColor(event.target.value)} /></label>}{legendParameters.has('frame_visible') && <label className="parameter-check"><input aria-label="图例边框" type="checkbox" checked={legendFrameVisible} onChange={(event) => setLegendFrameVisible(event.target.checked)} /><span>显示边框</span></label>}{legendFrameVisible && legendParameters.has('frame_color') && <label><span>边框颜色</span><input aria-label="图例边框颜色" type="color" value={legendFrameColor} onChange={(event) => setLegendFrameColor(event.target.value)} /></label>}</section>}
                 <div className="parameter-form-actions"><span>仅显示当前图形支持的图例设置。</span><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !legendTargetId}>应用图例设置</button></div>
               </form>
-            )}
-
-            {parameterTab === 'annotation' && (
-              editCapabilities.has('safe_annotation') ? <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyAnnotation() }}>
-                <h3>安全标注</h3>
-                <label><span>类型</span><select aria-label="标注类型" value={annotationKind} onChange={(event) => setAnnotationKind(event.target.value as AnnotationKind)}><option value="text">文本</option></select></label>
-                {annotationKind === 'text' ? <><label><span>文本</span><input aria-label="标注文本" maxLength={256} value={annotationText} onChange={(event) => setAnnotationText(event.target.value)} /></label><label><span>X 坐标</span><input aria-label="标注 X 坐标" type="number" required value={annotationStart} onChange={(event) => setAnnotationStart(event.target.value)} /></label><label><span>Y 坐标</span><input aria-label="标注 Y 坐标" type="number" required value={annotationEnd} onChange={(event) => setAnnotationEnd(event.target.value)} /></label></> : <><label><span>方向</span><select aria-label="参考对象方向" value={annotationAxis} onChange={(event) => setAnnotationAxis(event.target.value as AnnotationAxis)}><option value="x">垂直（X 值）</option><option value="y">水平（Y 值）</option></select></label><label><span>{annotationKind === 'reference_band' ? '起点' : '位置'}</span><input aria-label="参考对象起点" type="number" required value={annotationStart} onChange={(event) => setAnnotationStart(event.target.value)} /></label>{annotationKind === 'reference_band' && <label><span>终点</span><input aria-label="参考对象终点" type="number" required value={annotationEnd} onChange={(event) => setAnnotationEnd(event.target.value)} /></label>}</>}
-                <p className="parameter-note">当前公共动作仅开放两端均可原生表达的文本标注。</p>
-                <button className="parameter-apply" type="submit" disabled={editState === 'saving' || annotationStart === '' || (annotationKind !== 'reference_line' && annotationEnd === '') || (annotationKind === 'text' && annotationText.trim() === '') || (annotationKind === 'reference_band' && Number(annotationStart) >= Number(annotationEnd))}>添加标注</button>
-              </form> : <section className="parameter-section"><p className="parameter-empty">该图尚未通过标注资格测试。</p></section>
             )}
 
             <section className={`parameter-feedback parameter-feedback--${editState}`} aria-live="polite">

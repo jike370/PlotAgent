@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+from matplotlib.figure import Figure
 
 import plotagent.engine.backends.origin.dual_y_special as dual_origin
 import plotagent.engine.backends.origin.x24 as x24_origin
@@ -18,6 +19,7 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
+    SetAxis,
     SetLegend,
     SetSeriesStyle,
 )
@@ -240,6 +242,39 @@ def test_independent_matplotlib_renderers_emit_semantic_objects(
     )
     assert (output / "preview.png").stat().st_size > 1_000
     assert (output / "preview.svg").stat().st_size > 1_000
+
+
+def test_x38_matplotlib_backend_applies_numeric_x_bounds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    document, actions, view = _x38_case()
+    bound_action = SetAxis(
+        action_id="action:x38-x-bounds",
+        target="axis:x38-t1.x",
+        expected_plot_version=document.plot_version,
+        minimum=30,
+        maximum=90,
+    )
+    actions = (*actions, bound_action)
+    document = document.model_copy(
+        update={
+            "plot_version": document.plot_version + 1,
+            "parent_version": document.plot_version,
+            "applied_action_ids": (*document.applied_action_ids, bound_action.action_id),
+        }
+    )
+    observed_limits: list[tuple[float, float]] = []
+
+    def capture_save(figure: Figure, *_args: object, **_kwargs: object) -> None:
+        lower, upper = figure.axes[0].get_xlim()
+        observed_limits.append((float(lower), float(upper)))
+
+    monkeypatch.setattr(Figure, "savefig", capture_save)
+    backend = MatplotlibBackend(tmp_path / "x38-bounds", (X38OffsetStackRenderer(),))
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
+    change.discard()
+
+    assert observed_limits == [(30.0, 90.0), (30.0, 90.0)]
 
 
 class _Label:
