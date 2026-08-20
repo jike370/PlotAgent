@@ -1,6 +1,6 @@
 # PlotAgent v3 项目存储与数据导入
 
-> 状态：项目 schema v3，2026-08-11。
+> 状态：项目 schema v7，2026-08-21。
 
 ## 1. 工作区
 
@@ -19,7 +19,7 @@
 - `engine_plot_document_versions`：线性 PlotDocument 版本；
 - `engine_plot_action_journal`：每个版本对应的公共动作、前后引用与时间。
 
-schema v5 以 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、事件与 WorkflowRecipe 分表保存提案、确认、执行位置、完整失败原因和可重试性。旧项目 schema 不在原文件上迁移；当前 build 只打开完整的 v5 项目，避免双写和兼容分支污染权威状态。
+schema v7 同时保存 WorkflowRun 投影与 durable Agent task ledger：TaskEnvelope、TaskIntent、TaskPlan、ExecutionGrant、事件、checkpoint、tool receipt、VerificationReport、逐项结果和可重试性。正式桌面以 Agent task ledger 为任务权威；旧 workflow RPC 和 Recipe save/replay 不属于公开入口。
 
 ## 4. 导入
 
@@ -27,7 +27,7 @@ schema v5 以 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem、�
 
 ## 5. 项目包与恢复
 
-`.plotproj` 是项目快照，不是 OPJU。恢复时验证 schema、对象哈希和引用；未知版本默认拒绝。重开项目后可恢复数据身份、PlotDocument 最新版本、对话与未完成任务。
+`.plotproj` 是项目快照，不是 OPJU。恢复时验证 schema、对象哈希和引用；导入项目包要求当前 v7。已登记在本机的 v5/v6 工作区可在单一事务中追加 v7 所需任务表并更新版本；其他版本稳定拒绝。重开项目后可恢复数据身份、PlotDocument 最新版本、对话与安全 checkpoint。
 
 ## 6. 非目标
 

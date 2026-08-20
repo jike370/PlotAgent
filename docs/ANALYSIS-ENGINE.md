@@ -1,14 +1,14 @@
 # PlotAgent 固定绘图计算与科学边界
 
-> 状态：v1 implementation-ready design baseline
+> 状态：当前 Beta 固定绘图计算合同
 > 适用范围：PlotCalculationSpec/Result、需要预计算字段的图形、缺失策略、完整数据与后续科学分析边界
-> 相关文档：[受控数据准备、单位与来源追溯](./DATA-TRANSFORMS.md)、[拟合能力分期边界](./FITTING-SYSTEM.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[渲染管线与跨 Renderer 一致性契约](./RENDERING-PIPELINE.md)、[产品决策基线](./PRODUCT-DECISIONS.md)、[产品需求文档](./PRD.md)
+> 相关文档：[受控数据准备、单位与来源追溯](./DATA-TRANSFORMS.md)、[领域契约与 Schema 设计](./DOMAIN-CONTRACTS.md)、[渲染管线](./RENDERING-PIPELINE.md)、[产品决策](./PRODUCT-DECISIONS.md)、[PRD](./PRD.md)
 
-## 1. v1 计算边界
+## 1. 当前计算边界
 
-v1 不是通用科研分析或拟合平台。`AnalysisSpec/AnalysisResult`、`FitSpec/FitResult`、统计检验、显著性、相关、回归、平滑、基线、归一化、KM 估计和 4PL/5PL 拟合均为后续阶段，不是 v1 Action、workstream、fixture 或发布门禁。
+当前产品不是通用科研分析或拟合平台。`AnalysisSpec/AnalysisResult`、`FitSpec/FitResult`、统计检验、显著性、相关、回归、平滑、基线、归一化、KM 估计和 4PL/5PL 拟合均不属于公开 Action、任务或发布门禁。
 
-v1 只保留与图形几何不可分割、由图形注册表固定的 `PlotCalculationSpec/PlotCalculationResult`。它们：
+当前产品只保留与图形几何不可分割、由 Engine Profile 固定的 `PlotCalculationSpec/PlotCalculationResult`。它们：
 
 - 是封闭 discriminated union，不允许运行时增加 kind。
 - 不支持任意表达式、自由串联、用户代码或把结果发布为通用数据集。
@@ -18,7 +18,7 @@ v1 只保留与图形几何不可分割、由图形注册表固定的 `PlotCalcu
 
 ## 2. 封闭 PlotCalculationSpec 联合
 
-v1 只允许以下八个 kind：
+当前只允许以下八个 kind：
 
 1. `HistogramBinningSpec`
 2. `TukeyBoxSpec`
@@ -95,7 +95,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 ### 3.9 公共规则
 
 - jitter 使用固定 seed 并写入 PlotCalculationResult。
-- log axis v1 仅 Log10；参与绘图的非正值阻断，不静默跳过。
+- 公共 log axis 仅 Log10；参与绘图的非正值阻断，不静默跳过。
 - missing policy 只允许 `fail` 或 `exclude_with_report`；后者保存排除行引用与原因。
 - 参数变化创建新的 FigureVersion，并生成新的 PlotCalculationSpec/Result；不覆盖旧结果。
 
@@ -103,7 +103,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 正式图形库固定为34张单图；依赖用户预计算字段的图在详情页和执行前确认区明确显示“需要预计算字段”。缺少输入时返回稳定的预计算输入错误。研究清单、内部 adapter 和已删除 ID 不会因具备预计算输入而开放：
 
-| 图形 | v1 接受的预计算输入 | v1 不执行 |
+| 图形 | 当前接受的预计算输入 | 当前不执行 |
 | --- | --- | --- |
 | K21 相关矩阵 | 已计算矩阵及标签 | Pearson/Spearman/显著性 |
 | K22 等高线 | 规则 X×Y grid 与 Z | gridding/interpolation |
@@ -122,7 +122,7 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 - 图形消费所需的持久化 Plot Data 表及 output hash。
 - warning/error、创建时间和 producer build hash。
 
-它只服务于引用它的图表/批次/导出；v1 没有把结果转为通用数据集的 Action。
+它只服务于引用它的图表/批次/导出；当前没有把结果转为通用数据集的 Action。
 
 ## 6. 执行、版本与批量
 
@@ -134,9 +134,9 @@ SD 固定 `ddof=1`；SEM=`SD/sqrt(n)`；95% CI 使用双侧 t 区间；计算型
 
 ## 7. 后续科学分析阶段
 
-AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、基线、归一化与可物化分析输出均为后续能力。未来启用时必须新增/更新 Decision ID、Schema、错误、fixtures、provider context、storage 和 release gate；不得复用 v1 PlotCalculationSpec 作为开放分析后门。
+AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、基线、归一化与可物化分析输出均不在当前范围。未来启用时必须新增产品决策、Schema、错误、fixtures、provider context、storage 和 release gate；不得复用 PlotCalculationSpec 作为开放分析后门。
 
-正式34图在v1的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述后续算法的科学正确性；图形目录变化不会自动扩大 AnalysisSpec/FitSpec 范围。
+正式 34 图的准入只验证各图适用的直接数据、固定计算或预计算字段路径，不验证上述非产品算法的科学正确性；图形目录变化不会自动扩大 AnalysisSpec/FitSpec 范围。
 
 ## 8. 稳定错误与契约测试
 
@@ -149,4 +149,4 @@ AnalysisSpec/Result、FitSpec/Result、统计检验、科学拟合、平滑、�
 - 九个预计算图形的字段缺失、结构错误与有效输入。
 - Matplotlib/SVG/Origin 消费同一 PlotCalculationResult，不发生 renderer-side 重算。
 
-稳定错误归入 `PREPARE_*`、`PLOTSPEC_*` 或 `RENDER_*`，不复用通用 `ANALYSIS_*`/`FIT_*` 作为 v1 执行路径。
+稳定错误归入 `PREPARE_*`、`PLOTSPEC_*` 或 `RENDER_*`，不复用通用 `ANALYSIS_*`/`FIT_*` 作为当前执行路径。

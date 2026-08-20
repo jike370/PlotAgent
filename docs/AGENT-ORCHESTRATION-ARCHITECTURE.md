@@ -1,7 +1,7 @@
 # PlotAgent 程序—Agent 编排架构
 
 > 状态：正式架构与实现合同。
-> 适用范围：数据导入与检查、自然语言理解、数据处理工具、TaskDraft、TaskPlan、WorkflowRecipe、确认、执行与恢复。
+> 适用范围：数据导入与检查、自然语言理解、Agent 工具、TaskIntent、TaskPlan、确认、执行与恢复。
 > 不改变：34 张正式单图、Matplotlib/Origin 双后端、Origin 原生可编辑产物、T1 公共视觉动作、用户确认与项目版本语义。
 
 相关文档：
@@ -19,7 +19,7 @@ PlotAgent 的边界固定为：
 
 > Agent 负责理解、选择和编排；程序负责读取、验证、执行和留痕。
 
-“程序优先”只表示在数据进入 Agent 前进行廉价、无语义副作用的结构解析，以及在用户明确选择已保存流程时复用确定性流程。它不表示程序通过关键词、正则、别名表或字段打分理解用户自然语言。
+“程序优先”只表示在数据进入 Agent 前进行廉价、无语义副作用的结构解析。它不表示程序通过关键词、正则、别名表或字段打分理解用户自然语言。
 
 凡是自然语言请求，都必须将用户原文原样交给 Agent。程序不得先行决定：
 
@@ -29,12 +29,7 @@ PlotAgent 的边界固定为：
 - 请求属于创建、编辑、批量、同图多源还是失败项修复；
 - 哪些自然语言要求可以忽略、替换或降级。
 
-程序可以绕过模型的入口只有两类：
-
-1. 用户直接操作已经结构化的 UI 控件；
-2. 用户明确选择一个已保存且重新校验通过的 WorkflowRecipe。
-
-两条入口仍然进入同一 TaskDraft、TaskCompiler、TaskPlan、确认与执行链。
+程序可以绕过模型的入口只有用户直接操作已经结构化的 UI 控件。该入口仍进入同一 Engine capability、版本事务和 renderer 链；正式桌面当前不公开 WorkflowRecipe 保存或重放。
 
 ## 2. 权威数据流
 
@@ -48,14 +43,13 @@ flowchart TD
     F --> E
     E -->|"信息不足"| Q["结构化追问"]
     Q --> E
-    E --> G["TaskDraft"]
+    E --> G["TaskIntent"]
     G --> H["Core 编译与能力校验"]
     H --> I["确认卡：数据处理、绑定、图类、视觉动作"]
     I -->|"确认"| J["TaskPlan 确定性执行"]
     J --> K["PreparedDataView / PlotDocument"]
     K --> L["Matplotlib / Origin"]
     L --> M["预览、导出、读回与审计"]
-    M --> N["可选提示固化 WorkflowRecipe"]
 ```
 
 原始数据和 SourceDataset 永远只读。筛选、排序、reshape、拼接、派生字段和单位换算产生版本化 PreparedDataView，不覆盖输入。
@@ -98,7 +92,7 @@ flowchart TD
 
 ## 5. Agent 上下文
 
-WorkflowContext 必须包含：
+AgentActivation 中的 ContextSnapshot 必须包含：
 
 - 用户原始 instruction，禁止前端或 Core 改写；
 - 项目内有权访问的数据源目录及稳定 source alias；
@@ -142,7 +136,7 @@ WorkflowContext 必须包含：
 - `preview_concatenate_sources`
 - `preview_align_sources_on_x`
 
-预演工具返回输入/输出 schema、前几行、行列变化、单位变化、警告和规范化 DataOperation；不登记 PreparedDataView、不修改项目版本。Agent 确认结果后把规范化操作写入 TaskDraft。正式执行在用户确认后由同一实现完成，预演与正式执行不得使用两套算法。
+预演工具返回输入/输出 schema、前几行、行列变化、单位变化、警告和规范化 DataOperation；不登记 PreparedDataView、不修改项目版本。Agent 把规范化操作写入 TaskIntent item。正式执行在用户确认后由同一实现完成，预演与正式执行不得使用两套算法。
 
 `derive_column` 只允许登记过的类型化算子，不接受自由公式。`convert_unit` 只允许注册表内量纲兼容的转换；比例与仿射单位均由程序计算，模型不能提供任意换算因子。
 
@@ -153,14 +147,12 @@ WorkflowContext 必须包含：
 - `validate_task_draft`
 - `submit_task_draft`
 - `ask_user`
-- `find_saved_workflows`
-- `propose_save_workflow`
 
-`ask_user` 产生最多四个结构化问题并暂停同一 WorkflowRun；用户回答后续跑，不新建无关任务。验证失败时 Agent 可以在预算内修订 Draft，但不得产生项目副作用。
+`needs_input` 产生结构化问题并暂停同一 durable task；用户回答后续跑，不新建无关任务。验证失败时 Agent 可以在预算内修订 Intent，但不得产生项目副作用。
 
-## 7. TaskDraft 与确认
+## 7. TaskIntent 与确认
 
-TaskDraft 是确认前唯一计划真值，每个 TaskItem 独立保存：
+TaskIntent 是模型提交的结构化任务语义；Core 接受后编译为唯一可确认 TaskPlan。每个 item 独立保存：
 
 - create、visual edit 或 data rebind/update 的任务种类；
 - source alias、目标 plot alias 和依赖；
@@ -207,21 +199,11 @@ Core 不解析用户文本来补充、修正或否决模型的语义解释。能
 
 Core 只依据结构规模、Provider 上限和产品策略设置硬预算，不根据自然语言关键词判定复杂度。
 
-## 10. WorkflowRecipe
+## 10. WorkflowRecipe 边界
 
-成功执行并完成正式导出后，UI 可提示：
+仓库保留 WorkflowRecipe Schema、repository 和非公开服务作为未来受控复用的技术储备；正式桌面、Pi activation 和公开 RPC 当前不提供保存、匹配或重放入口，因此它不是当前用户工作流，也不进入黑盒通过项。
 
-> 如果经常使用类似的数据绘图，可以固化本次数据处理与绘图流程，以节省后续时间和模型成本。
-
-未经用户明确选择不得保存，也不得仅凭自然语言 token 相似度自动重放。正确流程为：
-
-1. 程序按 schema、类型、单位、来源形态和必要数据前置条件查找候选；
-2. Agent 或 UI 展示候选与差异；
-3. 用户明确选择复用；
-4. Core 重新校验 Recipe、Profile、renderer 和 DataOperation 版本；
-5. 生成 TaskDraft 并进入确认。
-
-Recipe 保存处理步骤、绑定、图类、参数、前置条件和合同版本，不保存原始数据值、凭据、对话全文或任意脚本。结构相似只能触发建议，不能构成执行授权。
+未来若重新开放，必须另行完成产品决策、UI、权限、版本校验、确认和完整测试；不得因为底层类型存在而自动启用。
 
 ## 11. 前端边界
 
@@ -257,14 +239,12 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 
 ## 13. 实现落点
 
-- `contracts/workflows.py`：WorkflowContext、TaskDraft、问题、工具参数、TaskPlan 与 Recipe 的唯一 Schema 源。
-- `workflows/inspection.py`：有界只读检查。
-- `workflows/data_ops.py`：数据操作预演和正式执行的唯一实现。
-- `workflows/compiler.py`：TaskDraft 进入 TaskPlan 的唯一入口。
-- `workflows/executor.py`：确认后逐项执行、幂等和恢复。
-- `workflows/recipes.py`：结构候选与显式复用，不解释自然语言。
-- `desktop_core/workflow_service.py`：Core 唯一工作流服务，不含自然语言解析器。
-- `main/agent/pi-runtime-v2.ts`：消费有界 activation 的 Agent 循环、工具和 typed yield，不预解析 instruction。
+- `contracts/agent_tasks.py`：TaskEnvelope、TaskIntent、AgentActivation/Yield、grant、checkpoint 与验证报告；item 结构复用 `contracts/workflows.py` 的强类型数据操作定义。
+- `desktop_core/agent_foundation.py`：Core-owned task 协调、上下文、编译和 activation host。
+- `tasking/`：durable task ledger、状态转换、lease、事件与恢复。
+- `tooling/`：受限数据/领域工具的唯一 Gateway；工具不接受任意路径或代码。
+- `workflows/inspection.py`、`data_ops.py` 与 `compiler.py`：有界检查、规范化数据操作和本地计划编译。
+- `main/agent/pi-runtime-v2.ts` 与 `agent-foundation-runtime.ts`：消费 activation 的 Pi 循环与桌面协调，不预解析 instruction。
 - renderer：只消费类型化 Engine Action，不理解自然语言、不处理业务数据。
 
 `workflows/natural_language.py`、DeterministicResolver、前端 instruction parser、基于 instruction 的 Core intent validator 和自然语言 goal signature 不属于正式架构，必须删除而不是保留兼容 fallback。
@@ -274,7 +254,7 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 ### 14.1 边界
 
 - 任意自然语言原样进入 Agent；源码搜索不存在前端/Core/Pi 的语义关键词路由。
-- 结构化 UI 和用户明确选择的 Recipe 可以零模型调用。
+- 结构化 UI 可以零模型调用；Recipe 当前没有公开入口。
 - Core 只校验结构化对象，不使用自然语言解析结果校验 Agent。
 
 ### 14.2 数据与工具
@@ -286,22 +266,21 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 
 ### 14.3 对话与计划
 
-- 信息不足时 Agent 可结构化追问并续跑同一 WorkflowRun。
+- 信息不足时 Agent 可结构化追问并续跑同一 durable task。
 - 追问后通过图形库、数据选择器或 `@图N` 补充的上下文必须进入同一 task；精确 plot 版本、source 版本与项目 revision 均可在重启后恢复。
-- TaskDraft 被 Core 拒绝后可在预算内修订；确认前项目 revision 不变。
+- TaskIntent 被 Core 拒绝后可在预算内修订；确认前项目 revision 不变。
 - 数据更新当前图生成新版本且可撤销，不被限制为纯视觉 edit。
 
-### 14.4 Recipe 与恢复
+### 14.4 恢复
 
-- 只有用户明确选择才复用 Recipe；自然语言相似不自动触发。
 - 成功项不重复，失败项可局部修复；重试不依赖前端改写 instruction。
-- 导出成功后只做非阻塞固化提示，未经同意不学习。
+- 产品不因一次成功任务自动学习、保存或重放流程。
 
 ### 14.5 测试
 
 - 单元测试证明 instruction 原样传递和自然语言旁路不存在。
 - Agent 工具测试覆盖预算、预演/正式一致性、单位转换、追问和验证修订。
-- SEQ-70 覆盖简单一轮、数据探索、批量映射、单位转换、失败修复和 Recipe 建议。
+- SEQ-70 覆盖简单一轮、数据探索、批量映射、单位转换和失败修复。
 - 正式 Windows Electron 黑盒验证确认卡、真实阶段、撤销/重做、重启、PNG/SVG/OPJU 与可编辑 Origin 数据对象。
 
 ## 15. 明确非目标

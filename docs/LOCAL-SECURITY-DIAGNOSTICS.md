@@ -1,16 +1,16 @@
 # PlotAgent 本地安全与诊断契约
 
-> 状态：小规模邀请制 Beta 已确认边界
-> 日期：2026-08-05
+> 状态：当前小规模 Beta 安全边界
+> 更新：2026-08-21
 > 适用范围：启动入口与 NetworkMode、strict local_only、本地文件/进程安全、日志、本地 DiagnosticBundle、Schema 硬拒绝与崩溃后重试
-> 相关文档：[产品决策基线](./PRODUCT-DECISIONS.md)、[项目存储与导入](./PROJECT-STORAGE.md)、[任务运行时](./TASK-RUNTIME.md)、[最小 Beta 云控制面](./CLOUD-CONTROL-PLANE.md)、[领域契约](./DOMAIN-CONTRACTS.md)
+> 相关文档：[产品决策](./PRODUCT-DECISIONS.md)、[项目存储与导入](./PROJECT-STORAGE.md)、[任务运行时](./TASK-RUNTIME.md)、[领域契约](./DOMAIN-CONTRACTS.md)
 
 ## 1. 工作入口与模型服务模式是两组概念
 
 主窗口启动空状态始终保留三个工作入口：
 
-1. 主按钮“用示例项目试用”。
-2. 次按钮“导入自己的数据”。
+1. 主按钮“示例”。
+2. 次按钮“导入”。
 3. 文字入口“打开已有 `.plotproj`”。
 
 应用无需账号、邀请码、模型配置或联网即可使用这些入口；示例打开为可修改的本地副本，不使用多页向导。
@@ -19,14 +19,14 @@
 
 ```text
 NetworkMode
-├─ builtin_proxy
 ├─ custom_provider
 └─ local_only
 ```
 
-- 三种 NetworkMode 不是启动工作入口，切换模式不修改项目。
+- 两种桌面 NetworkMode 不是启动工作入口，切换模式不修改项目。
 - localhost/127.0.0.1/::1 模型仍属于 `custom_provider`，不属于 `local_only`。
 - `local_only` 是用户显式选择的严格模式，不是“暂时断网”的推断状态。
+- Core 中保留的 `builtin_proxy` 网络策略没有当前桌面配置入口，不属于当前用户能力。
 
 ## 2. strict local_only 零出站
 
@@ -38,13 +38,13 @@ NetworkMode
 - 发送 analytics、DiagnosticBundle、telemetry、crash dump 或任意后台请求。
 - 访问数据、聊天或模型输出中的 URL，执行 DNS prefetch 或打开 data URL。
 
-第一轮没有 `OneTimeUpdateGrant`、`update_only` 或任何 strict local_only 联网例外。人工安装包由用户在应用外取得，退出应用后显式运行；PlotAgent 本身仍保持零出站。
+当前没有 `OneTimeUpdateGrant`、`update_only` 或任何 strict local_only 联网例外。人工安装包由用户在应用外取得，退出应用后显式运行；PlotAgent 本身仍保持零出站。
 
-local_only 下仍完整可用：确定性导入、字段映射、受控 Preparation、九类固定 PlotCalculation、手动选图和参数编辑、正式 43 图、同构批次、固定布局组合、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。九个内部隐藏图不会因离线模式而开放；手动 UI 构造与 Agent 相同的 ActionPlan 并进入相同 validator/executor/transaction 链。
+local_only 下仍可用：确定性导入、字段映射、受控数据操作、八类固定 PlotCalculation、手动选图和参数编辑、34 张正式单图、同构批次、项目资源、PNG/SVG，以及本机 exact Origin version 可用时的 O1 OPJU。自然语言 Agent 需要已配置且策略允许的模型服务；local_only 不伪造 Agent 计划。结构化 UI 进入与 Agent 计划相同的 Engine capability、validator、version transaction 和 renderer 链。
 
 ## 3. 本地数据保护边界
 
-- 第一轮不实现项目加密，依赖 Windows account ACL；建议敏感环境启用 BitLocker。
+- 当前不实现项目加密，依赖 Windows account ACL；建议敏感环境启用 BitLocker。
 - `.plotproj`、Parquet、OPJU、结果项目包和导出都可能包含敏感科研数据，不得称为匿名、脱敏或隐私安全。
 - built-in DeviceCredential、自定义 API key 只存 Windows Credential Manager，不进入 renderer、项目、SQLite普通字段、日志、Bundle 或命令行。
 - 普通删除是 best effort，不承诺 secure erase；SSD、文件系统和备份可能保留旧块。
@@ -94,11 +94,11 @@ local_only 下仍完整可用：确定性导入、字段映射、受控 Preparat
 - task state/stage、对象类型、chart ID、duration/performance bucket。
 - row/column/primitive count bucket、stable error code、boolean feature flags。
 
-禁止字段：用户提示、聊天、文件名、绝对/相对用户路径、列名、单元格值、样本/摘要、API key/credential/invite、模型 request/response body。Stack trace 落盘前 scrub 用户路径。第一轮不生成 process memory dump。
+禁止字段：用户提示、聊天、文件名、绝对/相对用户路径、列名、单元格值、样本/摘要、API key/credential/invite、模型 request/response body。Stack trace 落盘前 scrub 用户路径。当前不生成 process memory dump。
 
-## 9. 第一轮无 analytics
+## 9. 当前无 analytics
 
-- 第一轮不实现或发送 usage analytics，不提供 opt-in 事件上报，也不在本地积压事件等待未来发送。
+- 当前不实现或发送 usage analytics，不提供 opt-in 事件上报，也不在本地积压事件等待未来发送。
 - built-in proxy 自身允许的无 payload 运维日志由云契约约束，不属于桌面 usage analytics。
 - 功能使用和用户成功指标通过经同意的 Beta 观察、访谈或问卷收集，不从隐藏 telemetry 推断。
 
@@ -128,19 +128,19 @@ LocalDiagnosticBundleManifest
 └─ user_selected_output_path # 仅当前操作，不写入包内容/日志
 ```
 
-任何未知字段或 forbidden scan 命中返回 `DIAGNOSTIC_SCHEMA_VIOLATION` 并拒绝生成。第一轮没有 upload endpoint、diagnostic ID 或云端保留期。
+任何未知字段或 forbidden scan 命中返回 `DIAGNOSTIC_SCHEMA_VIOLATION` 并拒绝生成。当前没有 upload endpoint、diagnostic ID 或云端保留期。
 
-## 11. Schema 硬拒绝
+## 11. Schema 迁移与硬拒绝
 
 - 打开项目先只读读取 manifest/schema/version 并验证完整性。
-- 当前 build 只接受项目 schema v5；其他版本返回 `SCHEMA_VERSION_UNSUPPORTED`，不编辑、不降级、不创建工作副本。
-- 产品不存在旧 Schema 读取器、版本迁移器、旧对象别名、双写或兼容模式。
-- 被拒绝项目保持字节不变；用户需使用创建该项目的旧版本自行导出数据，再在当前版本建立新项目。
+- 当前 build 创建项目 schema v7；已登记的本机 v5/v6 工作区可执行代码覆盖的事务性增量迁移到 v7。
+- 迁移只追加 durable Agent ledger 所需表并更新版本，不推断或改写用户数据、图类和科学语义。
+- 其他版本返回 `SCHEMA_VERSION_UNSUPPORTED`；被拒绝项目保持不变，用户需使用创建该项目的版本导出数据后建立新项目。
 
 ## 12. 保存、备份与崩溃恢复边界
 
 - 正常修改依赖 SQLite transaction、single writer、immutable CAS 和原子文件提交；失败不会发布半对象。
-- 第一轮不创建每日 Online Backup、不保留最近三份、不提供恢复分支、RecoveryRecord 或恢复 UI。
+- 当前不创建每日 Online Backup、不保留最近三份、不提供恢复分支、RecoveryRecord 或恢复 UI。
 - 用户主动导出的完整 `.plotproj` 是可搬运快照；产品不宣传自动备份或 cloud backup。
 - 任务崩溃后 Electron/Core 可把遗留任务标 interrupted、清理 temp 并展示重试；不要求自动续跑或静默重放正式任务。
 - `.plotproj` snapshot 仍使用 SQLite Online Backup 生成一致数据库快照，这是主动项目导出机制，不是每日恢复备份框架。
@@ -156,14 +156,14 @@ LocalDiagnosticBundleManifest
 | `ARCHIVE_*` | archive path/link/size/hash 不安全 | 拒绝包 |
 | `FORMULA_UNCACHED` | 公式无缓存值 | missing/NeedsInput |
 | `DIAGNOSTIC_SCHEMA_VIOLATION` | Bundle含未知/禁止字段 | 拒绝生成并显示命中类别 |
-| `SCHEMA_VERSION_UNSUPPORTED` | 项目不是当前 schema v5 | 原项目保持不变；使用旧版本导出数据后建立新项目 |
+| `SCHEMA_VERSION_UNSUPPORTED` | 项目既不是 v7，也不是受支持的本机 v5/v6 增量迁移来源 | 原项目保持不变；使用对应旧版本导出数据后建立新项目 |
 
 ## 14. Beta 验收矩阵
 
 | 规则 | 验收 | 故障注入 |
 | --- | --- | --- |
 | strict local_only | 全进程抓包/DNS/HTTP mock零请求 | startup/provider/quota/update/diagnostic/URL |
-| 断网本地闭环 | 导入、手动 TaskDraft、Preparation/PlotCalculation、正式34图、批量任务、三种导出 | 控制面/provider不可达 |
+| 断网本地闭环 | 导入、结构化 UI 绘图/编辑、Preparation/PlotCalculation、正式 34 图、批量任务、三种导出 | provider 不可达 |
 | 恶意 archive | traversal/link/bomb/hash全部阻断 | Unicode/case/size/ratio边界 |
 | 表格不执行 | 宏/公式/外链不运行，cache provenance正确 | VBA/DDE/external refresh |
 | Electron边界 | renderer无Node/secret/任意IPC | HTML/JS/data URL/path注入 |

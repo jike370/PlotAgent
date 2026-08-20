@@ -2,6 +2,8 @@
 
 > 当前范围：34张单图、Pi Agent runtime、Windows Electron、PNG/SVG与原生可编辑 OPJU。不支持组合图。
 
+施工与测试必须先按[施工、测试与发布路线](./IMPLEMENTATION-PLAN.md)完成组件、功能、视觉、确定性门禁和定向 UI，再冻结候选执行本文件的完整黑盒与 SEQ-70。
+
 ## 1. 发布原则
 
 - 工程测试、机械读回、视觉、正式UI黑盒和目标用户验证分开记账。

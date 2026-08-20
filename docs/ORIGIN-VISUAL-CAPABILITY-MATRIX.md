@@ -286,9 +286,9 @@ Origin 还支持 3D surface、projection、plane、clipping、lighting、materia
 | LabTalk/Origin C 任意命令 | Origin 专属且不安全 | 禁止 | 永不开放 |
 | Origin Gadget、App 和分析锁 | Matplotlib 无直接等价 | 不属于绘图样式 | 不进入公共视觉能力 |
 
-## 5. 建议冻结的第一阶段覆盖范围
+## 5. 当前 T1 覆盖范围
 
-第一阶段不是“Origin 所有设置”，而是以下公共视觉语言。
+当前 T1 不是“Origin 所有设置”，而是以下公共视觉语言。
 
 ### 5.1 线
 
@@ -355,7 +355,7 @@ Origin 还支持 3D surface、projection、plane、clipping、lighting、materia
 
 这些字段不意味着必须增加同样数量的顶层 Agent operation。它们可以由少量强类型操作承载，但必须保留对象类型和适用范围，不能继续让一个 `color` 同时模糊表示线色、点色和填充色。
 
-## 6. 第一阶段明确不做
+## 6. 当前明确不做
 
 - Origin 全部连接算法；
 - 任意自定义 dash、符号、色表或 Theme；

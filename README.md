@@ -2,13 +2,13 @@
 
 面向通用科研用户的对话式绘图 Agent。用户上传数据并明确选择图形，Agent 生成结果、接受自然语言修改，并导出 PNG、SVG 和 Origin `.opju` 文件。
 
-当前仓库包含一个可运行的 Windows 桌面应用、34 张正式单图、成本感知 WorkflowRun/TaskDraft/TaskPlan 编排、Pi 模型运行时、Matplotlib 预览/PNG/SVG，以及受控 Origin 原生 OPJU 自动化。界面覆盖项目、数据导入、对话、批量任务、字段确认、聚焦编辑、撤销/重做、任务状态和 Origin 不可用降级；不提供组合图或多面板自由编排。
+当前仓库包含一个可运行的 Windows 桌面应用、34 张正式单图、durable Agent task/TaskIntent/TaskPlan 编排、Pi 模型运行时、Matplotlib 预览/PNG/SVG，以及受控 Origin 原生 OPJU 自动化。界面覆盖项目、数据导入、对话、批量任务、字段确认、聚焦编辑、撤销/重做、任务状态和 Origin 不可用降级；不提供组合图或多面板自由编排。
 
 Windows production packaging 现提供 PyInstaller onedir sidecar、NSIS 与离线完整性校验的轻量人工路径。开发态和打包态使用同一受限 `plotagent.desktop_core` RPC runtime；导入、绘图、Agent 与 Origin 等领域服务通过窄 `ServiceRegistry` 接入，不另建打包专用 mock。
 
-v3 当前基线面向小规模邀请制 Beta：正式目录固定为 34 张单图，支持 CSV/TXT/Excel 多来源导入、同构批量、受控数据操作和 PNG/SVG/O1 OPJU。简单任务先走确定性规则或用户保存的 WorkflowRecipe；复杂任务才由 Pi 在预算内检查数据并提交 TaskDraft。通用分析/拟合、任意代码、组合图和 T2/T3 后端专属视觉能力不在当前范围。
+v3 当前基线面向小规模邀请制 Beta：正式目录固定为 34 张单图，支持 CSV/TXT/Excel 多来源导入、同构批量、受控数据操作和 PNG/SVG/O1 OPJU。结构化 UI 可以零模型执行；自然语言任务统一由 Pi 在预算内检查数据并提交强类型任务，程序不通过关键词或正则替模型解释目标。通用分析/拟合、任意代码、组合图和 T2/T3 后端专属视觉能力不在当前范围。
 
-权威范围与 requirement/evidence matrix 见 [`docs/SPEC-INDEX.md`](docs/SPEC-INDEX.md)，W0–W10、risk spikes 与 M0–M7 见 [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md)。产品范围以 [`docs/PRODUCT-DECISIONS.md`](docs/PRODUCT-DECISIONS.md) 和 [`docs/PRD.md`](docs/PRD.md) 为准；目标编排见 [`docs/AGENT-ORCHESTRATION-ARCHITECTURE.md`](docs/AGENT-ORCHESTRATION-ARCHITECTURE.md)，后端边界见 [`docs/BACKEND-ARCHITECTURE.md`](docs/BACKEND-ARCHITECTURE.md)，Pi 运行时见 [`docs/PI-AGENT-RUNTIME.md`](docs/PI-AGENT-RUNTIME.md)，Invite/长期设备凭据/共享计数见 [`docs/CLOUD-CONTROL-PLANE.md`](docs/CLOUD-CONTROL-PLANE.md)，strict local_only/本地诊断/Schema硬拒绝见 [`docs/LOCAL-SECURITY-DIAGNOSTICS.md`](docs/LOCAL-SECURITY-DIAGNOSTICS.md)，单一平台/规模/Origin与Beta检查单见 [`docs/PERFORMANCE-TEST-RELEASE.md`](docs/PERFORMANCE-TEST-RELEASE.md)，领域Schema见 [`docs/DOMAIN-CONTRACTS.md`](docs/DOMAIN-CONTRACTS.md)，存储/导入见 [`docs/PROJECT-STORAGE.md`](docs/PROJECT-STORAGE.md)，受控准备/来源追溯见 [`docs/DATA-TRANSFORMS.md`](docs/DATA-TRANSFORMS.md)，任务运行时见 [`docs/TASK-RUNTIME.md`](docs/TASK-RUNTIME.md)，固定绘图计算与科学/拟合分期见 [`docs/ANALYSIS-ENGINE.md`](docs/ANALYSIS-ENGINE.md) 和 [`docs/FITTING-SYSTEM.md`](docs/FITTING-SYSTEM.md)，渲染见 [`docs/RENDERING-PIPELINE.md`](docs/RENDERING-PIPELINE.md)，OPJU见 [`docs/ORIGIN-EXPORT.md`](docs/ORIGIN-EXPORT.md)。
+权威文档入口见 [`docs/SPEC-INDEX.md`](docs/SPEC-INDEX.md)，施工—测试—发布顺序见 [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md)。产品范围以 [`docs/PRODUCT-DECISIONS.md`](docs/PRODUCT-DECISIONS.md) 和 [`docs/PRD.md`](docs/PRD.md) 为准；编排见 [`docs/AGENT-ORCHESTRATION-ARCHITECTURE.md`](docs/AGENT-ORCHESTRATION-ARCHITECTURE.md)，后端见 [`docs/BACKEND-ARCHITECTURE.md`](docs/BACKEND-ARCHITECTURE.md)，Pi 运行时见 [`docs/PI-AGENT-RUNTIME.md`](docs/PI-AGENT-RUNTIME.md)，存储与导入见 [`docs/PROJECT-STORAGE.md`](docs/PROJECT-STORAGE.md)，发布门禁见 [`docs/PERFORMANCE-TEST-RELEASE.md`](docs/PERFORMANCE-TEST-RELEASE.md)。
 
 ## 桌面端开发
 

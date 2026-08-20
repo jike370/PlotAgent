@@ -18,20 +18,20 @@
 
 ## C. 唯一编排链
 
-- 正式链路为 `WorkflowRun → WorkflowContext → TaskDraft → TaskPlan → confirmation → execution`。
+- 正式链路为 `TaskEnvelope → durable Agent task → AgentActivation/ToolGateway → TaskIntent → Core TaskPlan → confirmation → ExecutionGrant → execution/verification`。
 - 任意自然语言原样进入 Pi；前端、WorkflowRouter、Core 和预检查层不得通过正则、关键词、别名表或字段打分解释、补写或改写用户目标。
 - Pi 从一轮直接提交开始，只有需要事实时才调用有界只读/预演工具；成本由实际工具与轮次自然分级，而不是程序先理解文本来分级。
 - Pi 可调用有界的数据检查、仪器元数据检查和数据处理预演工具；不能访问路径、文件系统、数据库、Shell、Python、Origin 或 renderer 对象。
-- Pi 只能提交 TaskDraft。真实字段 ID、plot version、动作 ID 和幂等键由本地 TaskCompiler 绑定。
-- Pi 信息不足时通过结构化 `ask_user` 暂停并续跑同一 WorkflowRun；Core 校验失败时可在预算内修订 Draft。
+- Pi 只能提交 TaskIntent 或结构化追问/阻断结果。真实字段 ID、plot version、动作 ID 和幂等键由本地编译器绑定。
+- Pi 信息不足时通过结构化 `needs_input` 暂停并续跑同一 durable task；Core 校验失败时可在预算内请求下一版 Intent。
 - 用户确认前零副作用；批量部分失败保留成功项，继续执行不重复成功项。
-- 用户完成并导出一次任务后，可以明确选择固化 WorkflowRecipe；未经确认不得静默学习、自动重放或跨项目保存偏好。
+- 正式桌面当前不公开 WorkflowRecipe 保存、匹配或重放；相关底层合同不算用户能力。未来若开放，必须显式保存、显式选择、重新校验和再次确认，且不得静默学习。
 
-## D. 硬切换
+## D. 存储与迁移
 
-- 项目 schema v5 只保存 WorkflowRun、WorkflowContext、TaskDraft、TaskPlan/TaskItem（含失败原因与可重试性）、事件和 WorkflowRecipe。
-- 不双读、不双写、不提供旧计划别名、fallback、迁移器或兼容 RPC；非 v5 项目保持原文件不变并明确拒绝打开。
-- Pi 是可替换运行时。任何替代 Agent 必须消费同一 WorkflowContext、遵守预算并提交同一 TaskDraft；不能改变本地编译、确认、执行和恢复语义。
+- 当前项目 schema 为 v7，保存不可变数据、绘图版本、durable Agent task、计划、授权、事件、receipt、验证报告及运行投影。
+- 本机 v5/v6 工作区只允许代码已覆盖的事务性增量迁移到 v7；其他版本保持原文件不变并明确拒绝。产品不提供任意旧版本兼容、隐式语义迁移或 fallback RPC。
+- Pi 是可替换运行时。任何替代 Agent 必须消费同一 AgentActivation、遵守预算并提交同一 typed AgentYield/TaskIntent；不能改变本地编译、确认、执行和恢复语义。
 
 ## E. Agent Native 绘图引擎
 
@@ -45,7 +45,7 @@
 - 本轮只实现 T1：用户可直接看到并能由 Matplotlib 与 Origin 共同稳定表达、保存、读回的视觉元素。
 - T1 包括：线、符号、填充、文字、坐标轴/刻度/网格、图例、连续色板、误差棒/误差带和数据标签。
 - 连续量使用数值区间，不离散成少量按钮：字号、线宽、边框宽度、符号大小、透明度等均为连续参数。
-- 视觉能力必须同时可由自然语言 TaskDraft 和前端控件驱动，最终进入相同 Engine Action。
+- 视觉能力必须同时可由自然语言 TaskIntent 和前端控件驱动，最终进入相同 Engine Action。
 - 不实现 T2/T3：Origin 专属高级外观、分析 App、任意对象树、任意 LabTalk/Origin C 属性和后端专属效果不进入公开能力。
 
 ## G. 交互
@@ -55,7 +55,7 @@
 - 每个项目按创建顺序给图形分配稳定且不复用的 `@图N`。用户只通过显式 `@图N` 指定一个或多个目标；编号解析为该图的最新版本。未写 `@图N` 时不隐式解释“当前图”“上一张图”等模糊指代。
 - 同一项目同时只执行一个前台 Agent 任务；这不是全局只允许一个项目存在或运行。不同项目的任务互不共享会话状态，Origin 自动化仍由底层按资源约束串行化。
 - 确认卡显示前几行只读数据、列名上方字段角色、逐任务图类和视觉改动。
-- 执行时显示真实阶段，例如读取数据、字段绑定、生成 TaskDraft、本地校验、渲染、保存版本和导出。
+- 执行时显示真实阶段，例如读取数据、字段绑定、生成 TaskIntent、本地校验、渲染、保存版本和导出。
 - 所有已提交改图都支持撤销/重做；错误必须说明失败阶段、影响范围和可执行恢复动作。
 - 数据处理确认必须显示输入/输出 schema、行列变化、单位变化和预览；当前图的数据重绑定产生可撤销的新版本，不能伪装成纯视觉编辑。
 

@@ -29,7 +29,7 @@ PlotDocument + EngineDataView
 
 - 安全导入、不可变 SourceDataset、字段与来源坐标；
 - 项目工作区、CAS、SQLite 单写者、项目包与重启恢复；
-- WorkflowRun、WorkflowContext、TaskDraft、TaskPlan 与 WorkflowRecipe；
+- WorkflowRun 投影与 durable Agent task/intent/plan/grant/checkpoint/receipt/report；非公开 WorkflowRecipe 合同只作未来技术储备；
 - Pi Provider、只读数据检查预算、部分失败、恢复执行、幂等与任务事件；
 - Electron Main/Preload/Renderer 安全边界和资源授权；
 - 受控数据准备与确定性固定计算。
@@ -45,13 +45,13 @@ PlotDocument + EngineDataView
 - `engine.plots.list/get`：读取版本化 PlotDocument；
 - `engine.exports.execute`：导出 PNG、SVG 或 OPJU。
 
-动作集合为 `create_plot`、`bind_fields`、`set_title`、`set_axis`、`set_series_style`、`set_legend`、`set_chart_parameter`、`add_annotation`、`export_plot`。任何 Agent 都可以直接按 Schema 调用；内置 Agent 的别名绑定器不是必经路径。
+当前公开动作集合为 `create_plot`、`bind_fields`、`set_title`、`set_axis`、`set_series_style`、`set_legend`、`set_chart_parameter`、`export_plot`。底层仍保留 `add_annotation` 合同类型供内部对象兼容，但 34 个正式 Profile、图形库和聚焦编辑均不开放，因此不属于当前产品能力。任何外部 Agent 也必须以 Profile capability 为准，不能只凭底层联合类型调用。
 
 ## 4. 数据与存储
 
 `EngineDataView` 是 renderer 唯一可见的数据输入。`PlotDocument` 只保存图 ID、线性版本、Profile、不可变数据引用、字段绑定、组件引用与已应用动作 ID。每次非导出动作创建一个新版本，并与原动作原子写入动作日志。
 
-项目 schema v5 只创建 SourceDataset/CAS 与 WorkflowRun/TaskDraft/TaskPlan/WorkflowRecipe 权威表，并持久化完整任务失败语义。非 v5 项目原文件保持不变并明确拒绝打开，不存在迁移、双写或 fallback。
+项目 schema v7 保存 SourceDataset/CAS、绘图版本、运行投影和 durable Agent task ledger。正式桌面以 ledger 中的 task/intent/plan/grant/event/checkpoint/receipt/report 为任务权威；本机 v5/v6 工作区只执行受测的事务性增量迁移，其他版本原文件保持不变并明确拒绝。
 
 ## 5. 后端
 

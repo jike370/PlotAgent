@@ -27,7 +27,7 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 
 ## 3. 公共动作
 
-九类动作组成封闭判别联合：
+当前公开的八类动作组成 Profile capability 联合：
 
 1. `create_plot`
 2. `bind_fields`
@@ -36,10 +36,9 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 5. `set_series_style`
 6. `set_legend`
 7. `set_chart_parameter`
-8. `add_annotation`
-9. `export_plot`
+8. `export_plot`
 
-每个变更动作包含稳定 `action_id`、精确 target 和期望图版本。Profile 能力目录在调用 backend 前验证字段、对象类型、参数名、范围与支持性。未声明能力必须稳定拒绝。
+每个变更动作包含稳定 `action_id`、精确 target 和期望图版本。Profile 能力目录在调用 backend 前验证字段、对象类型、参数名、范围与支持性。未声明能力必须稳定拒绝。底层兼容联合中仍存在 `add_annotation` 类型，但当前 34 个 Profile 均不声明该能力，因此不属于公共动作。
 
 ## 4. 后端端口
 
@@ -47,7 +46,7 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 
 ## 5. Agent 接入
 
-绘图引擎对 Agent 中立。客户端先读取能力目录和动作 Schema，再提交公共动作。内置 Agent 通过 `WorkflowContext → TaskDraft → TaskPlan` 将安全别名绑定为动作；其他 Agent 也可以实现同一 TaskDraft 提交合同，由本地编译器完成对象解析与校验。
+绘图引擎对 Agent 中立。客户端先读取能力目录和动作 Schema，再提交公共动作。内置 Agent 通过 `AgentActivation → TaskIntent → Core TaskPlan` 将安全别名绑定为动作；其他 Agent 也可以实现同一 typed AgentYield/TaskIntent 合同，由本地编译器完成对象解析与校验。
 
 模型响应永远不是领域真值。只有本地校验并提交后的 PlotDocument、动作日志和任务状态才是权威状态。
 

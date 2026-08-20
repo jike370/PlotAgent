@@ -2,7 +2,7 @@
 
 > 当前基线：Pi 承担通用 Agent 运行循环；PlotAgent Core 负责领域约束、确认、版本与执行；34 张正式图各自拥有 Matplotlib renderer 与 Origin 官方模板绑定器。产品不支持组合图。
 
-> 下一阶段的成本感知路由、原始数据只读探索、TaskDraft 和 WorkflowRecipe 施工基线见[成本感知 Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)。本文继续约束当前绘图引擎与 renderer 边界。
+> 当前自然语言编排、原始数据只读探索、TaskIntent/TaskPlan 和数据工具边界见[程序—Agent 编排架构](./AGENT-ORCHESTRATION-ARCHITECTURE.md)。本文约束绘图引擎与 renderer 边界。
 
 > Origin 可见能力、Matplotlib 等价性、当前 Agent 缺口及 T1/T2/T3 覆盖边界见[Origin 视觉能力全集与 PlotAgent 覆盖矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)。
 
@@ -56,9 +56,9 @@ Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交�
 - `set_series_style`
 - `set_legend`
 - `set_chart_parameter`
-- `add_annotation`
 - `export_plot`
-- `undo` / `redo`
+
+`undo` / `redo` 是 PlotDocument 版本操作，不是 renderer action。底层兼容合同中的 `add_annotation` 没有任何正式 Profile/UI capability，当前不对 Agent 开放。
 
 只开放 Matplotlib 与 Origin 都能稳定表达并读回的共同能力。后端专属枚举、任意脚本、任意统计分析和开放式数据变换不向 Agent 暴露。
 
@@ -88,4 +88,4 @@ Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交�
 3. 34 图统一视觉审查；
 4. 正式 Windows Electron 黑盒。
 
-2026-08-12 的旧 35 图视觉审查包含现已删除的 K25。本轮又改变了 K06、X13、X38、X40 的当前实现，因此旧页面不能自动证明当前 34 图全部通过；这些变更图必须在新提交上复测。
+历史视觉审查不能自动证明当前 34 图通过。renderer 或共享 T1 适配器变化后，必须按[施工、测试与发布路线](./IMPLEMENTATION-PLAN.md)重新生成受影响范围的 default/edited/dynamic/fresh 证据。

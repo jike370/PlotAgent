@@ -104,7 +104,7 @@ TXT 导入先分离 `InstrumentMetadata`、一个或多个 `DataBlock` 与 `post
 - 导入阶段移除“尾部分隔符对应的全空序列化列”属于物理结构识别，不是语义删列；其判据和数量必须写入 ImportRecipe trace。
 - NaN、Inf 与 missing 原样保留并在质量摘要中计数；绘图/固定计算只能选择 `fail` 或 `exclude_with_report`。
 - `exclude_with_report` 只生成可审计 mask，保存纳入/排除行数和原因；SourceDataset 不变。
-- log axis v1 仅 Log10，遇到任何参与绘图的非正值即阻断，不能通过 mask 静默跳过。
+- 公共 log axis 仅 Log10，遇到任何参与绘图的非正值即阻断，不能通过 mask 静默跳过。
 - 正式输出与固定计算在声明支持规模内使用完整数据；preview 的确定性视觉简化不改变范围、统计或计算输入。
 
 ## 9. 同构批量
@@ -112,7 +112,7 @@ TXT 导入先分离 `InstrumentMetadata`、一个或多个 `DataBlock` 与 `post
 批量要求规范化后的字段集合、逻辑类型、单位、语义、FieldMapping 和 DataOperation 完全一致；列顺序可以不同。Excel sheet 或 TXT block 只有通过这套签名才可组成同构批次。
 
 - 不允许逐文件字段、单位、准备方式或缺失策略例外。
-- 任何异构项拆为其他候选批次；v1 不通过通用变换“标准化后再批量”。
+- 任何异构项拆为其他候选批次；当前产品不通过通用变换“标准化后再批量”。
 - 同一 DataOperation 程序可以部分成功；成功项保留，失败项记录稳定 `DATA_OPERATION_*` 错误。
 
 ## 10. 持久化与追溯
