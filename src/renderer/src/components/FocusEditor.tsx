@@ -38,6 +38,8 @@ import { symbolCatalog } from '../data/chartCatalog'
 
 interface FocusEditorProps {
   initialIndex: number
+  initialPanelOpen?: boolean
+  simplePanel?: boolean
   plot?: ProductPlot & { title: string }
   previousPlot?: ProductPlot
   onPatch?: (patch: JsonValue) => Promise<void>
@@ -45,6 +47,7 @@ interface FocusEditorProps {
   canRedo?: boolean
   onUndo?: () => void
   onRedo?: () => void
+  onExport?: (format: 'png' | 'svg' | 'opju') => void
   onClose: () => void
 }
 
@@ -138,14 +141,14 @@ function ChartParameterEditor({
   </>
 }
 
-export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onClose }: FocusEditorProps): React.JSX.Element {
+export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePanel = false, plot, previousPlot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onExport, onClose }: FocusEditorProps): React.JSX.Element {
   const initialSeriesStyle = plot?.seriesStyles[0]?.style ?? plot?.style
   const initialAxisState = plot?.axisStates.y ?? plot?.axisStates.x
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
   const [selected, setSelected] = useState<number[]>([Math.min(initialIndex, 2)])
   const [scope, setScope] = useState<ScopeMode>('current')
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [parameterTab, setParameterTab] = useState<ParameterTab>('style')
+  const [panelOpen, setPanelOpen] = useState(initialPanelOpen)
+  const [parameterTab, setParameterTab] = useState<ParameterTab>('general')
   const [compareOpen, setCompareOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [editState, setEditState] = useState<EditState>('idle')
@@ -593,14 +596,14 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
           <span className="focus-version-label">版本 v{plot?.plotVersion ?? 1}</span>
         </div>
         <div className="focus-header-actions">
-          <button className={panelOpen ? 'is-active' : ''} type="button" onClick={() => setPanelOpen((open) => !open)}><SlidersHorizontal size={16} />参数</button>
+          <button className={panelOpen ? 'is-active' : ''} type="button" onClick={() => setPanelOpen((open) => !open)}><SlidersHorizontal size={16} />编辑面板</button>
           <div className="export-anchor">
             <button className="primary-button" type="button" onClick={() => setExportOpen((open) => !open)} aria-expanded={exportOpen}><Download size={16} />导出<ChevronDown size={14} /></button>
             {exportOpen && (
               <div className="export-menu" role="menu">
-                <button role="menuitem" type="button"><FileImage size={16} /><span><strong>导出 PNG</strong><small>183 mm · 300 DPI</small></span></button>
-                <button role="menuitem" type="button"><FileType2 size={16} /><span><strong>导出 SVG</strong><small>保留矢量对象</small></span></button>
-                <button role="menuitem" type="button" disabled><Layers3 size={16} /><span><strong>导出 .opju</strong><small>Origin 当前不可用</small></span></button>
+                <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('png') }}><FileImage size={16} /><span><strong>导出 PNG</strong><small>位图文件</small></span></button>
+                <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('svg') }}><FileType2 size={16} /><span><strong>导出 SVG</strong><small>保留矢量对象</small></span></button>
+                <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('opju') }}><Layers3 size={16} /><span><strong>导出 OPJU</strong><small>Origin 原生可编辑项目</small></span></button>
               </div>
             )}
           </div>
@@ -608,8 +611,8 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
         </div>
       </header>
 
-      <div className={`focus-body${panelOpen ? ' has-panel' : ''}`}>
-        <aside className="annotation-toolbar" aria-label="标注工具">
+      <div className={`focus-body${panelOpen ? ' has-panel' : ''}${simplePanel ? ' is-simple' : ''}`}>
+        {!simplePanel && <aside className="annotation-toolbar" aria-label="标注工具">
           <button className="is-active" type="button" aria-label="选择工具"><MousePointer2 size={17} /></button>
           <button type="button" aria-label="文本标注" disabled={!editCapabilities.has('safe_annotation')} onClick={() => openAnnotationEditor('text')}><Type size={17} /></button>
           <button type="button" aria-label="箭头标注" disabled title="首版不提供箭头标注"><ArrowUpRight size={17} /></button>
@@ -619,13 +622,13 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
           <span />
           <button type="button" aria-label="显示网格" disabled title="网格编辑尚未进入资格范围"><Grid2X2 size={17} /></button>
           <button type="button" aria-label="对齐" disabled title="任意对象对齐尚未进入资格范围"><AlignCenter size={17} /></button>
-        </aside>
+        </aside>}
 
         <main className="focus-stage">
           <div className="stage-toolbar">
             <div className="scope-control" aria-label="编辑作用范围">
               <span>作用范围</span>
-              {([
+              {simplePanel ? <button type="button" className="is-active">当前图</button> : ([
                 ['current', '当前图'],
                 ['selected', `选中图 ${selected.length}`],
                 ['batch', '整个批次'],
@@ -633,7 +636,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
             </div>
             <div className="stage-meta">
               <span><Lock size={13} />原始数据只读</span>
-              <span><Eye size={13} />预览 2,406 / 2,406 点</span>
+              <span><Eye size={13} />{simplePanel ? '当前渲染预览' : '预览 2,406 / 2,406 点'}</span>
               <button type="button"><Maximize2 size={14} />适合窗口</button>
             </div>
           </div>
@@ -688,13 +691,13 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
               {([
                 ['general', '常规'],
                 ['style', '系列'],
-                ...(editCapabilities.has('colormap') ? [['colormap', '色阶']] : []),
-                ...(editCapabilities.has('error_style') ? [['uncertainty', '误差']] : []),
-                ...(editCapabilities.has('data_labels') ? [['labels', '标签']] : []),
-                ...(hasSpecialistEdits ? [['specialist', '专属']] : []),
+                ...(!simplePanel && editCapabilities.has('colormap') ? [['colormap', '色阶']] : []),
+                ...(!simplePanel && editCapabilities.has('error_style') ? [['uncertainty', '误差']] : []),
+                ...(!simplePanel && editCapabilities.has('data_labels') ? [['labels', '标签']] : []),
+                ...(!simplePanel && hasSpecialistEdits ? [['specialist', '专属']] : []),
                 ['axis', '坐标轴'],
                 ['legend', '图例'],
-                ['annotation', '标注'],
+                ...(!simplePanel ? [['annotation', '标注']] : []),
               ] as [ParameterTab, string][]).map(([value, label]) => (
                 <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
               ))}
@@ -838,7 +841,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
         )}
       </div>
 
-      <footer className="thumbnail-dock">
+      {!simplePanel && <footer className="thumbnail-dock">
         <div className="thumbnail-dock__label"><Image size={15} /><span>批次 B-024</span><strong>{selected.length} 张已选</strong></div>
         <div className="thumbnail-strip">
           {availableItems.map((item, index) => (
@@ -851,7 +854,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
           <article className="is-failed"><div><RotateCcw size={18} /><span>待重试</span></div><small>D_50C</small></article>
         </div>
         <button className="dock-link" type="button"><Link2 size={15} />应用到选中图</button>
-      </footer>
+      </footer>}
     </div>
   )
 }

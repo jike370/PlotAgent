@@ -230,6 +230,8 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       project.isOpen = true
       return ok({ ...projectSummary(project), datasets: project.datasets, status: 'open' })
     },
+    openExportResource: async () => ({ ok: true }),
+    revealExportResource: async () => ({ ok: true }),
     openSampleProject: async () => {
       const project = createProject('温度响应示例', previewDatasets('sample'))
       project.isOpen = true

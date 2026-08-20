@@ -61,6 +61,8 @@ export interface ProductNotice {
 
 export interface ExportRecordView {
   exportId: string
+  resourceId: string
+  fileName: string
   format: 'png' | 'svg' | 'opju'
   targetKind: 'plot'
   targetId: string
@@ -102,6 +104,8 @@ interface ConversationWorkspaceProps {
   onResumeWorkflowPlan: (planId: string) => void
   onConfigureAgent: () => void
   onExport: (format: 'png' | 'svg' | 'opju') => void
+  onOpenExport: (resourceId: string) => void
+  onRevealExport: (resourceId: string) => void
   onCreateBatch: () => void
   onOpenFocus: () => void
   onOpenTasks: () => void
@@ -566,7 +570,7 @@ function PlotObject({
       </div>
       <footer className="plot-actions">
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
-        <button type="button" onClick={onOpenFocus}><Settings2 size={15} />聚焦编辑</button>
+        <button type="button" onClick={onOpenFocus}><Settings2 size={15} />编辑图形</button>
         <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>
         <span />
         {(['png', 'svg', 'opju'] as const).map((format) => (
@@ -848,7 +852,18 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   const [messages, setMessages] = useState<ConversationMessage[]>(() => (
     project ? readConversationMessages(window.localStorage, project.projectId) : []
   ))
+  const [plotMessageBoundary, setPlotMessageBoundary] = useState(messages.length)
   const activeTurnRef = useRef<HTMLDivElement>(null)
+  const plotId = plot?.plotId
+  const plotVersion = plot?.plotVersion
+
+  useEffect(() => {
+    if (plotId === undefined) return
+    queueMicrotask(() => setPlotMessageBoundary(messages.length))
+    // The boundary is intentionally captured only when the authoritative plot version changes.
+    // Later messages must remain after that plot instead of moving the plot to the end again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plotId, plotVersion])
 
   useEffect(() => {
     const outcome = props.workflowOutcome
@@ -879,6 +894,8 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       && message.text === outcome.message
     ))
   }, [messages, props.workflowOutcome])
+  const messagesBeforePlot = plot ? visibleMessages.slice(0, plotMessageBoundary) : visibleMessages
+  const messagesAfterPlot = plot ? visibleMessages.slice(plotMessageBoundary) : []
 
   useEffect(() => {
     if (messages.length === 0 && busyAction === undefined && props.workflowOutcome === undefined && props.workflowPlan === undefined && exportRecord === undefined) return
@@ -912,26 +929,33 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       {!project ? <Startup {...props} /> : (
         <div className="conversation-scroll">
           <div className="conversation-feed product-conversation-feed">
-            {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             {datasets.length === 0 ? (
               <div className="message message--agent conversation-prompt"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>上传数据文件，并告诉我你想画什么图。</p></div></div>
             ) : (
               <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
-            <ConversationHistory messages={visibleMessages} />
+            <ConversationHistory messages={messagesBeforePlot} />
+            {plot && <PlotObject {...props} chart={selectedChart} />}
+            <ConversationHistory messages={messagesAfterPlot} />
+            {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             {props.workflowOutcome && props.workflowOutcome.kind !== 'task_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.workflowOutcome.kind === 'rejected' ? 'error' : props.workflowOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.workflowOutcome.kind === 'rejected' ? 'alert' : 'status'}>
               <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
             </div>}
             {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></div></div>}
-            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.exportId} · {exportRecord.targetKind} {exportRecord.targetId}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div></section>}
+            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.fileName}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div><div className="product-result-strip__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}>打开所在文件夹</button></div></section>}
             <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
-            {plot && <PlotObject {...props} chart={selectedChart} />}
           </div>
         </div>
       )}
+
+      {project && notice?.kind === 'success' && exportRecord && <aside className="product-toast product-toast--success" role="status" aria-live="polite">
+        <CircleCheck size={19} />
+        <div><strong>{notice.title}</strong><p>{notice.message}</p><span>{exportRecord.fileName}</span></div>
+        <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
+      </aside>}
 
       {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}

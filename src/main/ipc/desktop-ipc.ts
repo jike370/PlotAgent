@@ -103,6 +103,8 @@ export interface RegisterDesktopIpcOptions {
   readonly resources: ResourceRegistry
   readonly ensureSampleSource: () => Promise<string>
   readonly agentFoundationRuntime: AgentFoundationRuntime
+  readonly openPath: (path: string) => Promise<string>
+  readonly revealPath: (path: string) => void
 }
 
 function invalidArgument(message: string): DesktopActionResult {
@@ -450,6 +452,8 @@ export function registerDesktopIpc({
   resources,
   ensureSampleSource,
   agentFoundationRuntime,
+  openPath,
+  revealPath,
 }: RegisterDesktopIpcOptions): () => void {
   const datasetIdentities = new Map<string, DatasetIdentity>()
   const identityKey = (projectId: string, datasetId: string, sourceVersion: number): string => (
@@ -672,6 +676,33 @@ export function registerDesktopIpc({
       resource_id: entry.resourceId,
       source_path: entry.path,
     })
+  })
+  ipcMain.handle(IPC_CHANNELS.resourceOpen, async (_event, value: unknown) => {
+    const input = parseProjectResourceInput(value)
+    const entry = input === null ? undefined : resources.resolveEntry(input.resourceId)
+    if (entry === undefined || entry.kind !== 'export') {
+      return invalidArgument('导出资源无效或未由应用授权。')
+    }
+    const error = await openPath(entry.path)
+    return error.length === 0
+      ? { ok: true } satisfies DesktopActionResult
+      : {
+          ok: false,
+          error: {
+            code: 'RESOURCE_OPEN_FAILED',
+            message: '无法打开导出文件。',
+            retryable: true,
+          },
+        }
+  })
+  ipcMain.handle(IPC_CHANNELS.resourceReveal, (_event, value: unknown) => {
+    const input = parseProjectResourceInput(value)
+    const entry = input === null ? undefined : resources.resolveEntry(input.resourceId)
+    if (entry === undefined || entry.kind !== 'export') {
+      return invalidArgument('导出资源无效或未由应用授权。')
+    }
+    revealPath(entry.path)
+    return { ok: true } satisfies DesktopActionResult
   })
   ipcMain.handle(IPC_CHANNELS.projectOpenSample, async () => {
     try {

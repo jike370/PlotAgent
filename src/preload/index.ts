@@ -85,6 +85,10 @@ const desktop = {
   openProject: () => ipcRenderer.invoke(IPC_CHANNELS.projectOpen),
   openProjectResource: (input: ProjectResourceInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.projectOpenResource, input),
+  openExportResource: (input: ProjectResourceInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.resourceOpen, input),
+  revealExportResource: (input: ProjectResourceInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.resourceReveal, input),
   openSampleProject: () => ipcRenderer.invoke(IPC_CHANNELS.projectOpenSample),
   closeProject: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.projectClose, input),
   importDatasets: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.datasetImport, input),

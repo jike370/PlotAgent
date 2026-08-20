@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-import { app, BrowserWindow, dialog, ipcMain, protocol, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from 'electron'
 
 import { PythonCoreSupervisor, resolveCoreLaunchSpec } from './core/python-supervisor.js'
 import { AgentFoundationRuntime } from './agent/agent-foundation-runtime.js'
@@ -158,6 +158,8 @@ if (!hasSingleInstanceLock) {
       resources: resourceRegistry,
       ensureSampleSource: () => ensureBundledSampleSource(app.getPath('userData')),
       agentFoundationRuntime,
+      openPath: (path) => shell.openPath(path),
+      revealPath: (path) => shell.showItemInFolder(path),
     })
     mainWindow = createWindow()
     mainWindow.webContents.once('did-finish-load', () => {

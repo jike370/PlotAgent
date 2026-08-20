@@ -29,6 +29,8 @@ export const IPC_CHANNELS = {
   getTasks: 'plotagent:tasks:get-snapshot',
   lifecycleCloseRequested: 'plotagent:lifecycle:close-requested',
   openResourceRequested: 'plotagent:resources:open-requested',
+  resourceOpen: 'plotagent:resources:open',
+  resourceReveal: 'plotagent:resources:reveal',
   originStatus: 'plotagent:origin:status',
   engineActionExecute: 'plotagent:engine:actions:execute',
   enginePlotGet: 'plotagent:engine:plots:get',
@@ -315,6 +317,8 @@ export interface PlotAgentDesktopApi {
   activateProject(input: ProjectIdInput): Promise<DesktopDataResult>
   openProject(): Promise<DesktopDataResult>
   openProjectResource(input: ProjectResourceInput): Promise<DesktopDataResult>
+  openExportResource(input: ProjectResourceInput): Promise<DesktopActionResult>
+  revealExportResource(input: ProjectResourceInput): Promise<DesktopActionResult>
   openSampleProject(): Promise<DesktopDataResult>
   closeProject(input: ProjectIdInput): Promise<DesktopDataResult>
   importDatasets(input: ProjectIdInput): Promise<DesktopDataResult>

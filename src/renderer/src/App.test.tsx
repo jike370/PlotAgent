@@ -322,6 +322,8 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     activateProject: vi.fn(async () => ok({ project_id: 'project:test', project_version: 0, status: 'open' })),
     openProject: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
     openProjectResource: vi.fn(async () => ok({ project_id: 'project:opened', display_name: '已打开项目', project_version: 2, status: 'open' })),
+    openExportResource: vi.fn(actionOk),
+    revealExportResource: vi.fn(actionOk),
     openSampleProject: vi.fn(async () => ok({
       project: { project_id: 'project:sample', display_name: '温度响应示例', is_open: false },
       opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
@@ -1071,7 +1073,11 @@ describe('PlotAgent real desktop workflow', () => {
     })
     expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
     expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('PNG 导出完成')
-    expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('export:one')
+    expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('plot.png')
+    await user.click(screen.getAllByRole('button', { name: '打开文件' })[0])
+    await user.click(screen.getAllByRole('button', { name: /打开.*文件夹/ })[0])
+    expect(api.openExportResource).toHaveBeenCalledWith({ resourceId: 'resource:export' })
+    expect(api.revealExportResource).toHaveBeenCalledWith({ resourceId: 'resource:export' })
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
@@ -1091,7 +1097,15 @@ describe('PlotAgent real desktop workflow', () => {
     finishExport?.(ok({
       export_id: 'export:origin',
       plot_id: 'plot:one',
-      artifact: { content_hash: 'b'.repeat(64), size: 29_999 },
+      artifact: {
+        resource: {
+          resourceId: 'resource:origin',
+          kind: 'export',
+          fileName: 'plot.opju',
+        },
+        content_hash: 'b'.repeat(64),
+        size: 29_999,
+      },
     }))
 
     const result = await screen.findByRole('status', { name: '导出记录' })
@@ -1099,7 +1113,8 @@ describe('PlotAgent real desktop workflow', () => {
     expect(result).toHaveTextContent('29,999 B')
     expect(result).toHaveTextContent('bbbbbbbbbbbb…')
     expect(screen.queryByText('正在生成并验证 OPJU…')).not.toBeInTheDocument()
-    expect(screen.getByText('已导出 OPJU')).toHaveClass('composer-success')
+    expect(screen.getByText('已导出 OPJU', { selector: '.composer-success' })).toBeInTheDocument()
+    expect(screen.getByText('已导出 OPJU', { selector: '.product-toast strong' })).toBeInTheDocument()
   })
 
   it('does not announce OPJU success when the desktop boundary omits file proof', async () => {
@@ -1392,7 +1407,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
   })
 
-  it('keeps live Agent feedback and its confirmation card before the existing plot', async () => {
+  it('appends live Agent feedback and its confirmation card below the existing plot', async () => {
     const user = userEvent.setup()
     let finishDecision: ((result: DesktopDataResult) => void) | undefined
     const prepareWorkflow = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishDecision = resolve }))
@@ -1405,15 +1420,31 @@ describe('PlotAgent real desktop workflow', () => {
 
     const activity = await screen.findByText('正在理解你的要求…')
     const plotCard = screen.getByRole('img', { name: '折线图 真实渲染预览' }).closest('section')
-    expect(activity.closest('.message')?.compareDocumentPosition(plotCard as Node) ?? 0)
+    expect(plotCard?.compareDocumentPosition(activity.closest('.message') as Node) ?? 0)
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
 
     await act(async () => {
       finishDecision?.(ok(workflowResultWithPlan(workflowPlanFixture())))
     })
     const planMessage = (await screen.findByRole('heading', { name: '任务计划' })).closest('.message')
-    expect(planMessage?.compareDocumentPosition(plotCard as Node) ?? 0)
+    expect(plotCard?.compareDocumentPosition(planMessage as Node) ?? 0)
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
+  it('opens the current-plot edit panel with only portable Origin-mapped categories', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop())
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '编辑图形' }))
+
+    expect(await screen.findByRole('dialog', { name: '聚焦编辑' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: '图形参数' })).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      '常规', '系列', '坐标轴', '图例',
+    ])
+    expect(screen.queryByText('批次 B-024')).not.toBeInTheDocument()
   })
 
   it('does not silently accumulate browsed worksheets in the Agent context', async () => {

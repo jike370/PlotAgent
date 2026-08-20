@@ -1,7 +1,14 @@
+@font-face {
+  font-family: "PlotAgent CJK";
+  src: local("Microsoft YaHei UI"), local("Microsoft YaHei");
+  font-display: swap;
+  unicode-range: U+2E80-2EFF, U+3000-303F, U+31C0-31EF, U+3400-4DBF,
+    U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF;
+}
+
 :root {
   font-family:
-    "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui,
-    sans-serif;
+    "PlotAgent CJK", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   color: #171717;
   background: #f3f4f6;
   font-synthesis: none;
@@ -2767,6 +2774,14 @@ input[type="checkbox"] {
   grid-template-columns: 42px minmax(0, 1fr) 252px;
 }
 
+.focus-body.is-simple {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.focus-body.is-simple.has-panel {
+  grid-template-columns: minmax(0, 1fr) 292px;
+}
+
 .annotation-toolbar {
   display: flex;
   flex-direction: column;
@@ -5244,6 +5259,56 @@ input[type="checkbox"] {
 .product-result-strip strong { font-size: 13px; }
 .product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
 .product-result-strip code { font-size: 12px; }
+
+.product-result-strip > .product-result-strip__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.product-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: var(--z-toast);
+  width: min(420px, calc(100vw - 48px));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  padding: 14px;
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--canvas);
+  box-shadow: var(--shadow-dialog);
+}
+
+.product-toast--success > svg { color: var(--success); }
+.product-toast--error > svg { color: var(--danger); }
+.product-toast strong { font-size: 13px; }
+.product-toast p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.product-toast span { display: block; margin-top: 5px; font-size: 12px; font-weight: 650; }
+
+.product-toast__actions {
+  grid-column: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.product-toast__actions button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.product-toast__actions button:hover { background: var(--surface-2); }
 
 .agent-outcome {
   width: min(820px, calc(100% - 28px));

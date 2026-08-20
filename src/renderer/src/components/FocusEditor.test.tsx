@@ -96,7 +96,8 @@ describe('FocusEditor Agent Native actions', () => {
     const onPatch = vi.fn<(patch: JsonValue) => Promise<void>>(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K03', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '系列' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '符号形状' }), 'diamond')
     await user.selectOptions(screen.getByRole('combobox', { name: '线型' }), 'dash')
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
@@ -126,7 +127,7 @@ describe('FocusEditor Agent Native actions', () => {
       onClose={() => undefined}
     />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '色阶' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '色板' }), 'plasma')
     await user.click(screen.getByRole('button', { name: '应用色阶' }))
@@ -154,7 +155,8 @@ describe('FocusEditor Agent Native actions', () => {
       onClose={() => undefined}
     />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '系列' }))
     expect(screen.queryByRole('combobox', { name: '符号形状' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: '线型' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: '专属' })).not.toBeInTheDocument()
@@ -180,7 +182,8 @@ describe('FocusEditor Agent Native actions', () => {
     ]
     render(<FocusEditor initialIndex={0} plot={value} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '系列' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '作用系列' }), '1')
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
 
@@ -195,7 +198,7 @@ describe('FocusEditor Agent Native actions', () => {
     const onPatch = vi.fn(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '常规' }))
     await user.clear(screen.getByRole('textbox', { name: '图标题' }))
     await user.type(screen.getByRole('textbox', { name: '图标题' }), '新标题')
@@ -212,7 +215,7 @@ describe('FocusEditor Agent Native actions', () => {
     const onPatch = vi.fn(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '坐标轴' }))
     expect(screen.getByRole('combobox', { name: '轴尺度' })).toHaveValue('log10')
     await user.clear(screen.getByRole('textbox', { name: '轴标题' }))
@@ -229,7 +232,8 @@ describe('FocusEditor Agent Native actions', () => {
     const onPatch = vi.fn(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '系列' }))
     await user.click(screen.getByRole('checkbox', { name: '显示整个数据系列' }))
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
     await user.click(screen.getByRole('tab', { name: '坐标轴' }))
@@ -259,7 +263,7 @@ describe('FocusEditor Agent Native actions', () => {
     const onPatch = vi.fn(async () => undefined)
     render(<FocusEditor initialIndex={0} plot={plot('K02', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '图例' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '图例位置' }), 'outside_right')
     await user.click(screen.getByRole('button', { name: '应用图例位置' }))
@@ -298,7 +302,7 @@ describe('FocusEditor Agent Native actions', () => {
     value.chartParameters = { pareto_reference_percent: 80 }
     render(<FocusEditor initialIndex={0} plot={value} onPatch={onPatch} onClose={() => undefined} />)
 
-    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '专属' }))
     await user.clear(screen.getByRole('spinbutton', { name: '帕累托参考百分比' }))
     await user.type(screen.getByRole('spinbutton', { name: '帕累托参考百分比' }), '75')
