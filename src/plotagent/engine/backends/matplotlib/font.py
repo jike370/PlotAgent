@@ -26,6 +26,8 @@ def _is_cjk(codepoint: int) -> bool:
         or 0x20000 <= codepoint <= 0x2FA1F
         or 0x3040 <= codepoint <= 0x30FF
         or 0xAC00 <= codepoint <= 0xD7AF
+        or 0xFE30 <= codepoint <= 0xFE4F
+        or 0xFF00 <= codepoint <= 0xFFEF
     )
 
 

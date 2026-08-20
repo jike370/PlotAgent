@@ -202,6 +202,42 @@ def test_k01_backend_uses_a_cjk_capable_font_for_title_and_field_names(
         assert backend.readback(result.document).document.plot_version == 2
 
 
+def test_k01_backend_uses_a_cjk_font_for_fullwidth_punctuation_without_han_text(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(
+        tmp_path / "project",
+        project_id="project:k01-fullwidth-punctuation",
+    ) as project:
+        backend = MatplotlibBackend(tmp_path / "artifacts", (K01LineRenderer(),))
+        runtime = PlotEngineRuntime(
+            PlotEngineService(
+                EngineCatalog((K01_LINE_PROFILE,)),
+                PlotDocumentRepository(project),
+            ),
+            Provider(),
+            (backend,),
+        )
+        runtime.execute(_create())
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = runtime.execute(
+                SetTitle(
+                    action_id="action:title-fullwidth-punctuation",
+                    target="plot:line-demo",
+                    expected_plot_version=1,
+                    text="intensity（a.u.）",
+                )
+            )
+
+        assert not [warning for warning in caught if "missing from font" in str(warning.message)]
+        svg = (
+            tmp_path / "artifacts" / "line-demo" / "v2" / "preview.svg"
+        ).read_text(encoding="utf-8")
+        assert "<!-- intensity（a.u.） -->" in svg
+        assert backend.readback(result.document).document.plot_version == 2
+
+
 def test_k01_materializes_one_line_per_source_group(tmp_path: Path) -> None:
     class GroupedProvider:
         def materialize(self, data, field_ids):  # type: ignore[no-untyped-def]
