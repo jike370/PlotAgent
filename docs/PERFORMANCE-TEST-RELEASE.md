@@ -38,6 +38,16 @@
 `representative:opju` 保持 `UNVERIFIED`，等待后续真实Origin live+fresh阶段关闭。
 离线报告不得把这34项写成PASS，也不得用历史OPJU替代当前提交的原生证据。
 
+真实Origin阶段以离线目录为输入，逐图执行“生成→新进程编辑→另一新进程复核”：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_origin_matrix.py `
+  --offline build\release-matrix\offline-<commit>-<timestamp>
+```
+
+只有34项均生成非零OPJU，且编辑后由独立Origin进程重开、机械读回并导出fresh
+PNG，才可把 `representative:opju` 从 `UNVERIFIED` 升为 `PASS`。
+
 正式图清单以 [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) 为准。K16、K25、S01、S21及其他删除图只验证不可发现与 `CHART_TYPE_REMOVED`，不计入34图通过数。
 
 ## 4. 图形门禁
