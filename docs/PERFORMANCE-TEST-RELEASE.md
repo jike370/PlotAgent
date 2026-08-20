@@ -62,6 +62,11 @@ PNG，才可把 `representative:opju` 从 `UNVERIFIED` 升为 `PASS`。
 `ncols=0`自动纵向布局规范化为公共合同的一列；其他数值与多列图例仍按合同精确
 读回。
 
+项目恢复另设确定性门禁：34 个 representative PlotDocument 分别提交创建和基础编辑，
+关闭项目写入器后从同一工作区重新打开，逐图核对最新版本、父版本、profile、数据引用、
+字段绑定和动作日志。该门禁与正式 Electron 重启互补：前者穷举 34 个 profile 的持久化，
+后者验证桌面进程、项目锁、预览恢复和用户可见状态。
+
 正式图清单以 [Origin 官方模板映射](./ORIGIN-OFFICIAL-TEMPLATE-MAPPING.md) 为准。K16、K25、S01、S21及其他删除图只验证不可发现与 `CHART_TYPE_REMOVED`，不计入34图通过数。
 
 ## 4. 图形门禁

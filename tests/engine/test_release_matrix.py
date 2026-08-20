@@ -4,7 +4,9 @@ import csv
 import json
 from pathlib import Path
 
+from plotagent.engine import PlotDocumentRepository, SetTitle
 from plotagent.engine.profiles import ENGINE_PROFILES
+from plotagent.storage.project import ProjectStore
 from scripts.release_matrix_actions import (
     document_for_actions,
     representative_edit_actions,
@@ -212,3 +214,47 @@ def test_release_edit_failures_are_recorded_per_backend(tmp_path: Path) -> None:
     assert {row.backend for row in rows} == {"origin"}
     assert {row.status for row in rows} == {"FAIL"}
     assert {row.error for row in rows} == {"RuntimeError: boom"}
+
+
+def test_all_formal_profile_documents_and_latest_versions_survive_project_reopen(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "release-recovery"
+    representative = tuple(
+        case for case in RELEASE_CASES if case.variant == "representative"
+    )
+    assert len(representative) == 34
+
+    with ProjectStore.create(workspace, project_id="project:release-recovery") as project:
+        repository = PlotDocumentRepository(project)
+        for case in representative:
+            repository.commit(case.document, case.create)
+            title = SetTitle(
+                action_id=f"action:release-recovery-{case.profile_id}-title",
+                target=case.document.plot_id,
+                expected_plot_version=1,
+                text=f"{case.profile_id} recovery",
+            )
+            repository.commit(document_for_actions(case, (title,)), title)
+
+    with ProjectStore.open(workspace) as project:
+        repository = PlotDocumentRepository(project)
+        latest = repository.list_latest()
+        assert len(latest) == 34
+        assert {stored.document.profile_id for stored in latest} == {
+            profile.profile_id for profile in ENGINE_PROFILES
+        }
+        for case in representative:
+            stored = repository.get(case.document.plot_id)
+            assert stored.document.plot_version == 2
+            assert stored.document.parent_version == 1
+            assert stored.document.profile_id == case.profile_id
+            assert stored.document.data == case.document.data
+            assert stored.document.bindings == case.document.bindings
+            assert stored.document.applied_action_ids == (
+                case.create.action_id,
+                f"action:release-recovery-{case.profile_id}-title",
+            )
+            assert [
+                item.action.operation for item in repository.actions(case.document.plot_id)
+            ] == ["create_plot", "set_title"]
