@@ -94,11 +94,13 @@ class DraftCompiler:
                 item_sources.append(source)
             synthetic_fields: dict[str, ResolvedWorkflowField] = {}
             for operation in item.data_operations:
-                operation_sources = (
-                    operation.source_aliases
-                    if operation.operation == "concatenate_sources"
-                    else (operation.source_alias,)
-                )
+                if (
+                    operation.operation == "concatenate_sources"
+                    or operation.operation == "align_sources_on_x"
+                ):
+                    operation_sources = operation.source_aliases
+                else:
+                    operation_sources = (operation.source_alias,)
                 if not set(operation_sources) <= set(item.source_aliases):
                     raise WorkflowCompileError(
                         "SOURCE_ALIAS_INVALID",
@@ -117,6 +119,46 @@ class DraftCompiler:
                         name="Source",
                         logical_type="categorical",
                     )
+                elif operation.operation == "align_sources_on_x":
+                    first_x = synthetic_fields.get(operation.x_field_aliases[0]) or fields.get(
+                        operation.x_field_aliases[0]
+                    )
+                    if first_x is None or first_x.source_alias != operation.source_aliases[0]:
+                        raise WorkflowCompileError(
+                            "FIELD_ALIAS_INVALID", "多源对齐的首个 X 字段不可用。"
+                        )
+                    aligned_outputs = (
+                        (operation.output_x_field_alias, operation.output_x_name, first_x),
+                        *tuple(
+                            (
+                                output.field_alias,
+                                output.name,
+                                synthetic_fields.get(value_alias) or fields.get(value_alias),
+                            )
+                            for output, value_alias in zip(
+                                operation.output_series_fields,
+                                operation.value_field_aliases,
+                                strict=True,
+                            )
+                        ),
+                    )
+                    for alias, name, original in aligned_outputs:
+                        if alias in fields or alias in synthetic_fields:
+                            raise WorkflowCompileError(
+                                "FIELD_ALIAS_DUPLICATED", "多源对齐输出字段别名必须互不重复。"
+                            )
+                        if original is None:
+                            raise WorkflowCompileError(
+                                "FIELD_ALIAS_INVALID", "多源对齐的系列字段不可用。"
+                            )
+                        synthetic_fields[alias] = ResolvedWorkflowField(
+                            field_alias=alias,
+                            source_alias=operation.source_aliases[0],
+                            field_id=f"field:workflow_{token}_{position}_{alias}",
+                            name=name,
+                            logical_type=original.logical_type,
+                            unit_label=original.unit_label,
+                        )
                 elif operation.operation == "reshape_wide_to_long":
                     if (
                         operation.output_name in fields
@@ -162,6 +204,7 @@ class DraftCompiler:
                 elif operation.operation in {
                     "rename_field",
                     "derive_column",
+                    "convert_type",
                     "convert_unit",
                     "bucketize_numeric",
                 }:
@@ -190,6 +233,14 @@ class DraftCompiler:
                     elif operation.operation == "bucketize_numeric":
                         logical_type = "categorical"
                         unit_label = None
+                    elif operation.operation == "convert_type":
+                        logical_type = derived_operation.target_type
+                        original = fields.get(derived_operation.field_alias)
+                        unit_label = (
+                            original.unit_label
+                            if original is not None and logical_type == "numeric"
+                            else None
+                        )
                     synthetic_fields[alias] = ResolvedWorkflowField(
                         field_alias=alias,
                         source_alias=derived_operation.source_alias,
@@ -241,14 +292,8 @@ class DraftCompiler:
                 resolved_fields.setdefault(alias, synthetic)
             operation_aliases: set[str] = set()
             for operation in item.data_operations:
-                dumped = operation.model_dump(mode="python")
-                for key, value in dumped.items():
-                    if "field_alias" not in key:
-                        continue
-                    if isinstance(value, str):
-                        operation_aliases.add(value)
-                    elif isinstance(value, (list, tuple)):
-                        operation_aliases.update(cast(str, item) for item in value)
+                inputs, _outputs = self._operation_fields(operation)
+                operation_aliases.update(inputs)
                 if operation.operation == "filter_rows":
                     operation_aliases.update(
                         predicate.field_alias for predicate in operation.predicates
@@ -383,6 +428,30 @@ class DraftCompiler:
                     head: available[head] | {operation.source_label_field},
                 }
                 continue
+            if operation.operation == "align_sources_on_x":
+                for source_alias, x_alias, value_alias in zip(
+                    operation.source_aliases,
+                    operation.x_field_aliases,
+                    operation.value_field_aliases,
+                    strict=True,
+                ):
+                    current = available.get(source_alias)
+                    if current is None:
+                        raise WorkflowCompileError(
+                            "SOURCE_ALIAS_INVALID", "多源对齐引用了已不可用的数据表。"
+                        )
+                    if x_alias not in current or value_alias not in current:
+                        raise WorkflowCompileError(
+                            "FIELD_ALIAS_INVALID", "多源对齐字段不属于对应数据表。"
+                        )
+                head = operation.source_aliases[0]
+                available = {
+                    head: {
+                        operation.output_x_field_alias,
+                        *(field.field_alias for field in operation.output_series_fields),
+                    }
+                }
+                continue
             source_alias = operation.source_alias
             current = available.get(source_alias)
             if current is None:
@@ -396,6 +465,8 @@ class DraftCompiler:
                 )
             if operation.operation == "select_fields":
                 available[source_alias] = set(operation.field_aliases)
+            elif operation.operation == "drop_empty_fields":
+                available[source_alias].difference_update(operation.field_aliases)
             elif operation.operation == "reshape_wide_to_long":
                 available[source_alias] = set(operation.id_field_aliases) | set(outputs)
             elif operation.operation == "reshape_long_to_wide":
@@ -411,6 +482,12 @@ class DraftCompiler:
             return tuple(item.field_alias for item in operation.predicates), ()
         if operation.operation == "sort_rows":
             return tuple(item.field_alias for item in operation.keys), ()
+        if operation.operation == "exclude_rows":
+            return (), ()
+        if operation.operation == "drop_empty_fields":
+            return operation.field_aliases, ()
+        if operation.operation == "convert_type":
+            return (operation.field_alias,), (operation.output_field_alias,)
         if operation.operation == "reshape_wide_to_long":
             return (
                 operation.id_field_aliases + operation.value_field_aliases,
@@ -430,6 +507,14 @@ class DraftCompiler:
             return (operation.field_alias,), (operation.output_field_alias,)
         if operation.operation == "bucketize_numeric":
             return (operation.field_alias,), (operation.output_field_alias,)
+        if operation.operation == "align_sources_on_x":
+            return (
+                operation.x_field_aliases + operation.value_field_aliases,
+                (
+                    operation.output_x_field_alias,
+                    *(field.field_alias for field in operation.output_series_fields),
+                ),
+            )
         return (), (operation.source_label_field,)
 
     @staticmethod

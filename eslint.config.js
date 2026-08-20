@@ -7,6 +7,8 @@ export default tseslint.config(
   {
     ignores: [
       '.venv',
+      '.pytest-tmp',
+      '.pytest_cache',
       'build',
       'coverage',
       'dist',

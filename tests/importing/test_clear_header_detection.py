@@ -94,6 +94,51 @@ def test_arbitrary_header_suffix_is_not_invented_as_a_unit(tmp_path: Path) -> No
     assert tuple(field.unit.kind for field in fields) == ("dimensionless", "dimensionless")
 
 
+def test_instrument_table_header_after_preamble_is_detected_and_trailing_empty_field_dropped(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "instrument.txt"
+    source.write_text(
+        "Instrument=Analyzer 7\n"
+        "Operator=Lab A\n"
+        "\n"
+        "     Angle,       PSD,\n"
+        "0.100,12.5,\n"
+        "0.200,13.75,\n"
+        "0.300,15.0,\n",
+        encoding="utf-8",
+    )
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    artifact = result.sources[0]
+    assert artifact.recipe.header_row == 4
+    assert artifact.recipe.data_start_row == 5
+    assert artifact.recipe.column_names == ("Angle", "PSD")
+    assert artifact.rows == ((0.1, 12.5), (0.2, 13.75), (0.3, 15.0))
+    assert tuple(field.logical_type for field in artifact.source_dataset.field_schema) == (
+        "numeric",
+        "numeric",
+    )
+    assert artifact.coordinates[0].line_start == 5
+    assert artifact.instrument_metadata == {"Instrument": "Analyzer 7", "Operator": "Lab A"}
+    parsed = next(event for event in artifact.trace if event.code == "IMPORT_TEXT_BLOCK_PARSED")
+    assert parsed.details == {"rows": 3, "columns": 2, "discarded_empty_columns": 1}
+
+
+def test_sparse_real_field_is_not_dropped_as_trailing_empty_serialization(tmp_path: Path) -> None:
+    source = tmp_path / "sparse.csv"
+    source.write_text("X,Y,Note,\n1,2,,\n2,3,keep,\n", encoding="utf-8")
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    artifact = result.sources[0]
+    assert artifact.recipe.column_names == ("X", "Y", "Note")
+    assert artifact.rows == ((1, 2, None), (2, 3, "keep"))
+
+
 def test_unit_registry_preserves_scientific_prefix_case(tmp_path: Path) -> None:
     source = tmp_path / "resistance.xlsx"
     workbook = Workbook()

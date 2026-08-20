@@ -1,5 +1,83 @@
 {
   "$defs": {
+    "AlignSourcesOnX": {
+      "additionalProperties": false,
+      "description": "Build one wide table from independent series sharing an ordered X domain.",
+      "properties": {
+        "numeric_tolerance": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Numeric Tolerance",
+          "type": "number"
+        },
+        "operation": {
+          "const": "align_sources_on_x",
+          "default": "align_sources_on_x",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_series_fields": {
+          "items": {
+            "$ref": "#/$defs/WorkflowOutputField"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Output Series Fields",
+          "type": "array"
+        },
+        "output_x_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output X Field Alias",
+          "type": "string"
+        },
+        "output_x_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output X Name",
+          "type": "string"
+        },
+        "source_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Source Aliases",
+          "type": "array"
+        },
+        "value_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "Value Field Aliases",
+          "type": "array"
+        },
+        "x_field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 2,
+          "title": "X Field Aliases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_aliases",
+        "x_field_aliases",
+        "value_field_aliases",
+        "output_x_field_alias",
+        "output_x_name",
+        "output_series_fields"
+      ],
+      "title": "AlignSourcesOnX",
+      "type": "object"
+    },
     "BucketizeNumeric": {
       "additionalProperties": false,
       "description": "Create a categorical field from explicit ordered numeric boundaries.",
@@ -106,6 +184,121 @@
         "source_aliases"
       ],
       "title": "ConcatenateSources",
+      "type": "object"
+    },
+    "ConvertType": {
+      "additionalProperties": false,
+      "properties": {
+        "case_sensitive": {
+          "default": false,
+          "title": "Case Sensitive",
+          "type": "boolean"
+        },
+        "datetime_format": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Datetime Format"
+        },
+        "decimal_separator": {
+          "default": ".",
+          "enum": [
+            ".",
+            ","
+          ],
+          "title": "Decimal Separator",
+          "type": "string"
+        },
+        "false_values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "False Values",
+          "type": "array"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "convert_type",
+          "default": "convert_type",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "target_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        },
+        "thousands_separator": {
+          "anyOf": [
+            {
+              "enum": [
+                ",",
+                ".",
+                " "
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thousands Separator"
+        },
+        "true_values": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "True Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "target_type",
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "ConvertType",
       "type": "object"
     },
     "ConvertUnit": {
@@ -1849,6 +2042,70 @@
       "title": "DraftSetTitle",
       "type": "object"
     },
+    "DropEmptyFields": {
+      "additionalProperties": false,
+      "properties": {
+        "field_aliases": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Field Aliases",
+          "type": "array"
+        },
+        "operation": {
+          "const": "drop_empty_fields",
+          "default": "drop_empty_fields",
+          "title": "Operation",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_aliases"
+      ],
+      "title": "DropEmptyFields",
+      "type": "object"
+    },
+    "ExcludeRows": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "const": "exclude_rows",
+          "default": "exclude_rows",
+          "title": "Operation",
+          "type": "string"
+        },
+        "row_indices": {
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "title": "Row Indices",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "row_indices"
+      ],
+      "title": "ExcludeRows",
+      "type": "object"
+    },
     "FilterPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -2288,10 +2545,14 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "align_sources_on_x": "#/$defs/AlignSourcesOnX",
                 "bucketize_numeric": "#/$defs/BucketizeNumeric",
                 "concatenate_sources": "#/$defs/ConcatenateSources",
+                "convert_type": "#/$defs/ConvertType",
                 "convert_unit": "#/$defs/ConvertUnit",
                 "derive_column": "#/$defs/DeriveColumn",
+                "drop_empty_fields": "#/$defs/DropEmptyFields",
+                "exclude_rows": "#/$defs/ExcludeRows",
                 "filter_rows": "#/$defs/FilterRows",
                 "rename_field": "#/$defs/RenameField",
                 "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
@@ -2312,6 +2573,15 @@
                 "$ref": "#/$defs/SortRows"
               },
               {
+                "$ref": "#/$defs/ExcludeRows"
+              },
+              {
+                "$ref": "#/$defs/DropEmptyFields"
+              },
+              {
+                "$ref": "#/$defs/ConvertType"
+              },
+              {
                 "$ref": "#/$defs/ReshapeLongToWide"
               },
               {
@@ -2319,6 +2589,9 @@
               },
               {
                 "$ref": "#/$defs/ConcatenateSources"
+              },
+              {
+                "$ref": "#/$defs/AlignSourcesOnX"
               },
               {
                 "$ref": "#/$defs/RenameField"
@@ -2334,7 +2607,7 @@
               }
             ]
           },
-          "maxItems": 16,
+          "maxItems": 32,
           "title": "Data Operations",
           "type": "array"
         },

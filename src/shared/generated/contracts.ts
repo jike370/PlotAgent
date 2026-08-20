@@ -232,6 +232,17 @@ export type AggregateOperation = {
   readonly metrics: ReadonlyArray<AggregateMetric>;
 }
 
+export type AlignSourcesOnX = {
+  readonly operation?: "align_sources_on_x";
+  readonly source_aliases: ReadonlyArray<string>;
+  readonly x_field_aliases: ReadonlyArray<string>;
+  readonly value_field_aliases: ReadonlyArray<string>;
+  readonly output_x_field_alias: string;
+  readonly output_x_name: string;
+  readonly output_series_fields: ReadonlyArray<WorkflowOutputField>;
+  readonly numeric_tolerance?: number;
+}
+
 export type ApplyPlotOrderSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -365,7 +376,7 @@ export type CompiledTaskItem = {
   readonly target_plot_version?: number | null;
   readonly sources?: ReadonlyArray<WorkflowSource>;
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
-  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
   readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
   readonly depends_on?: ReadonlyArray<string>;
@@ -446,6 +457,21 @@ export type ContextToolContract = {
   readonly output_schema_hash: string;
   readonly description: string;
   readonly side_effect: "none" | "staged" | "confirmed_write" | "expanded_risk";
+}
+
+export type ConvertType = {
+  readonly operation?: "convert_type";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly target_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly output_field_alias: string;
+  readonly output_name: string;
+  readonly decimal_separator?: "." | ",";
+  readonly thousands_separator?: "," | "." | " " | null;
+  readonly datetime_format?: string | null;
+  readonly true_values?: ReadonlyArray<string>;
+  readonly false_values?: ReadonlyArray<string>;
+  readonly case_sensitive?: boolean;
 }
 
 export type ConvertTypeOperation = {
@@ -742,6 +768,12 @@ export type DraftSetTitle = {
   readonly color?: string | null;
 }
 
+export type DropEmptyFields = {
+  readonly operation?: "drop_empty_fields";
+  readonly source_alias: string;
+  readonly field_aliases: ReadonlyArray<string>;
+}
+
 export type ECDFResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -886,6 +918,12 @@ export type ExcelSourceCoordinate = {
   readonly sheet_name: string;
   readonly cell_range: string;
   readonly source_row_id: string;
+}
+
+export type ExcludeRows = {
+  readonly operation?: "exclude_rows";
+  readonly source_alias: string;
+  readonly row_indices: ReadonlyArray<number>;
 }
 
 export type ExecutionGrant = {
@@ -1792,7 +1830,7 @@ export type TaskDraftItem = {
   readonly profile_id: string;
   readonly target_plot_alias?: string | null;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
   readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }

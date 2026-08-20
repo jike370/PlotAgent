@@ -868,6 +868,9 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "Every source_alias and field_alias is an opaque Core identifier" in system_prompt
         assert "never use a display name such as X or Response" in system_prompt
         assert "emit concatenate_sources directly" in system_prompt
+        assert "use align_sources_on_x" in system_prompt
+        assert "never sort, interpolate, truncate, or coerce" in system_prompt
+        assert "Use convert_type only after inspecting enough rows" in system_prompt
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "Core derives that integrity field" in system_prompt

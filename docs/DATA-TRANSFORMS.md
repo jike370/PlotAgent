@@ -23,7 +23,7 @@ SourceDataset
 - `PreparedDataView` 是为了绘图复现而登记的不可变派生数据；可以被 PlotDocument、任务和导出引用，但不是可任意继续加工的数据分析工作区。
 - 图形不可分割的固定计算由 `PlotCalculationSpec/Result` 表达，详见[固定绘图计算与科学边界](./ANALYSIS-ENGINE.md)。
 
-正式白名单覆盖字段选择/重命名、行筛选、多键排序、受控 reshape、同构拼接、登记算子的派生字段和单位换算。暂不提供 dedupe、任意 join、任意聚合、自由算术表达式、log/zscore、baseline、normalize、category recode、单元格编辑、SQL、Python、字符串表达式或 UDF。超出白名单时返回稳定 `DATA_OPERATION_UNSUPPORTED`，不猜测替代做法。
+正式白名单覆盖字段选择/重命名、行筛选、多键排序、受控 reshape、同构纵向拼接、严格类型转换、已证实非数据行/空字段清理、共同有序 X 上的多源横向对齐、登记算子的派生字段和单位换算。暂不提供 dedupe、模糊/任意 join、隐式插值、任意聚合、自由算术表达式、log/zscore、baseline、normalize、category recode、单元格编辑、SQL、Python、字符串表达式或 UDF。超出白名单时返回稳定 `DATA_OPERATION_UNSUPPORTED`，不猜测替代做法。
 
 ## 2. SourceDataset 与不可变来源
 
@@ -57,12 +57,16 @@ DataOperation 使用严格 Pydantic discriminated union。Agent 可通过预演�
 - `rename_field`：只改变派生视图显示名，保留来源 field id 血缘。
 - `filter_rows`：结构化谓词筛选，保存纳入/排除行数和原因。
 - `sort_rows`：稳定多键排序，保存缺失值位置策略。
+- `exclude_rows`：只排除预览中已明确确认的零基行位置；越界或清空全部数据即失败。
+- `drop_empty_fields`：只删除已指定且全为空/空白的字段；字段出现任何有效值即失败。
+- `convert_type`：按显式小数点、千位符、日期格式或布尔字典严格生成新字段；首个非法 token 连同来源行稳定报错，禁止转成 missing。
 - `reshape_long_to_wide` / `reshape_wide_to_long`：不隐式聚合重复键。
 - `concatenate_sources`：仅拼接兼容来源，保留来源标签。
+- `align_sources_on_x`：把多个独立来源整理为“一个共同 X + 每来源一个数值系列”的宽表；保持第一个来源的行序，逐项验证 X 值、类型和单位，不排序、不插值、不截断。
 - `derive_column`：只允许注册表内有类型、量纲和确定性实现的算子。
 - `convert_unit`：只允许单位注册表内的量纲兼容转换，产生新字段或明确替换派生字段。
 
-每个预演工具返回规范化 DataOperation、输出 schema、数据样本、行列变化和警告，不修改项目。用户确认后，正式执行复用同一实现并产生 PreparedDataView。操作序列最多 16 步；不允许运行时增加 kind、任意表达式或模型给出换算系数。
+每个预演工具返回规范化 DataOperation、输出 schema、数据样本、行列变化和警告，不修改项目。用户确认后，正式执行复用同一实现并产生 PreparedDataView。操作序列最多 32 步，以容纳八个来源逐字段严格转换后再对齐的受控任务；不允许运行时增加 kind、任意表达式或模型给出换算系数。
 
 ## 5. Excel 多工作表规则
 
@@ -77,6 +81,7 @@ DataOperation 使用严格 Pydantic discriminated union。Agent 可通过预演�
 TXT 导入先分离 `InstrumentMetadata`、一个或多个 `DataBlock` 与 `postamble`。普通 CSV 复用同一确定性文本路径，只是常见候选通常为单一 DataBlock。
 
 - 带仪器前导/尾部信息时，元数据与数值区域分别保存，元数据默认不进入数据列。
+- 数据块首行是字段标签、随后连续行在相同列上为数值时，该行确定为表头；每行尾部分隔符产生且在全部数据行均为空的字段属于序列化空列，导入阶段直接去除并记录数量。稀疏但出现过有效值的字段不得删除。
 - 存在多个 block、sweep 或 channel 时展示候选，默认作为独立 SourceDataset/批次项，不擅自拼接、透视或平均。
 - 只有用户明确将某个元数据字段用于标签或分组时，才通过 `project_metadata_label` 投影常量来源列。
 - 编码、分隔符、decimal mark、header、data region 有多个合理解释时只问一个最小问题；超出已列举解析模式时返回可操作拒绝。
@@ -96,6 +101,7 @@ TXT 导入先分离 `InstrumentMetadata`、一个或多个 `DataBlock` 与 `post
 ## 8. 缺失、异常与完整数据
 
 - 程序不得自动删除、填补、去重、过滤异常、裁剪或 winsorize 数据。Agent 只能在用户目标明确且白名单工具可表达时提出 `filter_rows`；确认卡必须显示排除条件与行数。
+- 导入阶段移除“尾部分隔符对应的全空序列化列”属于物理结构识别，不是语义删列；其判据和数量必须写入 ImportRecipe trace。
 - NaN、Inf 与 missing 原样保留并在质量摘要中计数；绘图/固定计算只能选择 `fail` 或 `exclude_with_report`。
 - `exclude_with_report` 只生成可审计 mask，保存纳入/排除行数和原因；SourceDataset 不变。
 - log axis v1 仅 Log10，遇到任何参与绘图的非正值即阻断，不能通过 mask 静默跳过。

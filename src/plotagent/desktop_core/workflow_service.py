@@ -403,11 +403,13 @@ class DesktopWorkflowService:
             canonical_json(cast(Any, raw_operation))
         )
         inspection = self._inspection(workflow_run_id)
-        aliases = (
-            operation.source_aliases
-            if operation.operation == "concatenate_sources"
-            else (operation.source_alias,)
-        )
+        if (
+            operation.operation == "concatenate_sources"
+            or operation.operation == "align_sources_on_x"
+        ):
+            aliases = operation.source_aliases
+        else:
+            aliases = (operation.source_alias,)
         rows = {alias: inspection.provider.rows(alias) for alias in aliases}
         result = preview_data_operation(context, rows, operation, limit=limit)
         audit = inspection.record_operation_preview(

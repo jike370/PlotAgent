@@ -6,12 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from plotagent.contracts.workflows import (
+    AlignSourcesOnX,
     ConcatenateSources,
+    ConvertType,
     ConvertUnit,
     DeriveColumn,
     DraftFieldBinding,
     DraftSetAxis,
     DraftSetTitle,
+    ExcludeRows,
     ReshapeLongToWide,
     TaskDraft,
     TaskDraftItem,
@@ -260,6 +263,151 @@ def test_compiler_accepts_agent_declared_concatenate_identity_field() -> None:
     plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
     assert plan.items[0].data_operations[0].operation == "concatenate_sources"
     assert plan.items[0].bindings[-1].field_id.startswith("field:workflow_")
+
+
+def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("X38",),
+        }
+    )
+    draft = TaskDraft(
+        draft_id="draft:align",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="按共同 X 对齐两个独立系列",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:align.1",
+                plot_alias="plot_1",
+                profile_id="X38",
+                source_aliases=("data_1", "data_2"),
+                data_operations=(
+                    AlignSourcesOnX(
+                        source_aliases=("data_1", "data_2"),
+                        x_field_aliases=("data_1_time", "data_2_time"),
+                        value_field_aliases=("data_1_response", "data_2_response"),
+                        output_x_field_alias="shared_x",
+                        output_x_name="Time",
+                        output_series_fields=(
+                            WorkflowOutputField(field_alias="series_a", name="Sheet1"),
+                            WorkflowOutputField(field_alias="series_b", name="Sheet2"),
+                        ),
+                    ),
+                ),
+                bindings=(
+                    DraftFieldBinding(
+                        role="x", source_alias="data_1", field_alias="shared_x"
+                    ),
+                    DraftFieldBinding(
+                        role="series_1", source_alias="data_1", field_alias="series_a"
+                    ),
+                    DraftFieldBinding(
+                        role="series_2", source_alias="data_1", field_alias="series_b"
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+
+    assert plan.items[0].data_operations[0].operation == "align_sources_on_x"
+    assert [binding.role for binding in plan.items[0].bindings] == [
+        "x",
+        "series_1",
+        "series_2",
+    ]
+    assert all(binding.field_id.startswith("field:workflow_") for binding in plan.items[0].bindings)
+
+
+def test_compiler_can_convert_legacy_text_sources_before_strict_x_alignment() -> None:
+    base = _context()
+    context = base.model_copy(
+        update={
+            "fields": tuple(
+                field.model_copy(update={"logical_type": "text"}) for field in base.fields
+            ),
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("X38",),
+        }
+    )
+    operations = (
+        ExcludeRows(source_alias="data_1", row_indices=(0,)),
+        ExcludeRows(source_alias="data_2", row_indices=(0,)),
+        ConvertType(
+            source_alias="data_1",
+            field_alias="data_1_time",
+            target_type="numeric",
+            output_field_alias="x_1",
+            output_name="Angle",
+        ),
+        ConvertType(
+            source_alias="data_1",
+            field_alias="data_1_response",
+            target_type="numeric",
+            output_field_alias="y_1",
+            output_name="PSD",
+        ),
+        ConvertType(
+            source_alias="data_2",
+            field_alias="data_2_time",
+            target_type="numeric",
+            output_field_alias="x_2",
+            output_name="Angle",
+        ),
+        ConvertType(
+            source_alias="data_2",
+            field_alias="data_2_response",
+            target_type="numeric",
+            output_field_alias="y_2",
+            output_name="PSD",
+        ),
+        AlignSourcesOnX(
+            source_aliases=("data_1", "data_2"),
+            x_field_aliases=("x_1", "x_2"),
+            value_field_aliases=("y_1", "y_2"),
+            output_x_field_alias="shared_x",
+            output_x_name="Angle",
+            output_series_fields=(
+                WorkflowOutputField(field_alias="series_a", name="Sheet1"),
+                WorkflowOutputField(field_alias="series_b", name="Sheet2"),
+            ),
+        ),
+    )
+    item = TaskDraftItem(
+        task_kind="create",
+        item_id="item:legacy-align.1",
+        plot_alias="plot_1",
+        profile_id="X38",
+        source_aliases=("data_1", "data_2"),
+        data_operations=operations,
+        bindings=(
+            DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
+            DraftFieldBinding(
+                role="series_1", source_alias="data_1", field_alias="series_a"
+            ),
+            DraftFieldBinding(
+                role="series_2", source_alias="data_1", field_alias="series_b"
+            ),
+        ),
+    )
+    draft = TaskDraft(
+        draft_id="draft:legacy-align",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="清理旧导入并按共同 X 对齐",
+        confidence=1,
+        items=(item,),
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+
+    assert len(plan.items[0].data_operations) == 7
+    assert plan.items[0].data_operations[-1].operation == "align_sources_on_x"
 
 
 def test_long_to_wide_requires_explicit_bindable_output_fields() -> None:

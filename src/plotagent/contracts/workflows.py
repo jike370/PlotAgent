@@ -326,6 +326,72 @@ class SortRows(StrictModel):
     keys: Annotated[tuple[SortKey, ...], Field(min_length=1, max_length=8)]
 
 
+class ExcludeRows(StrictModel):
+    operation: Literal["exclude_rows"] = "exclude_rows"
+    source_alias: WorkflowAlias
+    row_indices: Annotated[
+        tuple[Annotated[int, Field(ge=0)], ...], Field(min_length=1, max_length=256)
+    ]
+
+    @model_validator(mode="after")
+    def unique_rows(self) -> ExcludeRows:
+        if len(self.row_indices) != len(set(self.row_indices)):
+            raise ValueError("excluded row indices must be unique")
+        return self
+
+
+class DropEmptyFields(StrictModel):
+    operation: Literal["drop_empty_fields"] = "drop_empty_fields"
+    source_alias: WorkflowAlias
+    field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=1, max_length=64)]
+
+    @model_validator(mode="after")
+    def unique_fields(self) -> DropEmptyFields:
+        if len(self.field_aliases) != len(set(self.field_aliases)):
+            raise ValueError("empty field aliases must be unique")
+        return self
+
+
+class ConvertType(StrictModel):
+    operation: Literal["convert_type"] = "convert_type"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    target_type: Literal["numeric", "categorical", "datetime", "boolean", "text"]
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    decimal_separator: Literal[".", ","] = "."
+    thousands_separator: Literal[",", ".", " "] | None = None
+    datetime_format: (
+        Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)] | None
+    ) = None
+    true_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    false_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
+    case_sensitive: bool = False
+
+    @model_validator(mode="after")
+    def conversion_options_match_target(self) -> ConvertType:
+        if self.output_field_alias == self.field_alias:
+            raise ValueError("type conversion must create a new field alias")
+        if self.decimal_separator == self.thousands_separator:
+            raise ValueError("decimal and thousands separators must differ")
+        if self.target_type == "datetime" and self.datetime_format is None:
+            raise ValueError("datetime conversion requires an explicit format")
+        if self.target_type == "boolean":
+            if not self.true_values or not self.false_values:
+                raise ValueError("boolean conversion requires true and false values")
+            true_values = {
+                value if self.case_sensitive else value.casefold() for value in self.true_values
+            }
+            false_values = {
+                value if self.case_sensitive else value.casefold() for value in self.false_values
+            }
+            if true_values & false_values:
+                raise ValueError("boolean true and false values must not overlap")
+        elif self.true_values or self.false_values:
+            raise ValueError("boolean labels are only valid for boolean conversion")
+        return self
+
+
 class WorkflowOutputField(StrictModel):
     field_alias: WorkflowAlias
     name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
@@ -387,6 +453,46 @@ class ConcatenateSources(StrictModel):
         normalized = tuple(label.strip().casefold() for label in self.source_labels)
         if len(normalized) != len(set(normalized)):
             raise ValueError("source labels must be unique")
+        return self
+
+
+class AlignSourcesOnX(StrictModel):
+    """Build one wide table from independent series sharing an ordered X domain."""
+
+    operation: Literal["align_sources_on_x"] = "align_sources_on_x"
+    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    x_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    value_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    output_x_field_alias: WorkflowAlias
+    output_x_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    output_series_fields: Annotated[
+        tuple[WorkflowOutputField, ...], Field(min_length=2, max_length=8)
+    ]
+    numeric_tolerance: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0.0
+
+    @model_validator(mode="after")
+    def aligned_dimensions_match(self) -> AlignSourcesOnX:
+        size = len(self.source_aliases)
+        if len(set(self.source_aliases)) != size:
+            raise ValueError("aligned sources must be unique")
+        if not (
+            len(self.x_field_aliases)
+            == len(self.value_field_aliases)
+            == len(self.output_series_fields)
+            == size
+        ):
+            raise ValueError("each aligned source requires one X, value, and output series")
+        output_aliases = (
+            self.output_x_field_alias,
+            *(field.field_alias for field in self.output_series_fields),
+        )
+        if len(output_aliases) != len(set(output_aliases)):
+            raise ValueError("aligned output field aliases must be unique")
+        normalized_names = tuple(
+            field.name.strip().casefold() for field in self.output_series_fields
+        )
+        if len(normalized_names) != len(set(normalized_names)):
+            raise ValueError("aligned output series names must be unique")
         return self
 
 
@@ -466,9 +572,13 @@ DataOperation = Annotated[
     SelectFields
     | FilterRows
     | SortRows
+    | ExcludeRows
+    | DropEmptyFields
+    | ConvertType
     | ReshapeLongToWide
     | ReshapeWideToLong
     | ConcatenateSources
+    | AlignSourcesOnX
     | RenameField
     | DeriveColumn
     | ConvertUnit
@@ -730,7 +840,7 @@ class TaskDraftItem(StrictModel):
     profile_id: Token
     target_plot_alias: WorkflowAlias | None = None
     source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
-    data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=16)] = ()
+    data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[DraftFieldBinding, ...], Field(max_length=128)] = ()
     visual_actions: Annotated[tuple[DraftVisualAction, ...], Field(max_length=64)] = ()
 

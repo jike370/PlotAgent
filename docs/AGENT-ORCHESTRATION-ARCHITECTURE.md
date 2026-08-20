@@ -87,6 +87,7 @@ flowchart TD
 - 文件解码、分隔符和 decimal mark 候选；
 - workbook/sheet、TXT block、preamble/postamble 与数据区域候选；
 - 显式表头、逻辑类型、缺失与有限性统计；
+- 数据块内“标签行 + 后续同列数值行”的确定性表头识别，以及尾部分隔符造成的全空序列化字段清理；
 - 稳定 source/field/row ID、内容 hash 与来源坐标；
 - 单位行、括号/方括号单位和仪器元数据中的明确单位；
 - 列名后缀中的低置信单位候选及其原文位置。
@@ -130,16 +131,22 @@ WorkflowContext 必须包含：
 - `preview_select_fields`
 - `preview_filter_rows`
 - `preview_sort_rows`
+- `preview_exclude_rows`
+- `preview_drop_empty_fields`
+- `preview_convert_type`
 - `preview_rename_field`
 - `preview_derive_column`
 - `preview_convert_unit`
 - `preview_reshape_long_to_wide`
 - `preview_reshape_wide_to_long`
 - `preview_concatenate_sources`
+- `preview_align_sources_on_x`
 
 预演工具返回输入/输出 schema、前几行、行列变化、单位变化、警告和规范化 DataOperation；不登记 PreparedDataView、不修改项目版本。Agent 确认结果后把规范化操作写入 TaskDraft。正式执行在用户确认后由同一实现完成，预演与正式执行不得使用两套算法。
 
 `derive_column` 只允许登记过的类型化算子，不接受自由公式。`convert_unit` 只允许注册表内量纲兼容的转换；比例与仿射单位均由程序计算，模型不能提供任意换算因子。
+
+`convert_type` 必须严格失败并报告来源行，不能把非法文本静默改为缺失。`align_sources_on_x` 只处理“每个来源一个 X/数值系列，且 X 已按相同顺序对齐”的情形；它生成 renderer 可直接绑定的宽表，但绝不代替排序、插值或科学配准。X 不一致时 Agent 必须根据用户目标另行处理或追问。
 
 ### 6.3 规划与对话
 

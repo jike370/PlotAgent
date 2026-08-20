@@ -227,7 +227,25 @@ def _table_groups(lines: tuple[_Line, ...], delimiter: str) -> tuple[tuple[_Tabl
 
 
 def _typed_count(cells: tuple[str, ...], decimal_mark: str) -> int:
-    return sum(not isinstance(parse_text_scalar(cell, decimal_mark), str) for cell in cells)
+    parsed = (parse_text_scalar(cell, decimal_mark) for cell in cells)
+    return sum(value is not None and not isinstance(value, str) for value in parsed)
+
+
+def _nonempty_column_indices(data_lines: tuple[_TableLine, ...]) -> tuple[int, ...]:
+    """Return columns that contain at least one non-blank data token.
+
+    Instrument exports commonly terminate every record with a delimiter.  The
+    parser must not turn that serialization detail into a null-only field, but
+    it also must not drop a sparsely populated real field.
+    """
+
+    if not data_lines:
+        return ()
+    return tuple(
+        index
+        for index in range(len(data_lines[0].cells))
+        if any(row.cells[index].strip() for row in data_lines)
+    )
 
 
 def _header_index(
@@ -324,16 +342,24 @@ def inspect_text(
                 "请修复不规则行，或用空行拆分不同结构的数据块。",
             )
         header_index, data_index = _header_index(group, decimal_mark, options.header_row)
-        width = len(group[0].cells)
+        raw_width = len(group[0].cells)
+        data_lines = group[data_index:]
+        active_columns = _nonempty_column_indices(data_lines)
+        if not active_columns:
+            raise ImportProblem(
+                ImportErrorCode.NO_DATA,
+                f"数据块 {block_index} 不包含可导入字段。",
+                "请确认表头后至少有一列非空数据。",
+            )
         if header_index is None:
-            headers = tuple(f"column_{index}" for index in range(1, width + 1))
+            headers = tuple(f"column_{index + 1}" for index in active_columns)
             header_row = None
         else:
-            headers = tuple(cell.strip() for cell in group[header_index].cells)
+            headers = tuple(group[header_index].cells[index].strip() for index in active_columns)
             header_row = group[header_index].line.number
-        data_lines = group[data_index:]
         rows = tuple(
-            tuple(parse_text_scalar(cell, decimal_mark) for cell in row.cells) for row in data_lines
+            tuple(parse_text_scalar(row.cells[index], decimal_mark) for index in active_columns)
+            for row in data_lines
         )
         block_name = f"block_{block_index}"
         coordinates = tuple(
@@ -364,12 +390,16 @@ def inspect_text(
             TraceEvent(
                 stage="parse",
                 code="IMPORT_TEXT_BLOCK_PARSED",
-                details={"rows": len(rows), "columns": width},
+                details={
+                    "rows": len(rows),
+                    "columns": len(active_columns),
+                    "discarded_empty_columns": raw_width - len(active_columns),
+                },
             ),
         )
         recipe = ImportRecipe(
             parser_name="plotagent-text",
-            parser_version="text-v1",
+            parser_version="text-v2",
             source_format=source_format,  # type: ignore[arg-type]
             encoding=decoded.encoding,
             delimiter=delimiter,

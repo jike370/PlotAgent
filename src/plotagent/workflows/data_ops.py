@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from bisect import bisect_right
+from datetime import date, datetime
 from typing import Any, Protocol, cast
 
 from plotagent.contracts.canonical import canonical_hash
@@ -40,6 +41,14 @@ class WorkflowDataRegistrar(Protocol):
     def register(self, view: EngineDataView) -> EngineDataView: ...
 
 
+def _operation_source_aliases(operation: DataOperation) -> tuple[str, ...]:
+    if operation.operation == "concatenate_sources":
+        return operation.source_aliases
+    if operation.operation == "align_sources_on_x":
+        return operation.source_aliases
+    return (operation.source_alias,)
+
+
 def preview_data_operation(
     context: WorkflowContext,
     rows_by_alias: dict[str, tuple[tuple[WorkflowScalar, ...], ...]],
@@ -51,11 +60,7 @@ def preview_data_operation(
 
     if not 1 <= limit <= 40:
         raise WorkflowDataError("INSPECTION_RANGE_INVALID", "数据处理预览行数无效。")
-    source_aliases = (
-        operation.source_aliases
-        if operation.operation == "concatenate_sources"
-        else (operation.source_alias,)
-    )
+    source_aliases = _operation_source_aliases(operation)
     views: dict[str, EngineDataView] = {}
     for source_alias in source_aliases:
         source = next(
@@ -112,6 +117,27 @@ def preview_data_operation(
                 for key in operation.keys
             ),
         )
+    elif operation.operation == "exclude_rows":
+        result = _exclude_rows(views[operation.source_alias], operation.row_indices)
+    elif operation.operation == "drop_empty_fields":
+        result = _drop_empty_fields(
+            views[operation.source_alias],
+            tuple(_preview_field_id(alias) for alias in operation.field_aliases),
+        )
+    elif operation.operation == "convert_type":
+        result = _convert_type(
+            views[operation.source_alias],
+            _preview_field_id(operation.field_alias),
+            operation.target_type,
+            _preview_field_id(operation.output_field_alias),
+            operation.output_name,
+            operation.decimal_separator,
+            operation.thousands_separator,
+            operation.datetime_format,
+            operation.true_values,
+            operation.false_values,
+            operation.case_sensitive,
+        )
     elif operation.operation == "reshape_wide_to_long":
         result = _wide_to_long(
             views[operation.source_alias],
@@ -163,7 +189,7 @@ def preview_data_operation(
             _preview_field_id(operation.output_field_alias),
             operation.output_name,
         )
-    else:
+    elif operation.operation == "concatenate_sources":
         source_by_alias = {source.source_alias: source for source in context.sources}
         labels = operation.source_labels or tuple(
             source_by_alias[alias].display_name for alias in operation.source_aliases
@@ -172,6 +198,19 @@ def preview_data_operation(
             tuple(views[alias] for alias in operation.source_aliases),
             labels,
             _preview_field_id(operation.source_label_field),
+        )
+    else:
+        result = _align_sources_on_x(
+            tuple(views[alias] for alias in operation.source_aliases),
+            tuple(_preview_field_id(alias) for alias in operation.x_field_aliases),
+            tuple(_preview_field_id(alias) for alias in operation.value_field_aliases),
+            _preview_field_id(operation.output_x_field_alias),
+            operation.output_x_name,
+            tuple(
+                (_preview_field_id(field.field_alias), field.name)
+                for field in operation.output_series_fields
+            ),
+            operation.numeric_tolerance,
         )
     selected_rows = tuple(
         tuple(column.values[index] for column in result.columns)
@@ -246,6 +285,29 @@ def prepare_task_data(
                     for key in operation.keys
                 ),
             )
+        elif operation.operation == "exclude_rows":
+            views[operation.source_alias] = _exclude_rows(
+                views[operation.source_alias], operation.row_indices
+            )
+        elif operation.operation == "drop_empty_fields":
+            views[operation.source_alias] = _drop_empty_fields(
+                views[operation.source_alias],
+                tuple(_field_id(item, alias) for alias in operation.field_aliases),
+            )
+        elif operation.operation == "convert_type":
+            views[operation.source_alias] = _convert_type(
+                views[operation.source_alias],
+                _field_id(item, operation.field_alias),
+                operation.target_type,
+                _field_id(item, operation.output_field_alias),
+                operation.output_name,
+                operation.decimal_separator,
+                operation.thousands_separator,
+                operation.datetime_format,
+                operation.true_values,
+                operation.false_values,
+                operation.case_sensitive,
+            )
         elif operation.operation == "reshape_wide_to_long":
             views[operation.source_alias] = _wide_to_long(
                 views[operation.source_alias],
@@ -310,12 +372,27 @@ def prepare_task_data(
                 _field_id(item, operation.source_label_field),
             )
             views = {operation.source_aliases[0]: combined}
+        elif operation.operation == "align_sources_on_x":
+            combined = _align_sources_on_x(
+                tuple(views[alias] for alias in operation.source_aliases),
+                tuple(_field_id(item, alias) for alias in operation.x_field_aliases),
+                tuple(_field_id(item, alias) for alias in operation.value_field_aliases),
+                _field_id(item, operation.output_x_field_alias),
+                operation.output_x_name,
+                tuple(
+                    (_field_id(item, field.field_alias), field.name)
+                    for field in operation.output_series_fields
+                ),
+                operation.numeric_tolerance,
+            )
+            views = {operation.source_aliases[0]: combined}
         transformed = True
 
     if len(views) != 1:
         raise WorkflowDataError(
             "WORKFLOW_SOURCES_NOT_COMBINED",
-            "同一任务项的多个数据来源必须通过 concatenate_sources 明确合并。",
+            "同一任务项的多个数据来源必须通过 concatenate_sources 或 "
+            "align_sources_on_x 明确合并。",
         )
     view = next(iter(views.values()))
     if transformed:
@@ -440,6 +517,140 @@ def _take(view: EngineDataView, indices: tuple[int, ...]) -> EngineDataView:
             ),
         }
     )
+
+
+def _exclude_rows(view: EngineDataView, row_indices: tuple[int, ...]) -> EngineDataView:
+    invalid = tuple(index for index in row_indices if index >= len(view.row_ids))
+    if invalid:
+        raise WorkflowDataError(
+            "WORKFLOW_ROW_INDEX_INVALID",
+            f"要排除的行超出当前数据范围：{invalid!r}",
+        )
+    excluded = set(row_indices)
+    keep = tuple(index for index in range(len(view.row_ids)) if index not in excluded)
+    if not keep:
+        raise WorkflowDataError("WORKFLOW_EMPTY_RESULT", "排除指定行后没有可绘制的数据。")
+    return _take(view, keep)
+
+
+def _is_missing(value: WorkflowScalar) -> bool:
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _drop_empty_fields(view: EngineDataView, field_ids: tuple[str, ...]) -> EngineDataView:
+    requested = set(field_ids)
+    available = {column.field.field_id for column in view.columns}
+    if not requested <= available:
+        raise WorkflowDataError("FIELD_ALIAS_INVALID", "待删除的空字段不属于数据表。")
+    for column in view.columns:
+        if column.field.field_id not in requested:
+            continue
+        if any(
+            not _is_missing(value) and (not isinstance(value, str) or bool(value.strip()))
+            for value in column.values
+        ):
+            raise WorkflowDataError(
+                "WORKFLOW_FIELD_NOT_EMPTY",
+                f"字段 {column.field.name} 含有有效数据，不能作为空字段删除。",
+            )
+    remaining = tuple(
+        column for column in view.columns if column.field.field_id not in requested
+    )
+    if not remaining:
+        raise WorkflowDataError("WORKFLOW_EMPTY_RESULT", "删除空字段后没有可绘制字段。")
+    return view.model_copy(update={"columns": remaining})
+
+
+def _convert_type(
+    view: EngineDataView,
+    field_id: str,
+    target_type: str,
+    output_field_id: str,
+    output_name: str,
+    decimal_separator: str,
+    thousands_separator: str | None,
+    datetime_format: str | None,
+    true_values: tuple[str, ...],
+    false_values: tuple[str, ...],
+    case_sensitive: bool,
+) -> EngineDataView:
+    source = next((column for column in view.columns if column.field.field_id == field_id), None)
+    if source is None:
+        raise WorkflowDataError("FIELD_ALIAS_INVALID", "类型转换字段不属于数据表。")
+    if any(column.field.field_id == output_field_id for column in view.columns):
+        raise WorkflowDataError("FIELD_ALIAS_DUPLICATED", "类型转换输出字段已存在。")
+    converted: list[WorkflowScalar] = []
+    for row_index, (row_id, value) in enumerate(
+        zip(view.row_ids, source.values, strict=True), start=1
+    ):
+        if _is_missing(value):
+            converted.append(None)
+            continue
+        try:
+            if target_type == "numeric":
+                if isinstance(value, bool):
+                    raise ValueError
+                if isinstance(value, (int, float)):
+                    result: WorkflowScalar = float(value)
+                elif isinstance(value, str):
+                    text = value.strip()
+                    if thousands_separator:
+                        text = text.replace(thousands_separator, "")
+                    if decimal_separator == ",":
+                        text = text.replace(",", ".")
+                    numeric = float(text)
+                    if not math.isfinite(numeric):
+                        raise ValueError
+                    result = numeric
+                else:
+                    raise ValueError
+                if not isinstance(result, float) or not math.isfinite(result):
+                    raise ValueError
+            elif target_type == "datetime":
+                if isinstance(value, datetime):
+                    result = value
+                elif isinstance(value, date):
+                    result = datetime.combine(value, datetime.min.time())
+                elif isinstance(value, str) and datetime_format is not None:
+                    result = datetime.strptime(value.strip(), datetime_format)
+                else:
+                    raise ValueError
+            elif target_type == "boolean":
+                if isinstance(value, bool):
+                    result = value
+                else:
+                    text = str(value)
+                    normalized = text if case_sensitive else text.casefold()
+                    true_set = {
+                        item if case_sensitive else item.casefold() for item in true_values
+                    }
+                    false_set = {
+                        item if case_sensitive else item.casefold() for item in false_values
+                    }
+                    if normalized in true_set:
+                        result = True
+                    elif normalized in false_set:
+                        result = False
+                    else:
+                        raise ValueError
+            else:
+                result = str(value)
+        except (TypeError, ValueError) as error:
+            raise WorkflowDataError(
+                "WORKFLOW_TYPE_CONVERSION_FAILED",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）无法转换：{value!r}",
+            ) from error
+        converted.append(result)
+    derived = EngineColumn(
+        field=EngineField(
+            field_id=output_field_id,
+            name=output_name,
+            logical_type=cast(Any, target_type),
+            unit_label=source.field.unit_label if target_type == "numeric" else None,
+        ),
+        values=tuple(converted),
+    )
+    return view.model_copy(update={"columns": view.columns + (derived,)})
 
 
 def _rename_field(
@@ -716,6 +927,112 @@ def _long_to_wide(
         data=view.data,
         row_ids=tuple(f"row:wide.{index + 1}" for index in range(len(keys))),
         columns=output + value_columns,
+    )
+
+
+def _aligned_x_values(
+    baseline: tuple[WorkflowScalar, ...],
+    candidate: tuple[WorkflowScalar, ...],
+    tolerance: float,
+) -> bool:
+    if len(baseline) != len(candidate):
+        return False
+    for left, right in zip(baseline, candidate, strict=True):
+        if (
+            isinstance(left, (int, float))
+            and not isinstance(left, bool)
+            and isinstance(right, (int, float))
+            and not isinstance(right, bool)
+        ):
+            if not math.isfinite(float(left)) or not math.isfinite(float(right)):
+                return False
+            if abs(float(left) - float(right)) > tolerance:
+                return False
+        elif left != right:
+            return False
+    return True
+
+
+def _align_sources_on_x(
+    views: tuple[EngineDataView, ...],
+    x_field_ids: tuple[str, ...],
+    value_field_ids: tuple[str, ...],
+    output_x_field_id: str,
+    output_x_name: str,
+    output_series: tuple[tuple[str, str], ...],
+    numeric_tolerance: float,
+) -> EngineDataView:
+    if not (
+        len(views)
+        == len(x_field_ids)
+        == len(value_field_ids)
+        == len(output_series)
+    ):
+        raise WorkflowDataError("WORKFLOW_ALIGNMENT_INVALID", "多源对齐参数数量不一致。")
+    x_columns: list[EngineColumn] = []
+    value_columns: list[EngineColumn] = []
+    for view, x_field_id, value_field_id in zip(
+        views, x_field_ids, value_field_ids, strict=True
+    ):
+        by_id = {column.field.field_id: column for column in view.columns}
+        try:
+            x_columns.append(by_id[x_field_id])
+            value_columns.append(by_id[value_field_id])
+        except KeyError as error:
+            raise WorkflowDataError(
+                "FIELD_ALIAS_INVALID", "多源对齐字段不属于对应数据表。"
+            ) from error
+    baseline_x = x_columns[0]
+    baseline_signature = (baseline_x.field.logical_type, baseline_x.field.unit_label or "")
+    if any(
+        (column.field.logical_type, column.field.unit_label or "") != baseline_signature
+        for column in x_columns[1:]
+    ):
+        raise WorkflowDataError(
+            "WORKFLOW_ALIGNMENT_X_TYPE_MISMATCH", "多源数据的 X 字段类型或单位不一致。"
+        )
+    for position, column in enumerate(x_columns[1:], start=2):
+        if not _aligned_x_values(baseline_x.values, column.values, numeric_tolerance):
+            raise WorkflowDataError(
+                "WORKFLOW_ALIGNMENT_X_MISMATCH",
+                f"第 {position} 个数据源的 X 序列与第一个数据源不一致；"
+                "未执行排序、插值或静默截断。",
+            )
+    value_signatures = {
+        (column.field.logical_type, column.field.unit_label or "") for column in value_columns
+    }
+    if len(value_signatures) != 1:
+        raise WorkflowDataError(
+            "WORKFLOW_ALIGNMENT_SERIES_TYPE_MISMATCH",
+            "合并到同一坐标轴的系列字段必须具有相同类型和单位。",
+        )
+    output_x = EngineColumn(
+        field=EngineField(
+            field_id=output_x_field_id,
+            name=output_x_name,
+            logical_type=baseline_x.field.logical_type,
+            unit_label=baseline_x.field.unit_label,
+        ),
+        values=baseline_x.values,
+    )
+    output_values = tuple(
+        EngineColumn(
+            field=EngineField(
+                field_id=output_field_id,
+                name=output_name,
+                logical_type=source.field.logical_type,
+                unit_label=source.field.unit_label,
+            ),
+            values=source.values,
+        )
+        for source, (output_field_id, output_name) in zip(
+            value_columns, output_series, strict=True
+        )
+    )
+    return EngineDataView(
+        data=views[0].data,
+        row_ids=views[0].row_ids,
+        columns=(output_x, *output_values),
     )
 
 

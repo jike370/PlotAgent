@@ -2,18 +2,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from plotagent.contracts.workflows import (
+    AlignSourcesOnX,
     BucketizeNumeric,
     CompiledTaskItem,
     ConcatenateSources,
+    ConvertType,
     ConvertUnit,
+    DropEmptyFields,
+    ExcludeRows,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
     SelectFields,
+    WorkflowOutputField,
     WorkflowSource,
 )
 from plotagent.engine import EngineColumn, EngineDataRef, EngineDataView, EngineField
-from plotagent.workflows.data_ops import prepare_task_data
+from plotagent.workflows.data_ops import WorkflowDataError, prepare_task_data
 
 
 @dataclass(frozen=True)
@@ -372,3 +379,280 @@ def test_agent_can_bucketize_an_explicit_numeric_field_with_confirmed_thresholds
         column for column in registrar.registered.columns if column.field.field_id == output_id
     )
     assert level.values == ("低", "中", "中", "高", "高")
+
+
+def _text_view(*, invalid: bool = False) -> EngineDataView:
+    return EngineDataView(
+        data=EngineDataRef(
+            kind="source", dataset_id="source:text", version=1, content_hash="c" * 64
+        ),
+        row_ids=("row:header", "row:1", "row:2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:angle_text", name="Angle", logical_type="text"
+                ),
+                values=("Angle", "0.1", "bad" if invalid else "0.2"),
+            ),
+            EngineColumn(
+                field=EngineField(field_id="field:empty", name="Empty", logical_type="text"),
+                values=(None, "", None),
+            ),
+        ),
+    )
+
+
+def _text_item() -> CompiledTaskItem:
+    return CompiledTaskItem(
+        task_kind="create",
+        item_id="item:convert.1",
+        plot_alias="plot_1",
+        plot_id="plot:convert",
+        profile_id="K03",
+        sources=(
+            WorkflowSource(
+                source_alias="data_1",
+                source_dataset_id="source:text",
+                source_version=1,
+                content_hash="c" * 64,
+                display_name="instrument.txt > block_1",
+                row_count=3,
+            ),
+        ),
+        resolved_fields=(
+            ResolvedWorkflowField(
+                field_alias="angle_text",
+                source_alias="data_1",
+                field_id="field:angle_text",
+                name="Angle",
+                logical_type="text",
+            ),
+            ResolvedWorkflowField(
+                field_alias="empty",
+                source_alias="data_1",
+                field_id="field:empty",
+                name="Empty",
+                logical_type="text",
+            ),
+            ResolvedWorkflowField(
+                field_alias="angle_numeric",
+                source_alias="data_1",
+                field_id="field:workflow_angle_numeric",
+                name="Angle",
+                logical_type="numeric",
+            ),
+        ),
+        data_operations=(
+            ExcludeRows(source_alias="data_1", row_indices=(0,)),
+            DropEmptyFields(source_alias="data_1", field_aliases=("empty",)),
+            ConvertType(
+                source_alias="data_1",
+                field_alias="angle_text",
+                target_type="numeric",
+                output_field_alias="angle_numeric",
+                output_name="Angle",
+            ),
+        ),
+        bindings=(
+            ResolvedFieldBinding(
+                role="x", source_alias="data_1", field_id="field:workflow_angle_numeric"
+            ),
+            ResolvedFieldBinding(
+                role="y", source_alias="data_1", field_id="field:workflow_angle_numeric"
+            ),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.convert.1",
+    )
+
+
+def test_explicit_cleanup_and_strict_text_to_numeric_conversion_are_immutable() -> None:
+    source = _text_view()
+    registrar = _Registrar()
+
+    prepare_task_data(_text_item(), _Provider({"source:text": source}), registrar)
+
+    assert registrar.registered is not None
+    assert len(registrar.registered.row_ids) == 2
+    assert all(row_id.startswith("row:workflow.") for row_id in registrar.registered.row_ids)
+    assert tuple(column.field.name for column in registrar.registered.columns) == (
+        "Angle",
+        "Angle",
+    )
+    assert registrar.registered.columns[-1].values == (0.1, 0.2)
+    assert source.row_ids == ("row:header", "row:1", "row:2")
+    assert len(source.columns) == 2
+
+
+def test_type_conversion_reports_the_exact_source_row_instead_of_coercing_to_missing() -> None:
+    with pytest.raises(WorkflowDataError) as caught:
+        prepare_task_data(
+            _text_item(),
+            _Provider({"source:text": _text_view(invalid=True)}),
+            _Registrar(),
+        )
+
+    assert caught.value.code == "WORKFLOW_TYPE_CONVERSION_FAILED"
+    assert "row:2" in caught.value.message
+    assert "'bad'" in caught.value.message
+
+
+def _series_view(
+    dataset_id: str,
+    prefix: str,
+    x: tuple[float, ...],
+    y: tuple[float, ...],
+) -> EngineDataView:
+    return EngineDataView(
+        data=EngineDataRef(
+            kind="source", dataset_id=dataset_id, version=1, content_hash=prefix * 64
+        ),
+        row_ids=tuple(f"row:{prefix}.{index}" for index in range(len(x))),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id=f"field:{prefix}_x", name="Angle", logical_type="numeric"
+                ),
+                values=x,
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id=f"field:{prefix}_y", name="PSD", logical_type="numeric"
+                ),
+                values=y,
+            ),
+        ),
+    )
+
+
+def _aligned_item() -> CompiledTaskItem:
+    aliases = ("data_1", "data_2", "data_3")
+    prefixes = ("a", "b", "c")
+    sources = tuple(
+        WorkflowSource(
+            source_alias=alias,
+            source_dataset_id=f"source:{prefix}",
+            source_version=1,
+            content_hash=prefix * 64,
+            display_name=f"{prefix}.txt > block_1",
+            row_count=3,
+        )
+        for alias, prefix in zip(aliases, prefixes, strict=True)
+    )
+    resolved = tuple(
+        field
+        for alias, prefix in zip(aliases, prefixes, strict=True)
+        for field in (
+            ResolvedWorkflowField(
+                field_alias=f"{alias}_x",
+                source_alias=alias,
+                field_id=f"field:{prefix}_x",
+                name="Angle",
+                logical_type="numeric",
+            ),
+            ResolvedWorkflowField(
+                field_alias=f"{alias}_y",
+                source_alias=alias,
+                field_id=f"field:{prefix}_y",
+                name="PSD",
+                logical_type="numeric",
+            ),
+        )
+    ) + tuple(
+        ResolvedWorkflowField(
+            field_alias=alias,
+            source_alias="data_1",
+            field_id=f"field:workflow_{alias}",
+            name=name,
+            logical_type="numeric",
+        )
+        for alias, name in (
+            ("shared_x", "Angle"),
+            ("series_a", "a"),
+            ("series_b", "b"),
+            ("series_c", "c"),
+        )
+    )
+    operation = AlignSourcesOnX(
+        source_aliases=aliases,
+        x_field_aliases=("data_1_x", "data_2_x", "data_3_x"),
+        value_field_aliases=("data_1_y", "data_2_y", "data_3_y"),
+        output_x_field_alias="shared_x",
+        output_x_name="Angle",
+        output_series_fields=tuple(
+            WorkflowOutputField(field_alias=f"series_{prefix}", name=f"{prefix}.txt")
+            for prefix in prefixes
+        ),
+    )
+    return CompiledTaskItem(
+        task_kind="create",
+        item_id="item:align.1",
+        plot_alias="plot_1",
+        plot_id="plot:align",
+        profile_id="X38",
+        sources=sources,
+        resolved_fields=resolved,
+        data_operations=(operation,),
+        bindings=(
+            ResolvedFieldBinding(
+                role="x", source_alias="data_1", field_id="field:workflow_shared_x"
+            ),
+            *tuple(
+                ResolvedFieldBinding(
+                    role=f"series_{index}",
+                    source_alias="data_1",
+                    field_id=f"field:workflow_series_{prefix}",
+                )
+                for index, prefix in enumerate(prefixes, start=1)
+            ),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.align.1",
+    )
+
+
+def test_multiple_sources_align_to_one_wide_renderer_view_without_interpolation() -> None:
+    registrar = _Registrar()
+    prepare_task_data(
+        _aligned_item(),
+        _Provider(
+            {
+                "source:a": _series_view("source:a", "a", (1, 2, 3), (10, 11, 12)),
+                "source:b": _series_view("source:b", "b", (1, 2, 3), (20, 21, 22)),
+                "source:c": _series_view("source:c", "c", (1, 2, 3), (30, 31, 32)),
+            }
+        ),
+        registrar,
+    )
+
+    assert registrar.registered is not None
+    assert tuple(column.field.name for column in registrar.registered.columns) == (
+        "Angle",
+        "a.txt",
+        "b.txt",
+        "c.txt",
+    )
+    assert tuple(column.values for column in registrar.registered.columns) == (
+        (1, 2, 3),
+        (10, 11, 12),
+        (20, 21, 22),
+        (30, 31, 32),
+    )
+
+
+def test_multiple_source_alignment_rejects_x_mismatch_without_silent_interpolation() -> None:
+    with pytest.raises(WorkflowDataError) as caught:
+        prepare_task_data(
+            _aligned_item(),
+            _Provider(
+                {
+                    "source:a": _series_view("source:a", "a", (1, 2, 3), (10, 11, 12)),
+                    "source:b": _series_view("source:b", "b", (1, 2.5, 3), (20, 21, 22)),
+                    "source:c": _series_view("source:c", "c", (1, 2, 3), (30, 31, 32)),
+                }
+            ),
+            _Registrar(),
+        )
+
+    assert caught.value.code == "WORKFLOW_ALIGNMENT_X_MISMATCH"
+    assert "未执行排序、插值或静默截断" in caught.value.message
