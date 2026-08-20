@@ -392,8 +392,47 @@ def _axis_target(graph: Any, target: str) -> tuple[Any, Literal["x", "y"]]:
     raise ValueError(f"unknown Origin axis target {target}")
 
 
+def _axis_side_bit(target: str) -> int:
+    return 2 if _target_key(target) == "y_right" else 1
+
+
+def _with_bit(current: int, bit: int, visible: bool) -> int:
+    return current | bit if visible else current & ~bit
+
+
+_TICK_DIRECTION_BITS = {
+    "in": (1, 4),
+    "out": (2, 8),
+    "inout": (3, 12),
+}
+
+
+def _updated_tick_bits(current: int, action: SetAxis) -> int:
+    major = current & 3
+    minor = current & 12
+    direction = (
+        None
+        if action.tick_direction is None
+        else _TICK_DIRECTION_BITS[action.tick_direction]
+    )
+    if action.major_ticks_visible is False:
+        major = 0
+    elif action.major_ticks_visible is True:
+        major = direction[0] if direction is not None else (major or 2)
+    elif direction is not None and major:
+        major = direction[0]
+    if action.minor_ticks_visible is False:
+        minor = 0
+    elif action.minor_ticks_visible is True:
+        minor = direction[1] if direction is not None else (minor or 8)
+    elif direction is not None and minor:
+        minor = direction[1]
+    return major | minor
+
+
 def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
     layer, axis_name = _axis_target(graph, action.target)
+    side_bit = _axis_side_bit(action.target)
     axis = layer.axis(axis_name)
     if action.scale in {"linear", "log10"}:
         axis.scale = action.scale
@@ -440,6 +479,32 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         layer.set_float(f"{axis_name}.label.pt", action.tick_font_size_pt)
     if action.tick_color is not None:
         layer.set_int(f"{axis_name}.label.color", _color(op, action.tick_color))
+    if action.tick_labels_visible is not None:
+        current = layer.get_int(f"{axis_name}.showLabels")
+        layer.set_int(
+            f"{axis_name}.showLabels",
+            _with_bit(current, side_bit, action.tick_labels_visible),
+        )
+    if (
+        action.major_ticks_visible is not None
+        or action.minor_ticks_visible is not None
+        or action.tick_direction is not None
+    ):
+        current = layer.get_int(f"{axis_name}.ticks")
+        layer.set_int(f"{axis_name}.ticks", _updated_tick_bits(current, action))
+    if action.axis_line_visible is not None:
+        current = layer.get_int(f"{axis_name}.show")
+        layer.set_int(
+            f"{axis_name}.show",
+            _with_bit(current, side_bit, action.axis_line_visible),
+        )
+    if action.axis_title_visible is not None:
+        title = layer.label(_axis_label_name(graph, layer, axis_name))
+        if title is None:
+            if action.axis_title_visible:
+                raise RuntimeError("Origin axis title object is unavailable")
+        else:
+            title.set_int("show", int(action.axis_title_visible))
     if action.axis_line_color is not None:
         layer.set_int(f"{axis_name}.color", _color(op, action.axis_line_color))
     if action.axis_line_width_pt is not None:
@@ -464,6 +529,22 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
 
 def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
     layer, plot_index = _layer_and_plot(graph, action.target)
+    key = _target_key(action.target)
+    visibility_indices = (
+        range(1, _plot_count(op, graph, layer) + 1)
+        if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
+        else (plot_index,)
+    )
+    if action.visible is not None:
+        for visibility_index in visibility_indices:
+            _set_plot_property(
+                op,
+                graph,
+                layer,
+                visibility_index,
+                "show",
+                int(action.visible),
+            )
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
     plot_ref = _bind_plot_range(op, plot_range)
     commands: list[str] = []
@@ -891,6 +972,21 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         ),
     )
     observed: dict[str, object] = {}
+    if action.visible is not None:
+        key = _target_key(action.target)
+        visibility_indices = (
+            range(1, _plot_count(op, graph, layer) + 1)
+            if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
+            else (plot_index,)
+        )
+        visibility = tuple(
+            int(_get_plot_property(op, graph, layer, index, "show"))
+            for index in visibility_indices
+        )
+        expected_visibility = int(action.visible)
+        if any(value != expected_visibility for value in visibility):
+            raise RuntimeError("Origin series visibility did not survive T1 fresh reopen")
+        observed["visible"] = visibility
     for name, requested, option, expected in numeric_options:
         if requested is None:
             continue
@@ -941,6 +1037,7 @@ def _verify_actions(
         elif isinstance(action, SetAxis):
             layer, axis_name = _axis_target(graph, action.target)
             observed: dict[str, object] = {"reverse": layer.get_int(f"{axis_name}.reverse")}
+            side_bit = _axis_side_bit(action.target)
             if action.scale is not None:
                 observed_scale = layer.axis(axis_name).scale
                 if not axis_scale_matches(observed_scale, action.scale):
@@ -999,6 +1096,58 @@ def _verify_actions(
                 if action.title_italic is not None:
                     _require_equal("title italic", label_italic, action.title_italic)
                     observed["title_italic"] = label_italic
+            if action.axis_title_visible is not None:
+                title = layer.label(_axis_label_name(graph, layer, axis_name))
+                title_visible = 0 if title is None else int(title.get_int("show"))
+                _require_equal(
+                    "axis title visibility",
+                    title_visible,
+                    int(action.axis_title_visible),
+                )
+                observed["axis_title_visible"] = title_visible
+            if action.tick_labels_visible is not None:
+                show_labels = layer.get_int(f"{axis_name}.showLabels")
+                _require_equal(
+                    "tick label visibility",
+                    bool(show_labels & side_bit),
+                    action.tick_labels_visible,
+                )
+                observed["show_labels"] = show_labels
+            if action.axis_line_visible is not None:
+                show_axis = layer.get_int(f"{axis_name}.show")
+                _require_equal(
+                    "axis line visibility",
+                    bool(show_axis & side_bit),
+                    action.axis_line_visible,
+                )
+                observed["show_axis"] = show_axis
+            if (
+                action.major_ticks_visible is not None
+                or action.minor_ticks_visible is not None
+                or action.tick_direction is not None
+            ):
+                ticks = layer.get_int(f"{axis_name}.ticks")
+                major_bits = ticks & 3
+                minor_bits = ticks & 12
+                if action.major_ticks_visible is not None:
+                    _require_equal(
+                        "major tick visibility",
+                        bool(major_bits),
+                        action.major_ticks_visible,
+                    )
+                if action.minor_ticks_visible is not None:
+                    _require_equal(
+                        "minor tick visibility",
+                        bool(minor_bits),
+                        action.minor_ticks_visible,
+                    )
+                if action.tick_direction is not None:
+                    expected_major, expected_minor = _TICK_DIRECTION_BITS[action.tick_direction]
+                    if major_bits:
+                        _require_equal("major tick direction", major_bits, expected_major)
+                    if minor_bits:
+                        _require_equal("minor tick direction", minor_bits, expected_minor)
+                observed["ticks"] = ticks
             direct_properties = (
                 (
                     "major_tick_step",

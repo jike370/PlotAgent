@@ -17,6 +17,7 @@ from plotagent.engine import (
     SetLegend,
     SetSeriesStyle,
 )
+from plotagent.engine.profiles import ENGINE_PROFILES
 
 HASH = "a" * 64
 
@@ -121,6 +122,56 @@ def test_backend_specific_or_empty_edits_are_rejected() -> None:
             expected_plot_version=1,
             scale="linear",
         )
+
+
+def test_visibility_and_tick_direction_are_typed_common_actions() -> None:
+    axis = SetAxis(
+        action_id="action:axis-visibility",
+        target="axis:demo.x",
+        expected_plot_version=1,
+        tick_labels_visible=False,
+        major_ticks_visible=True,
+        minor_ticks_visible=False,
+        tick_direction="inout",
+        axis_line_visible=True,
+        axis_title_visible=False,
+    )
+    series = SetSeriesStyle(
+        action_id="action:series-visibility",
+        target="series:demo.primary",
+        expected_plot_version=1,
+        visible=False,
+    )
+
+    assert axis.tick_direction == "inout"
+    assert series.visible is False
+    for profile in ENGINE_PROFILES:
+        axis_capability = next(
+            capability for capability in profile.capabilities if capability.operation == "set_axis"
+        )
+        assert {
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
+        } <= set(axis_capability.parameters)
+        has_series = any(
+            object_.object_kind == "series"
+            for object_ in (*profile.objects, *profile.repeatable_objects)
+        )
+        series_capability = next(
+            (
+                capability
+                for capability in profile.capabilities
+                if capability.operation == "set_series_style"
+            ),
+            None,
+        )
+        assert (series_capability is not None) is has_series
+        if series_capability is not None:
+            assert "visible" in series_capability.parameters
     with pytest.raises(ValidationError):
         SetSeriesStyle(
             action_id="action:empty-series",

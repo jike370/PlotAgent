@@ -87,6 +87,12 @@ _AXIS_T1 = (
     "tick_font_family",
     "tick_font_size_pt",
     "tick_color",
+    "tick_labels_visible",
+    "major_ticks_visible",
+    "minor_ticks_visible",
+    "tick_direction",
+    "axis_line_visible",
+    "axis_title_visible",
     "axis_line_color",
     "axis_line_width_pt",
     "major_grid_visible",
@@ -189,13 +195,16 @@ def _profile(
     chart: tuple[str, ...] = (),
 ) -> EngineProfile:
     profile_id = str(data["profile_id"])
+    semantic_objects = (*data.get("objects", ()), *data.get("repeatable_objects", ()))
+    has_series = any(item.get("object_kind") == "series" for item in semantic_objects)
+    series_parameters = tuple(dict.fromkeys((("visible",) if has_series else ()) + series))
     return EngineProfile.model_validate(
         {
             **data,
             "role_field_types": _ROLE_FIELD_TYPES[profile_id],
             "capabilities": _capabilities(
                 axis=axis,
-                series=series,
+                series=series_parameters,
                 legend=legend,
                 colormap=colormap,
                 error=error,

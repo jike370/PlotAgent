@@ -5000,6 +5000,18 @@
           "default": null,
           "title": "Axis Line Color"
         },
+        "axis_line_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Visible"
+        },
         "axis_line_width_pt": {
           "anyOf": [
             {
@@ -5013,6 +5025,18 @@
           ],
           "default": null,
           "title": "Axis Line Width Pt"
+        },
+        "axis_title_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Title Visible"
         },
         "grid_color": {
           "anyOf": [
@@ -5098,6 +5122,18 @@
           "default": null,
           "title": "Major Tick Step"
         },
+        "major_ticks_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Ticks Visible"
+        },
         "maximum": {
           "anyOf": [
             {
@@ -5147,6 +5183,18 @@
           ],
           "default": null,
           "title": "Minor Tick Count"
+        },
+        "minor_ticks_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Ticks Visible"
         },
         "operation": {
           "const": "set_axis",
@@ -5202,6 +5250,23 @@
           "default": null,
           "title": "Tick Color"
         },
+        "tick_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "in",
+                "out",
+                "inout"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Direction"
+        },
         "tick_font_family": {
           "anyOf": [
             {
@@ -5256,6 +5321,18 @@
           ],
           "default": null,
           "title": "Tick Format"
+        },
+        "tick_labels_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Labels Visible"
         },
         "tick_rotation_deg": {
           "anyOf": [
@@ -6316,6 +6393,18 @@
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Target Alias",
           "type": "string"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
         }
       },
       "required": [
@@ -11014,6 +11103,18 @@
           "default": null,
           "title": "Axis Line Color"
         },
+        "axis_line_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Line Visible"
+        },
         "axis_line_width_pt": {
           "anyOf": [
             {
@@ -11027,6 +11128,18 @@
           ],
           "default": null,
           "title": "Axis Line Width Pt"
+        },
+        "axis_title_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Axis Title Visible"
         },
         "expected_plot_version": {
           "minimum": 1,
@@ -11117,6 +11230,18 @@
           "default": null,
           "title": "Major Tick Step"
         },
+        "major_ticks_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Major Ticks Visible"
+        },
         "maximum": {
           "anyOf": [
             {
@@ -11166,6 +11291,18 @@
           ],
           "default": null,
           "title": "Minor Tick Count"
+        },
+        "minor_ticks_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minor Ticks Visible"
         },
         "operation": {
           "const": "set_axis",
@@ -11221,6 +11358,23 @@
           "default": null,
           "title": "Tick Color"
         },
+        "tick_direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "in",
+                "out",
+                "inout"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Direction"
+        },
         "tick_font_family": {
           "anyOf": [
             {
@@ -11275,6 +11429,18 @@
           ],
           "default": null,
           "title": "Tick Format"
+        },
+        "tick_labels_visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tick Labels Visible"
         },
         "tick_rotation_deg": {
           "anyOf": [
@@ -12423,6 +12589,18 @@
           "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible"
         }
       },
       "required": [

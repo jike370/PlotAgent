@@ -41,6 +41,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -53,6 +59,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -175,6 +182,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -187,6 +200,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -315,6 +329,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -327,6 +347,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
@@ -448,6 +469,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -460,6 +487,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
@@ -605,6 +633,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -617,6 +651,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
@@ -766,6 +801,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -778,6 +819,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -917,6 +959,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -929,6 +977,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1066,6 +1115,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1078,6 +1133,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1215,6 +1271,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1227,6 +1289,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1364,6 +1427,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1376,6 +1445,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1513,6 +1583,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1525,6 +1601,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
@@ -1642,6 +1719,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1654,6 +1737,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1776,6 +1860,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1788,6 +1878,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -1908,6 +1999,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -1920,6 +2017,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -2027,6 +2125,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2039,6 +2143,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -2171,6 +2276,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2183,6 +2294,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -2305,6 +2417,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2312,6 +2430,12 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "visible"
           ]
         },
         {
@@ -2438,6 +2562,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2445,6 +2575,12 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "visible"
           ]
         },
         {
@@ -2578,6 +2714,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2585,6 +2727,12 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "visible"
           ]
         },
         {
@@ -2698,6 +2846,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2710,6 +2864,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -2818,6 +2973,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2830,6 +2991,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -2963,6 +3125,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -2970,6 +3138,12 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_series_style",
+          "parameters": [
+            "visible"
           ]
         },
         {
@@ -3105,6 +3279,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3117,6 +3297,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -3244,6 +3425,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3256,6 +3443,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -3385,6 +3573,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3397,6 +3591,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
@@ -3514,6 +3709,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3526,6 +3727,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -3663,6 +3865,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3675,6 +3883,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -3813,6 +4022,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3825,6 +4040,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -3955,6 +4171,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -3967,6 +4189,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -4110,6 +4333,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -4122,6 +4351,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -4265,6 +4495,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -4277,6 +4513,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -4429,6 +4666,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -4441,6 +4684,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -4560,6 +4804,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -4572,6 +4822,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",
@@ -4699,6 +4950,12 @@
             "tick_font_family",
             "tick_font_size_pt",
             "tick_color",
+            "tick_labels_visible",
+            "major_ticks_visible",
+            "minor_ticks_visible",
+            "tick_direction",
+            "axis_line_visible",
+            "axis_title_visible",
             "axis_line_color",
             "axis_line_width_pt",
             "major_grid_visible",
@@ -4711,6 +4968,7 @@
         {
           "operation": "set_series_style",
           "parameters": [
+            "visible",
             "line_stroke_color",
             "line_width_pt",
             "line_style",

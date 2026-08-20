@@ -661,6 +661,12 @@ export type DraftSetAxis = {
   readonly tick_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
   readonly tick_font_size_pt?: number | null;
   readonly tick_color?: string | null;
+  readonly tick_labels_visible?: boolean | null;
+  readonly major_ticks_visible?: boolean | null;
+  readonly minor_ticks_visible?: boolean | null;
+  readonly tick_direction?: "in" | "out" | "inout" | null;
+  readonly axis_line_visible?: boolean | null;
+  readonly axis_title_visible?: boolean | null;
   readonly axis_line_color?: string | null;
   readonly axis_line_width_pt?: number | null;
   readonly major_grid_visible?: boolean | null;
@@ -740,6 +746,7 @@ export type DraftSetLegend = {
 export type DraftSetSeriesStyle = {
   readonly operation?: "set_series_style";
   readonly target_alias: string;
+  readonly visible?: boolean | null;
   readonly line_stroke_color?: string | null;
   readonly line_width_pt?: number | null;
   readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
@@ -1517,6 +1524,12 @@ export type SetAxis = {
   readonly tick_font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
   readonly tick_font_size_pt?: number | null;
   readonly tick_color?: string | null;
+  readonly tick_labels_visible?: boolean | null;
+  readonly major_ticks_visible?: boolean | null;
+  readonly minor_ticks_visible?: boolean | null;
+  readonly tick_direction?: "in" | "out" | "inout" | null;
+  readonly axis_line_visible?: boolean | null;
+  readonly axis_title_visible?: boolean | null;
   readonly axis_line_color?: string | null;
   readonly axis_line_width_pt?: number | null;
   readonly major_grid_visible?: boolean | null;
@@ -1608,6 +1621,7 @@ export type SetSeriesStyle = {
   readonly operation?: "set_series_style";
   readonly action_id: string;
   readonly target: string;
+  readonly visible?: boolean | null;
   readonly line_stroke_color?: string | null;
   readonly line_width_pt?: number | null;
   readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;

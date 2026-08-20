@@ -219,6 +219,8 @@ def _formatter(kind: str) -> FuncFormatter | None:
 
 def _apply_axis(figure: Figure, action: SetAxis) -> None:
     axis, name = _axis_for_target(figure, action.target)
+    target_key = _target_key(action.target)
+    side = "bottom" if name == "x" else ("right" if target_key == "y_right" else "left")
     axis_object = axis.xaxis if name == "x" else axis.yaxis
     current_label = axis.get_xlabel() if name == "x" else axis.get_ylabel()
     setter = axis.set_xlabel if name == "x" else axis.set_ylabel
@@ -254,6 +256,8 @@ def _apply_axis(figure: Figure, action: SetAxis) -> None:
             axis_object.set_major_formatter(formatter)
     tick_labels = axis.get_xticklabels() if name == "x" else axis.get_yticklabels()
     for label in tick_labels:
+        if action.tick_labels_visible is not None:
+            label.set_visible(action.tick_labels_visible)
         if action.tick_rotation_deg is not None:
             label.set_rotation(action.tick_rotation_deg)
         if action.tick_font_family not in {None, "auto"}:
@@ -262,8 +266,25 @@ def _apply_axis(figure: Figure, action: SetAxis) -> None:
             label.set_fontsize(action.tick_font_size_pt)
         if action.tick_color is not None:
             label.set_color(action.tick_color)
-    spine_name = "bottom" if name == "x" else "left"
-    spine = axis.spines[spine_name]
+    if action.axis_title_visible is not None:
+        axis_object.label.set_visible(action.axis_title_visible)
+    if action.tick_labels_visible is not None:
+        axis.tick_params(
+            axis=name,
+            which="both",
+            **{f"label{side}": action.tick_labels_visible},
+        )
+    tick_side = {side: action.major_ticks_visible} if action.major_ticks_visible is not None else {}
+    if tick_side:
+        axis.tick_params(axis=name, which="major", **tick_side)
+    tick_side = {side: action.minor_ticks_visible} if action.minor_ticks_visible is not None else {}
+    if tick_side:
+        axis.tick_params(axis=name, which="minor", **tick_side)
+    if action.tick_direction is not None:
+        axis.tick_params(axis=name, which="both", direction=action.tick_direction)
+    spine = axis.spines[side]
+    if action.axis_line_visible is not None:
+        spine.set_visible(action.axis_line_visible)
     if action.axis_line_color is not None:
         spine.set_color(action.axis_line_color)
     if action.axis_line_width_pt is not None:
@@ -417,8 +438,16 @@ def _set_fill(artist: Any, action: SetSeriesStyle) -> None:
 
 
 def _apply_series(figure: Figure, action: SetSeriesStyle) -> None:
-    for artist in _series_artists(figure, action.target):
+    artists = _series_artists(figure, action.target)
+    key = _target_key(action.target)
+    if action.visible is not None and key in {"primary", "left", "right", "cumulative"}:
+        axes = _data_axes(figure)
+        selected_axis = axes[-1] if key in {"right", "cumulative"} and len(axes) > 1 else axes[0]
+        artists = _axis_artists(selected_axis)
+    for artist in artists:
         for primitive in _iter_primitives(artist):
+            if action.visible is not None:
+                primitive.set_visible(action.visible)
             _set_line(primitive, action)
             _set_marker(primitive, action)
         _set_fill(artist, action)

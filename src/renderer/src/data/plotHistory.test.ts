@@ -19,7 +19,7 @@ const plot = {
   errorStyles: [{ seriesId: 'series:one' }],
   dataLabelStyles: [{ seriesId: 'series:one' }],
   axisIds: { y: 'axis:y' },
-  axisStates: { y: { axisId: 'axis:y', label: 'Value', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 } },
+  axisStates: { y: { axisId: 'axis:y', label: 'Value', scale: 'linear', reverse: false, tickLabelsVisible: true, majorTicksVisible: true, minorTicksVisible: true, tickDirection: 'out', axisLineVisible: true, axisTitleVisible: true, numberFormat: 'auto', decimalPlaces: 2 } },
   canvasSizeMm: { width: 183, height: 120 },
   annotations: [],
   specialist: {},
@@ -74,6 +74,31 @@ describe('plot history', () => {
       }],
       redoActions: [{
         operation: 'set_series_style', target: 'series:one', line_stroke_color: '#ff0000',
+      }],
+    })
+  })
+
+  it('reverses axis and series visibility edits', () => {
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_axis',
+      target: 'axis:y',
+      tick_labels_visible: false,
+      tick_direction: 'inout',
+      axis_line_visible: false,
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_axis',
+        target: 'axis:y',
+        tick_labels_visible: true,
+        tick_direction: 'out',
+        axis_line_visible: true,
+      }],
+    })
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_series_style', target: 'series:one', visible: false,
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_series_style', target: 'series:one', visible: true,
       }],
     })
   })

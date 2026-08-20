@@ -151,6 +151,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const [editState, setEditState] = useState<EditState>('idle')
   const [editMessage, setEditMessage] = useState('')
   const [seriesTargetIndex, setSeriesTargetIndex] = useState(0)
+  const [seriesVisible, setSeriesVisible] = useState(initialSeriesStyle?.visible ?? true)
   const [lineColor, setLineColor] = useState(
     initialSeriesStyle?.lineStrokeColor ?? '#2A6FDB',
   )
@@ -186,6 +187,24 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const [axisMinimum, setAxisMinimum] = useState(initialAxisState?.minimum?.toString() ?? '')
   const [axisMaximum, setAxisMaximum] = useState(initialAxisState?.maximum?.toString() ?? '')
   const [axisReverse, setAxisReverse] = useState(initialAxisState?.reverse ?? false)
+  const [tickLabelsVisible, setTickLabelsVisible] = useState(
+    initialAxisState?.tickLabelsVisible ?? true,
+  )
+  const [majorTicksVisible, setMajorTicksVisible] = useState(
+    initialAxisState?.majorTicksVisible ?? true,
+  )
+  const [minorTicksVisible, setMinorTicksVisible] = useState(
+    initialAxisState?.minorTicksVisible ?? true,
+  )
+  const [tickDirection, setTickDirection] = useState(
+    initialAxisState?.tickDirection ?? 'out',
+  )
+  const [axisLineVisible, setAxisLineVisible] = useState(
+    initialAxisState?.axisLineVisible ?? true,
+  )
+  const [axisTitleVisible, setAxisTitleVisible] = useState(
+    initialAxisState?.axisTitleVisible ?? true,
+  )
   const [axisTitleColor, setAxisTitleColor] = useState('#111827')
   const [axisTitleSize, setAxisTitleSize] = useState(10)
   const [axisTickFormat, setAxisTickFormat] = useState('auto')
@@ -287,6 +306,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
     const validIndex = Math.min(index, Math.max(0, plot.seriesIds.length - 1))
     const seriesStyle = plot.seriesStyles[validIndex]?.style ?? plot.style
     setSeriesTargetIndex(validIndex)
+    setSeriesVisible(seriesStyle.visible ?? true)
     setLineColor(seriesStyle.lineStrokeColor ?? '#2A6FDB')
     setLineWidth(seriesStyle.lineWidthPt ?? 0.8)
     setLineStyle(seriesStyle.lineStyle ?? 'solid')
@@ -344,6 +364,12 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
     setAxisMinimum(axisState?.minimum?.toString() ?? '')
     setAxisMaximum(axisState?.maximum?.toString() ?? '')
     setAxisReverse(axisState?.reverse ?? false)
+    setTickLabelsVisible(axisState?.tickLabelsVisible ?? true)
+    setMajorTicksVisible(axisState?.majorTicksVisible ?? true)
+    setMinorTicksVisible(axisState?.minorTicksVisible ?? true)
+    setTickDirection(axisState?.tickDirection ?? 'out')
+    setAxisLineVisible(axisState?.axisLineVisible ?? true)
+    setAxisTitleVisible(axisState?.axisTitleVisible ?? true)
   }
 
   const startDrag = (event: React.PointerEvent<HTMLButtonElement>, type: 'legend' | 'annotation'): void => {
@@ -393,6 +419,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
   const chartParameterNames = engineCapabilities.set_chart_parameter ?? []
   const editCapabilities = new Set([
     ...(engineCapabilities.set_title ? ['plot_title'] : []),
+    ...(seriesParameters.has('visible') ? ['series_visibility'] : []),
     ...(seriesParameters.has('line_stroke_color') ? ['line_color'] : []),
     ...(seriesParameters.has('line_width_pt') ? ['line_width'] : []),
     ...(seriesParameters.has('line_style') ? ['line_style'] : []),
@@ -412,6 +439,12 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
     ...(axisParameters.has('scale') ? ['axis_scale'] : []),
     ...(axisParameters.has('bounds') ? ['axis_range'] : []),
     ...(axisParameters.has('reverse') ? ['axis_reverse'] : []),
+    ...(axisParameters.has('tick_labels_visible') ? ['tick_labels_visibility'] : []),
+    ...(axisParameters.has('major_ticks_visible') ? ['major_ticks_visibility'] : []),
+    ...(axisParameters.has('minor_ticks_visible') ? ['minor_ticks_visibility'] : []),
+    ...(axisParameters.has('tick_direction') ? ['tick_direction'] : []),
+    ...(axisParameters.has('axis_line_visible') ? ['axis_line_visibility'] : []),
+    ...(axisParameters.has('axis_title_visible') ? ['axis_title_visibility'] : []),
     ...(legendParameters.has('visible') ? ['legend_visibility'] : []),
     ...(legendParameters.has('anchor') ? ['legend_position'] : []),
     ...(colorMapParameters.size > 0 ? ['colormap'] : []),
@@ -451,6 +484,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
 
   const applySeriesStyle = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
+    if (editCapabilities.has('series_visibility')) values.visible = seriesVisible
     if (editCapabilities.has('line_color')) values.line_stroke_color = lineColor
     if (editCapabilities.has('line_width')) values.line_width_pt = lineWidth
     if (editCapabilities.has('line_style')) values.line_style = lineStyle
@@ -677,6 +711,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
                 <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applySeriesStyle() }}>
                   <h3>系列样式</h3>
                   {plot && plot.seriesIds.length > 1 && <label><span>作用系列</span><select aria-label="作用系列" value={seriesTargetIndex} onChange={(event) => selectSeries(Number(event.target.value))}>{plot.seriesIds.map((seriesId, index) => <option key={seriesId} value={index}>系列 {index + 1}</option>)}</select></label>}
+                  {editCapabilities.has('series_visibility') && <label className="parameter-check"><input aria-label="显示整个数据系列" type="checkbox" checked={seriesVisible} onChange={(event) => setSeriesVisible(event.target.checked)} /><span>显示整个数据系列</span></label>}
                   {[...editCapabilities].some((item) => item.startsWith('line_')) && <details className="parameter-subsection" open><summary>线条</summary>
                     {editCapabilities.has('line_color') && <label><span>描边颜色</span><input aria-label="线条描边颜色" type="color" value={lineColor} onChange={(event) => setLineColor(event.target.value)} /></label>}
                     {editCapabilities.has('line_width') && <label><span>线宽</span><div className="unit-input"><input aria-label="线宽" type="number" min="0.1" max="20" value={lineWidth} step="0.1" onChange={(event) => setLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
@@ -698,7 +733,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
                     {editCapabilities.has('fill_stroke_color') && <label><span>边框颜色</span><input aria-label="填充边框颜色" type="color" value={fillStrokeColor} onChange={(event) => setFillStrokeColor(event.target.value)} /></label>}
                     {editCapabilities.has('fill_stroke_width') && <label><span>边框宽度</span><div className="unit-input"><input aria-label="填充边框宽度" type="number" min="0" max="20" value={fillStrokeWidth} step="0.1" onChange={(event) => setFillStrokeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>}
                   </details>}
-                  {[...editCapabilities].some((item) => item.startsWith('line_') || item.startsWith('marker_') || item.startsWith('fill_'))
+                  {[...editCapabilities].some((item) => item === 'series_visibility' || item.startsWith('line_') || item.startsWith('marker_') || item.startsWith('fill_'))
                     ? <button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedSeriesId}>应用系列样式</button>
                     : <p className="parameter-empty">该图没有可移植的系列样式项。</p>}
                 </form>
@@ -773,6 +808,7 @@ export function FocusEditor({ initialIndex, plot, previousPlot, onPatch, canUndo
                 {editCapabilities.has('axis_scale') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { scale: axisScale }) }}><h3>轴尺度</h3><label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴尺度</button></form>}
                 {editCapabilities.has('axis_range') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { minimum: Number(axisMinimum), maximum: Number(axisMaximum) }) }}><h3>固定范围</h3><label><span>最小值</span><input aria-label="轴最小值" type="number" required value={axisMinimum} onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" required value={axisMaximum} onChange={(event) => setAxisMaximum(event.target.value)} /></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisMinimum === '' || axisMaximum === '' || Number(axisMinimum) >= Number(axisMaximum)}>应用固定范围</button></form>}
                 {editCapabilities.has('axis_reverse') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { reverse: axisReverse }) }}><h3>轴方向</h3><label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴方向</button></form>}
+                {editCapabilities.has('tick_labels_visibility') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { tick_labels_visible: tickLabelsVisible, major_ticks_visible: majorTicksVisible, minor_ticks_visible: minorTicksVisible, tick_direction: tickDirection, axis_line_visible: axisLineVisible, axis_title_visible: axisTitleVisible }) }}><h3>显示与刻度方向</h3><label className="parameter-check"><input aria-label="显示轴标题" type="checkbox" checked={axisTitleVisible} onChange={(event) => setAxisTitleVisible(event.target.checked)} /><span>显示轴标题</span></label><label className="parameter-check"><input aria-label="显示刻度标签" type="checkbox" checked={tickLabelsVisible} onChange={(event) => setTickLabelsVisible(event.target.checked)} /><span>显示刻度标签</span></label><label className="parameter-check"><input aria-label="显示主刻度线" type="checkbox" checked={majorTicksVisible} onChange={(event) => setMajorTicksVisible(event.target.checked)} /><span>显示主刻度线</span></label><label className="parameter-check"><input aria-label="显示次刻度线" type="checkbox" checked={minorTicksVisible} onChange={(event) => setMinorTicksVisible(event.target.checked)} /><span>显示次刻度线</span></label><label className="parameter-check"><input aria-label="显示轴线" type="checkbox" checked={axisLineVisible} onChange={(event) => setAxisLineVisible(event.target.checked)} /><span>显示轴线</span></label><label><span>刻度线方向</span><select aria-label="刻度线方向" value={tickDirection} onChange={(event) => setTickDirection(event.target.value)}><option value="in">向内</option><option value="out">向外</option><option value="inout">内外两侧</option></select></label><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用显示状态</button></form>}
                 {axisParameters.has('title_font_size_pt') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_axis', selectedAxisId, { title_font_size_pt: axisTitleSize, title_color: axisTitleColor, tick_format: axisTickFormat, tick_rotation_deg: axisTickRotation, tick_font_size_pt: axisTickSize, axis_line_color: axisLineColor, axis_line_width_pt: axisLineWidth, major_grid_visible: majorGridVisible, minor_grid_visible: minorGridVisible, grid_color: gridColor, grid_line_width_pt: gridLineWidth }) }}><h3>刻度、轴线与网格</h3><details className="parameter-subsection" open><summary>轴标题</summary><label><span>字号</span><div className="unit-input"><input aria-label="轴标题字号" type="number" min="5" max="72" step="0.5" value={axisTitleSize} onChange={(event) => setAxisTitleSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>颜色</span><input aria-label="轴标题颜色" type="color" value={axisTitleColor} onChange={(event) => setAxisTitleColor(event.target.value)} /></label></details><details className="parameter-subsection"><summary>刻度标签</summary><label><span>数值格式</span><select aria-label="刻度数值格式" value={axisTickFormat} onChange={(event) => setAxisTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option><option value="date">日期</option><option value="time">时间</option></select></label><label><span>旋转</span><div className="unit-input"><input aria-label="刻度旋转" type="number" min="-180" max="180" value={axisTickRotation} onChange={(event) => setAxisTickRotation(event.target.valueAsNumber)} /><span>°</span></div></label><label><span>字号</span><div className="unit-input"><input aria-label="刻度字号" type="number" min="5" max="72" step="0.5" value={axisTickSize} onChange={(event) => setAxisTickSize(event.target.valueAsNumber)} /><span>pt</span></div></label></details><details className="parameter-subsection"><summary>轴线与网格</summary><label><span>轴线颜色</span><input aria-label="轴线颜色" type="color" value={axisLineColor} onChange={(event) => setAxisLineColor(event.target.value)} /></label><label><span>轴线宽度</span><div className="unit-input"><input aria-label="轴线宽度" type="number" min="0.1" max="20" step="0.1" value={axisLineWidth} onChange={(event) => setAxisLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label><label className="parameter-check"><input aria-label="主网格" type="checkbox" checked={majorGridVisible} onChange={(event) => setMajorGridVisible(event.target.checked)} /><span>主网格</span></label><label className="parameter-check"><input aria-label="次网格" type="checkbox" checked={minorGridVisible} onChange={(event) => setMinorGridVisible(event.target.checked)} /><span>次网格</span></label><label><span>网格颜色</span><input aria-label="网格颜色" type="color" value={gridColor} onChange={(event) => setGridColor(event.target.value)} /></label><label><span>网格线宽</span><div className="unit-input"><input aria-label="网格线宽" type="number" min="0.1" max="20" step="0.1" value={gridLineWidth} onChange={(event) => setGridLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId}>应用轴视觉</button></form>}
               </>
             )}

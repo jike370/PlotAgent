@@ -646,6 +646,12 @@ class DraftSetAxis(StrictModel):
     tick_font_family: WorkflowFontFamily | None = None
     tick_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
     tick_color: WorkflowColor | None = None
+    tick_labels_visible: bool | None = None
+    major_ticks_visible: bool | None = None
+    minor_ticks_visible: bool | None = None
+    tick_direction: Literal["in", "out", "inout"] | None = None
+    axis_line_visible: bool | None = None
+    axis_title_visible: bool | None = None
     axis_line_color: WorkflowColor | None = None
     axis_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
     major_grid_visible: bool | None = None
@@ -668,6 +674,7 @@ class DraftSetAxis(StrictModel):
 class DraftSetSeriesStyle(StrictModel):
     operation: Literal["set_series_style"] = "set_series_style"
     target_alias: WorkflowAlias
+    visible: bool | None = None
     line_stroke_color: WorkflowColor | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
     line_style: WorkflowLineStyle | None = None

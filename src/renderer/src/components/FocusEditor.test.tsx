@@ -25,8 +25,8 @@ function plot(
     dataLabelStyles: [{ seriesId: 'series:test.primary' }],
     axisIds: { x: 'axis:test.x', y: 'axis:test.y' },
     axisStates: {
-      x: { axisId: 'axis:test.x', label: 'Time', scale: 'linear', reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
-      y: { axisId: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, numberFormat: 'auto', decimalPlaces: 2 },
+      x: { axisId: 'axis:test.x', label: 'Time', scale: 'linear', reverse: false, tickLabelsVisible: true, majorTicksVisible: true, minorTicksVisible: true, tickDirection: 'out', axisLineVisible: true, axisTitleVisible: true, numberFormat: 'auto', decimalPlaces: 2 },
+      y: { axisId: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, tickLabelsVisible: true, majorTicksVisible: true, minorTicksVisible: true, tickDirection: 'out', axisLineVisible: true, axisTitleVisible: true, numberFormat: 'auto', decimalPlaces: 2 },
     },
     canvasSizeMm: { width: 183, height: 120 },
     annotations: [],
@@ -52,9 +52,9 @@ function plot(
 const commonCapabilities = {
   set_title: ['text'],
   set_series_style: [
-    'line_stroke_color', 'line_width_pt', 'line_style', 'marker_shape', 'marker_size_pt',
+    'visible', 'line_stroke_color', 'line_width_pt', 'line_style', 'marker_shape', 'marker_size_pt',
   ],
-  set_axis: ['label', 'scale', 'bounds', 'reverse'],
+  set_axis: ['label', 'scale', 'bounds', 'reverse', 'tick_labels_visible', 'major_ticks_visible', 'minor_ticks_visible', 'tick_direction', 'axis_line_visible', 'axis_title_visible'],
   set_legend: ['visible', 'anchor'],
   add_annotation: ['text'],
 } as const
@@ -222,6 +222,36 @@ describe('FocusEditor Agent Native actions', () => {
     await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_axis', target: 'axis:test.y', label: 'Response',
     }))
+  })
+
+  it('edits series visibility and axis visibility without phrase routing', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    render(<FocusEditor initialIndex={0} plot={plot('K01', commonCapabilities)} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '参数' }))
+    await user.click(screen.getByRole('checkbox', { name: '显示整个数据系列' }))
+    await user.click(screen.getByRole('button', { name: '应用系列样式' }))
+    await user.click(screen.getByRole('tab', { name: '坐标轴' }))
+    await user.click(screen.getByRole('checkbox', { name: '显示刻度标签' }))
+    await user.click(screen.getByRole('checkbox', { name: '显示次刻度线' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '刻度线方向' }), 'inout')
+    await user.click(screen.getByRole('button', { name: '应用显示状态' }))
+
+    await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(2))
+    expect(onPatch).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      operation: 'set_series_style', target: 'series:test.primary', visible: false,
+    }))
+    expect(onPatch).toHaveBeenNthCalledWith(2, {
+      operation: 'set_axis',
+      target: 'axis:test.y',
+      tick_labels_visible: false,
+      major_ticks_visible: true,
+      minor_ticks_visible: false,
+      tick_direction: 'inout',
+      axis_line_visible: true,
+      axis_title_visible: true,
+    })
   })
 
   it('maps the visible legend placement to a public anchor', async () => {

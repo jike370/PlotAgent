@@ -699,6 +699,7 @@ def test_remaining_t1_profiles_pin_official_templates_and_public_actions() -> No
         "line_width_pt",
         "line_style",
         "line_opacity",
+        "visible",
     } == set(x38_capabilities["set_series_style"])
 
 

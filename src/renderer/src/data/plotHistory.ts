@@ -23,6 +23,7 @@ const actionLabels: Record<string, string> = {
 // style action exists. Keeping the inverse snapshot on the same product defaults
 // makes the first edit just as reversible as later edits.
 const defaultSeriesStyle = {
+  visible: true,
   line_stroke_color: '#2A6FDB',
   line_width_pt: 0.8,
   line_style: 'solid',
@@ -65,6 +66,17 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     if (typeof value.label === 'string') undo.label = axis.label
     if (typeof value.scale === 'string') undo.scale = axis.scale
     if (typeof value.reverse === 'boolean') undo.reverse = axis.reverse
+    const visibilityMappings = {
+      tick_labels_visible: axis.tickLabelsVisible,
+      major_ticks_visible: axis.majorTicksVisible,
+      minor_ticks_visible: axis.minorTicksVisible,
+      tick_direction: axis.tickDirection,
+      axis_line_visible: axis.axisLineVisible,
+      axis_title_visible: axis.axisTitleVisible,
+    } as const
+    for (const [key, previous] of Object.entries(visibilityMappings)) {
+      if (Object.hasOwn(value, key) && value[key] !== null) undo[key] = previous
+    }
     if (typeof value.minimum === 'number' || typeof value.maximum === 'number') {
       if (axis.minimum === undefined || axis.maximum === undefined) return undefined
       undo.minimum = axis.minimum
@@ -76,6 +88,7 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
     const style = plot.seriesStyles.find((candidate) => candidate.seriesId === target)?.style
     if (!style) return undefined
     const mappings = {
+      visible: style.visible ?? defaultSeriesStyle.visible,
       line_stroke_color: style.lineStrokeColor ?? defaultSeriesStyle.line_stroke_color,
       line_width_pt: style.lineWidthPt ?? defaultSeriesStyle.line_width_pt,
       line_style: style.lineStyle ?? defaultSeriesStyle.line_style,

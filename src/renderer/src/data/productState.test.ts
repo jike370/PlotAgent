@@ -207,7 +207,9 @@ describe('product plot state', () => {
         { operation: 'set_title', target: 'plot:test', text: 'Persisted title' },
         { operation: 'set_axis', target: 'axis:test.x', label: 'Time' },
         { operation: 'set_axis', target: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100 },
+        { operation: 'set_axis', target: 'axis:test.y', tick_labels_visible: false, minor_ticks_visible: false, tick_direction: 'inout', axis_line_visible: false },
         { operation: 'set_series_style', target: 'series:test.primary', line_stroke_color: '#123456', line_width_pt: 1.5, marker_size_pt: 7, line_style: 'dash', marker_shape: 'diamond' },
+        { operation: 'set_series_style', target: 'series:test.primary', visible: false },
         { operation: 'set_legend', target: 'legend:test.main', visible: false, anchor: 'right' },
         { operation: 'add_annotation', target: 'plot:test', annotation_id: 'annotation:test', text: 'Peak', x: 2, y: 5 },
       ],
@@ -224,13 +226,14 @@ describe('product plot state', () => {
       axisIds: { x: 'axis:test.x', y: 'axis:test.y' },
       axisStates: {
         x: { axisId: 'axis:test.x', label: 'Time', scale: 'linear', reverse: false },
-        y: { axisId: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false },
+        y: { axisId: 'axis:test.y', label: 'Signal', scale: 'log10', minimum: 0.1, maximum: 100, reverse: false, tickLabelsVisible: false, minorTicksVisible: false, tickDirection: 'inout', axisLineVisible: false },
       },
       canvasSizeMm: { width: 183, height: 120 },
       annotations: [{ annotationId: 'annotation:test', kind: 'text', text: 'Peak', x: 2, y: 5 }],
       style: { legendVisible: false, legendPlacement: 'right' },
     })
     expect(plot?.seriesStyles[0]?.style).toEqual({
+      visible: false,
       lineStrokeColor: '#123456',
       lineWidthPt: 1.5,
       markerSizePt: 7,

@@ -276,6 +276,12 @@ class SetAxis(VersionedPlotAction):
     tick_font_family: FontFamily | None = None
     tick_font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
     tick_color: ColorHex | None = None
+    tick_labels_visible: bool | None = None
+    major_ticks_visible: bool | None = None
+    minor_ticks_visible: bool | None = None
+    tick_direction: Literal["in", "out", "inout"] | None = None
+    axis_line_visible: bool | None = None
+    axis_title_visible: bool | None = None
     axis_line_color: ColorHex | None = None
     axis_line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
     major_grid_visible: bool | None = None
@@ -312,6 +318,12 @@ class SetAxis(VersionedPlotAction):
                 self.tick_font_family,
                 self.tick_font_size_pt,
                 self.tick_color,
+                self.tick_labels_visible,
+                self.major_ticks_visible,
+                self.minor_ticks_visible,
+                self.tick_direction,
+                self.axis_line_visible,
+                self.axis_title_visible,
                 self.axis_line_color,
                 self.axis_line_width_pt,
                 self.major_grid_visible,
@@ -329,6 +341,7 @@ class SetSeriesStyle(VersionedPlotAction):
     operation: Literal["set_series_style"] = "set_series_style"
     action_id: ActionId
     target: SemanticObjectId
+    visible: bool | None = None
     line_stroke_color: ColorHex | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
     line_style: LineStyle | None = None
@@ -357,6 +370,7 @@ class SetSeriesStyle(VersionedPlotAction):
         if all(
             value is None
             for value in (
+                self.visible,
                 self.line_stroke_color,
                 self.line_width_pt,
                 self.line_style,

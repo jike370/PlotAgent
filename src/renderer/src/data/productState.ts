@@ -81,6 +81,7 @@ export type ProductOriginAvailability =
   }
 
 export interface ProductSeriesStyle {
+  visible?: boolean
   lineStrokeColor?: string
   lineWidthPt?: number
   lineStyle?: string
@@ -148,6 +149,12 @@ export interface ProductAxisState {
   minimum?: number
   maximum?: number
   reverse: boolean
+  tickLabelsVisible: boolean
+  majorTicksVisible: boolean
+  minorTicksVisible: boolean
+  tickDirection: string
+  axisLineVisible: boolean
+  axisTitleVisible: boolean
   majorInterval?: number
   numberFormat: string
   decimalPlaces: number
@@ -575,6 +582,7 @@ function semanticObjectId(plotId: string, object: JsonRecord): string | undefine
 
 function engineSeriesStyle(action: JsonRecord): ProductSeriesStyle {
   return {
+    ...(typeof action.visible === 'boolean' ? { visible: action.visible } : {}),
     ...(typeof action.line_stroke_color === 'string'
       ? { lineStrokeColor: action.line_stroke_color } : {}),
     ...(typeof action.line_width_pt === 'number' ? { lineWidthPt: action.line_width_pt } : {}),
@@ -681,6 +689,14 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   const actionTarget = (operation: string, target: string): JsonRecord[] => actions.filter(
     (action) => action.operation === operation && action.target === target,
   )
+  const mergedActionTarget = (operation: string, target: string): JsonRecord => (
+    actionTarget(operation, target).reduce<JsonRecord>((result, action) => {
+      for (const [key, value] of Object.entries(action)) {
+        if (value !== null && value !== undefined) result[key] = value
+      }
+      return result
+    }, {})
+  )
   const seriesIds = [...new Set([
     ...objects.flatMap((object) => object.object_kind === 'series'
       ? [semanticObjectId(plotId, object)].filter((item): item is string => item !== undefined) : []),
@@ -694,15 +710,20 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   }
   const axisState = (axisId: string | undefined): ProductAxisState | undefined => {
     if (axisId === undefined) return undefined
-    const edits = actionTarget('set_axis', axisId)
-    const current = edits.at(-1)
+    const current = mergedActionTarget('set_axis', axisId)
     return {
       axisId,
-      label: current && typeof current.label === 'string' ? current.label : '',
-      scale: current && typeof current.scale === 'string' ? current.scale : 'linear',
-      ...(current && typeof current.minimum === 'number' ? { minimum: current.minimum } : {}),
-      ...(current && typeof current.maximum === 'number' ? { maximum: current.maximum } : {}),
-      reverse: current?.reverse === true,
+      label: typeof current.label === 'string' ? current.label : '',
+      scale: typeof current.scale === 'string' ? current.scale : 'linear',
+      ...(typeof current.minimum === 'number' ? { minimum: current.minimum } : {}),
+      ...(typeof current.maximum === 'number' ? { maximum: current.maximum } : {}),
+      reverse: current.reverse === true,
+      tickLabelsVisible: current.tick_labels_visible !== false,
+      majorTicksVisible: current.major_ticks_visible !== false,
+      minorTicksVisible: current.minor_ticks_visible !== false,
+      tickDirection: typeof current.tick_direction === 'string' ? current.tick_direction : 'out',
+      axisLineVisible: current.axis_line_visible !== false,
+      axisTitleVisible: current.axis_title_visible !== false,
       numberFormat: 'auto',
       decimalPlaces: 2,
     }
@@ -742,7 +763,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
     seriesIds,
     seriesStyles: seriesIds.map((seriesId) => ({
       seriesId,
-      style: engineSeriesStyle(actionTarget('set_series_style', seriesId).at(-1) ?? {}),
+      style: engineSeriesStyle(mergedActionTarget('set_series_style', seriesId)),
     })),
     colorMaps: seriesIds.map((seriesId) => engineColorMap(
       seriesId,

@@ -150,6 +150,12 @@ class EngineCatalog:
                     "tick_font_family",
                     "tick_font_size_pt",
                     "tick_color",
+                    "tick_labels_visible",
+                    "major_ticks_visible",
+                    "minor_ticks_visible",
+                    "tick_direction",
+                    "axis_line_visible",
+                    "axis_title_visible",
                     "axis_line_color",
                     "axis_line_width_pt",
                     "major_grid_visible",
@@ -167,6 +173,7 @@ class EngineCatalog:
             return {
                 name
                 for name in (
+                    "visible",
                     "line_stroke_color",
                     "line_width_pt",
                     "line_style",
