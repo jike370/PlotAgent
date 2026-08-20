@@ -116,6 +116,15 @@ PNG，才可把 `representative:opju` 从 `UNVERIFIED` 升为 `PASS`。
 
 具体数值随Beta硬件基线冻结在run metadata，不在实现代码中硬编码营销承诺。
 
+确定性操作矩阵使用下列命令，统一记录 10 万行 CSV（含 CJK 类别）、多工作表
+Excel、带仪器信息 TXT、多数据块 TXT，以及批量完成、原子取消、部分失败、显式跳过
+和重启恢复。该矩阵不调用真实模型；耗时和 Python 峰值内存只作为当前测试机观测值，
+不擅自转写为产品承诺：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_operational_matrix.py
+```
+
 ## 8. 安全与可追溯
 
 - local_only零远程出站；
