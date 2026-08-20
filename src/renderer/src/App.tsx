@@ -48,7 +48,6 @@ import {
   ConversationWorkspace,
   type ExportRecordView,
   type ProductNotice,
-  type ScopeMode,
 } from './components/ConversationWorkspace'
 import { FocusEditor } from './components/FocusEditor'
 import { Sidebar } from './components/Sidebar'
@@ -218,6 +217,7 @@ export function App(): React.JSX.Element {
   const [selectedChart, setSelectedChart] = useState<ChartType>()
   const [confirmedMapping, setConfirmedMapping] = useState<FieldMappingInput>()
   const [plot, setPlot] = useState<ProductPlot>()
+  const [projectPlots, setProjectPlots] = useState<ProductPlot[]>([])
   const [previousPlot, setPreviousPlot] = useState<ProductPlot>()
   const [exportRecord, setExportRecord] = useState<ExportRecordView>()
   const [notice, setNotice] = useState<ProductNotice>()
@@ -238,7 +238,7 @@ export function App(): React.JSX.Element {
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [agentRuntimeEvent, setAgentRuntimeEvent] = useState<WorkflowRuntimeEvent>()
-  const pendingAgentRequest = useRef<{ instruction: string; scope: ScopeMode } | undefined>(
+  const pendingAgentRequest = useRef<{ instruction: string; selectedPlotIds: string[] } | undefined>(
     undefined,
   )
   const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
@@ -282,6 +282,18 @@ export function App(): React.JSX.Element {
         return [...byId.values()]
       })
     }
+  }, [])
+
+  const mergeProjectPlot = useCallback((nextPlot: ProductPlot): void => {
+    setProjectPlots((current) => {
+      const existingIndex = current.findIndex((item) => item.plotId === nextPlot.plotId)
+      if (existingIndex < 0) return [...current, nextPlot]
+      const updated = [...current]
+      updated[existingIndex] = nextPlot.plotVersion >= updated[existingIndex].plotVersion
+        ? nextPlot
+        : updated[existingIndex]
+      return updated
+    })
   }, [])
 
   useEffect(() => {
@@ -374,9 +386,10 @@ export function App(): React.JSX.Element {
 
   const recoverLatestPlot = useCallback(async (projectId: string): Promise<{
     plot?: ProductPlot
+    plots: ProductPlot[]
     notice?: ProductNotice
   }> => {
-    if (!api) return {}
+    if (!api) return { plots: [] }
     try {
       const listed = valueOrThrow(await api.listPlots({ projectId }))
       const plots = readPlots(listed)
@@ -390,15 +403,21 @@ export function App(): React.JSX.Element {
             message: `此项目包含已从当前版本移除的图类：${[...new Set(removedPlots.map((plot) => plot.chartId))].join('、')}。这些历史图形不会被替换或重新渲染。`,
           }
         : undefined
-      if (!latest) return { notice: removedNotice }
+      if (!latest) return { plots, notice: removedNotice }
       const stored = valueOrThrow(await api.getPlot({
         projectId,
         plotId: latest.plotId,
         plotVersion: latest.plotVersion,
       }))
-      return { plot: readPlot(stored) ?? latest, notice: removedNotice }
+      const recovered = readPlot(stored) ?? latest
+      return {
+        plot: recovered,
+        plots: plots.map((item) => item.plotId === recovered.plotId ? recovered : item),
+        notice: removedNotice,
+      }
     } catch (error) {
       return {
+        plots: [],
         notice: { kind: 'warning', title: '图形恢复未完成', message: errorNotice(error).message },
       }
     }
@@ -498,6 +517,7 @@ export function App(): React.JSX.Element {
     setSelectedChart(undefined)
     setConfirmedMapping(undefined)
     setPlot(undefined)
+    setProjectPlots([])
     setPreviousPlot(undefined)
     setExportRecord(undefined)
     setImportNotice(undefined)
@@ -590,6 +610,7 @@ export function App(): React.JSX.Element {
         hydrateProject(listed, nextProject.name, nextProject)
         const recovery = await recoverLatestPlot(nextProject.projectId)
         setPlot(recovery.plot)
+        setProjectPlots(recovery.plots)
         setPreviousPlot(undefined)
         setSelectedChart(recovery.plot ? chartCatalog.find((chart) => chart.id === recovery.plot?.chartId) : undefined)
         setNotice(recovery.notice ?? { kind: 'success', title: '项目已打开', message: '已从受控项目资源恢复本地会话。' })
@@ -751,6 +772,7 @@ export function App(): React.JSX.Element {
         hydrateProject(listed, nextProject.name, nextProject)
         const recovery = await recoverLatestPlot(nextProject.projectId)
         setPlot(recovery.plot)
+        setProjectPlots(recovery.plots)
         setPreviousPlot(undefined)
         setSelectedChart(recovery.plot ? chartCatalog.find((chart) => chart.id === recovery.plot?.chartId) : undefined)
         recoveryNotice = recovery.notice
@@ -777,7 +799,7 @@ export function App(): React.JSX.Element {
       const next = { ...(known ?? { projectId, name: '本机项目', projectVersion: 0, isOpen: true }), projectVersion: projectVersionFrom(opened, 0), isOpen: true }
       setProject(next); mergeProjects([next])
       setDatasets([]); setActiveDatasetId(undefined); setWorkflowSourceIds([])
-      setPlot(undefined); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
+      setPlot(undefined); setProjectPlots([]); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
       setWorkflowPlan(undefined); setWorkflowOutcome(undefined); setExportRecord(undefined)
 
       let datasetNotice: ProductNotice | undefined
@@ -809,6 +831,7 @@ export function App(): React.JSX.Element {
         }
       }
       const recovery = await recoverLatestPlot(projectId)
+      setProjectPlots(recovery.plots)
       if (recovery.plot) {
         setPlot(recovery.plot)
         setSelectedChart(chartCatalog.find((chart) => chart.id === recovery.plot?.chartId))
@@ -849,6 +872,7 @@ export function App(): React.JSX.Element {
       const nextPlot = readPlot(created)
       if (!nextPlot) throw new Error('Core 未返回 PlotDocument 版本。')
       setPlot(nextPlot)
+      mergeProjectPlot(nextPlot)
       setPreviousPlot(undefined)
       setUndoStack([])
       setRedoStack([])
@@ -902,10 +926,10 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const runAgent = async (instruction: string, scope: ScopeMode): Promise<void> => {
+  const runAgent = async (instruction: string, selectedPlotIds: string[]): Promise<void> => {
     if (!project) return
     if (!activeDataset) {
-      pendingAgentRequest.current = { instruction, scope }
+      pendingAgentRequest.current = { instruction, selectedPlotIds }
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
@@ -940,7 +964,7 @@ export function App(): React.JSX.Element {
         selectedSources,
         expectedProjectVersion: project.projectVersion,
         ...(selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
-        ...(plot === undefined || scope !== 'current' ? {} : { selectedPlotIds: [plot.plotId] }),
+        ...(selectedPlotIds.length === 0 ? {} : { selectedPlotIds }),
         ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
         instruction,
       }))
@@ -963,8 +987,8 @@ export function App(): React.JSX.Element {
     }
   }
   const resumePendingAgent = useEffectEvent(
-    (pending: { instruction: string; scope: ScopeMode }) => {
-      void runAgent(pending.instruction, pending.scope)
+    (pending: { instruction: string; selectedPlotIds: string[] }) => {
+      void runAgent(pending.instruction, pending.selectedPlotIds)
     },
   )
 
@@ -984,6 +1008,7 @@ export function App(): React.JSX.Element {
     const nextPlot = readPlot(stored)
     if (!nextPlot) return undefined
     setPlot(nextPlot)
+    mergeProjectPlot(nextPlot)
     setPreviousPlot(plot)
     setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
     return nextPlot
@@ -1199,6 +1224,7 @@ export function App(): React.JSX.Element {
       const nextPlot = readPlot(value)
       if (!nextPlot) throw new Error('Core 未返回新的 PlotDocument 版本。')
       setPlot(nextPlot)
+      mergeProjectPlot(nextPlot)
       setPreviousPlot(plot)
       setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
       if (historyEntry) {
@@ -1241,6 +1267,7 @@ export function App(): React.JSX.Element {
         nextProjectVersion = projectVersionFrom(value, nextProjectVersion + 1)
       }
       setPlot(nextPlot)
+      mergeProjectPlot(nextPlot)
       setPreviousPlot(plot)
       setProject(projectWithVersion(project, nextProjectVersion))
       setNotice({
@@ -1255,7 +1282,7 @@ export function App(): React.JSX.Element {
     } finally {
       setBusyAction(undefined)
     }
-  }, [api, busyAction, plot, project])
+  }, [api, busyAction, mergeProjectPlot, plot, project])
 
   const undoPlotChange = useCallback(async (): Promise<void> => {
     const entry = undoStack.at(-1)
@@ -1427,7 +1454,7 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, scope) => void runAgent(instruction, scope)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlotIds) => void runAgent(instruction, selectedPlotIds)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel onClose={() => setScreen('workspace')} />}
       </div>

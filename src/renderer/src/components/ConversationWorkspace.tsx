@@ -39,10 +39,13 @@ import type {
   ProductProject,
 } from '../data/productState'
 import {
-  readConversationMessages,
-  writeConversationMessages,
-  type ConversationMessage,
+  readConversationTimeline,
+  writeConversationTimeline,
+  type ConversationExportRecord,
+  type ConversationTextItem,
+  type ConversationTimelineItem,
 } from '../data/conversationPersistence'
+import { parsePlotMentions, registerPlotReferences, type PlotReference } from '../data/plotReferences'
 import {
   fieldMatchesRole,
   suggestedFieldMapping,
@@ -78,6 +81,7 @@ interface ConversationWorkspaceProps {
   selectedWorkflowSourceIds: string[]
   selectedChart?: ChartType
   plot?: ProductPlot
+  projectPlots: ProductPlot[]
   exportRecord?: ExportRecordView
   notice?: ProductNotice
   importNotice?: ProductNotice
@@ -97,7 +101,7 @@ interface ConversationWorkspaceProps {
   onToggleWorkflowSource: (datasetId: string) => void
   onConfirmMapping: (mapping: FieldMappingInput) => void
   onConfirmMultiSourceMapping: (mapping: FieldMappingInput) => void
-  onAgentInstruction: (instruction: string, scope: ScopeMode) => void
+  onAgentInstruction: (instruction: string, selectedPlotIds: string[]) => void
   onConfirmWorkflowPlan: (planId: string) => void
   onRejectWorkflowPlan: (planId: string) => void
   onRunWorkflowPlan: (planId: string) => void
@@ -546,29 +550,31 @@ function MappingObject({
 
 function PlotObject({
   plot,
-  chart,
+  plotNumber,
+  interactive,
   busyAction,
   previewMode,
   onExport,
   onOpenLibrary,
   onOpenFocus,
   onCreateBatch,
-}: Pick<ConversationWorkspaceProps, 'plot' | 'selectedChart' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & { chart?: ChartType }): React.JSX.Element {
+}: Pick<ConversationWorkspaceProps, 'plot' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & {
+  plotNumber: number
+  interactive: boolean
+}): React.JSX.Element {
   if (!plot) return <div />
-  const plotChart = chart?.id === plot.chartId
-    ? chart
-    : chartCatalog.find((item) => item.id === plot.chartId)
+  const plotChart = chartCatalog.find((item) => item.id === plot.chartId)
   return (
-    <section className="object-block product-plot-object" aria-labelledby="plot-title">
+    <section className="object-block product-plot-object" aria-label={`@图${plotNumber} ${plotChart?.name ?? plot.chartId} v${plot.plotVersion}`}>
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
-        <div><h3 id="plot-title">{plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.plotId} · {plot.chartId} · Agent Native</p></div>
-        <span className="status-label status-label--success"><Check size={13} />{previewMode ? '界面预览' : '已渲染'}</span>
+        <div><h3>@图{plotNumber} · {plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.chartId} · Agent Native</p></div>
+        <span className={interactive ? 'status-label status-label--success' : 'status-label'}><Check size={13} />{interactive ? (previewMode ? '界面预览' : '已渲染') : '历史版本'}</span>
       </header>
       <div className="product-preview">
         {plot.preview?.url ? <img src={plot.preview.url} alt={`${plotChart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
       </div>
-      <footer className="plot-actions">
+      {interactive && <footer className="plot-actions">
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
         <button type="button" onClick={onOpenFocus}><Settings2 size={15} />编辑图形</button>
         <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>
@@ -578,19 +584,19 @@ function PlotObject({
             {busyAction === `export-${format}` ? <LoaderCircle className="spin" size={15} /> : <Download size={15} />}导出 {format.toLocaleUpperCase('en-US')}
           </button>
         ))}
-      </footer>
+      </footer>}
     </section>
   )
 }
 
 function ConversationComposer({
   plot,
+  plotReferences,
   selectedChart,
   datasetCount,
   configured,
   busy,
   importing,
-  outcome,
   notice,
   onSubmit,
   onConfigure,
@@ -598,41 +604,84 @@ function ConversationComposer({
   onImportData,
 }: {
   plot?: ProductPlot
+  plotReferences: { reference: PlotReference; plot: ProductPlot }[]
   selectedChart?: ChartType
   datasetCount: number
   configured: boolean
   busy: boolean
   importing: boolean
-  outcome?: WorkflowOutcome
   notice?: ProductNotice
-  onSubmit: (instruction: string, scope: ScopeMode) => void
+  onSubmit: (instruction: string, selectedPlotIds: string[]) => void
   onConfigure: () => void
   onOpenLibrary: () => void
   onImportData: () => void
 }): React.JSX.Element {
-  const [scope, setScope] = useState<ScopeMode>('current')
   const [value, setValue] = useState('')
+  const [mentionOpen, setMentionOpen] = useState(false)
+  const [mentionError, setMentionError] = useState<string>()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const currentReference = plotReferences.find((item) => item.plot.plotId === plot?.plotId)?.reference
   const submit = (): void => {
     const instruction = value.trim()
     if (!instruction || busy) return
-    onSubmit(instruction, scope)
+    const numbers = parsePlotMentions(instruction)
+    const byNumber = new Map(plotReferences.map((item) => [item.reference.number, item.plot.plotId]))
+    const missing = numbers.filter((number) => !byNumber.has(number))
+    if (missing.length > 0) {
+      setMentionError(`项目中不存在 ${missing.map((number) => `@图${number}`).join('、')}。`)
+      return
+    }
+    onSubmit(instruction, numbers.flatMap((number) => {
+      const plotId = byNumber.get(number)
+      return plotId === undefined ? [] : [plotId]
+    }))
     setValue('')
+    setMentionOpen(false)
+    setMentionError(undefined)
+  }
+  const insertMention = (reference: PlotReference): void => {
+    const textarea = textareaRef.current
+    const caret = textarea?.selectionStart ?? value.length
+    const trigger = value.lastIndexOf('@', Math.max(0, caret - 1))
+    const before = trigger >= 0 ? value.slice(0, trigger) : `${value}${value && !value.endsWith(' ') ? ' ' : ''}`
+    const after = trigger >= 0 ? value.slice(caret) : ''
+    const next = `${before}@图${reference.number} ${after}`
+    setValue(next)
+    setMentionOpen(false)
+    setMentionError(undefined)
+    window.requestAnimationFrame(() => {
+      const nextCaret = before.length + `@图${reference.number} `.length
+      textarea?.focus()
+      textarea?.setSelectionRange(nextCaret, nextCaret)
+    })
   }
   return (
     <div className="composer-wrap">
       {notice?.kind === 'success' && <div className="composer-success" role="status"><Check size={14} />{notice.title}</div>}
-      {outcome && outcome.kind !== 'task_plan' && <div className={`agent-outcome agent-outcome--${outcome.kind}`} role={outcome.kind === 'rejected' ? 'alert' : 'status'}><div><strong>{outcome.title}</strong><p>{outcome.message}</p>{outcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div></div>}
       <div className="composer" aria-label="自然语言绘图指令">
         <div className="composer-context">
-          <span className="target-chip"><Layers3 size={14} />{plot ? `${plot.plotId} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '未选择图形'}</span>
-          {plot &&
-          <div className="scope-switch" aria-label="作用范围">
-            {([['current', '当前图'], ['selected', '选中图']] as const).map(([mode, label]) => (
-              <button className={scope === mode ? 'is-active' : ''} key={mode} type="button" onClick={() => setScope(mode)} aria-pressed={scope === mode}>{label}</button>
-            ))}
-          </div>}
+          <span className="target-chip"><Layers3 size={14} />{plot && currentReference ? `@图${currentReference.number} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '新建图形'}</span>
+          {plotReferences.length > 0 && <span className="composer-context__hint">输入 @ 指定图形</span>}
         </div>
-        <textarea value={value} disabled={busy} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submit() } }} placeholder={plot ? '描述你想怎样修改这张图' : '描述绘图要求；缺少数据或图类时，我会告诉你下一步'} aria-label="描述绘图要求" />
+        <textarea ref={textareaRef} value={value} disabled={busy} onChange={(event) => {
+          const next = event.target.value
+          setValue(next)
+          setMentionError(undefined)
+          const caret = event.target.selectionStart ?? next.length
+          setMentionOpen(plotReferences.length > 0 && /(?:^|\s)@[^\s]*$/u.test(next.slice(0, caret)))
+        }} onKeyDown={(event) => {
+          if (event.key === 'Escape' && mentionOpen) { event.preventDefault(); setMentionOpen(false); return }
+          if (event.key === 'Enter' && !event.shiftKey && !mentionOpen) { event.preventDefault(); submit() }
+        }} placeholder={plotReferences.length > 0 ? '输入 @图编号 后描述修改要求；不带 @ 时创建新任务' : '描述绘图要求；缺少数据或图类时，我会告诉你下一步'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
+        {mentionOpen && <div className="plot-mention-menu" role="listbox" aria-label="选择作用图形">
+          {plotReferences.map(({ reference, plot: candidate }) => {
+            const chart = chartCatalog.find((item) => item.id === candidate.chartId)
+            return <button key={reference.plotId} type="button" role="option" aria-selected="false" onMouseDown={(event) => event.preventDefault()} onClick={() => insertMention(reference)}>
+              <strong>@图{reference.number}</strong><span>{chart?.name ?? candidate.chartId} · v{candidate.plotVersion}</span>
+            </button>
+          })}
+        </div>}
+        {mentionError && <p id="composer-mention-error" className="composer-mention-error" role="alert">{mentionError}</p>}
         <div className="composer-toolbar">
           <button type="button" className={selectedChart ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{selectedChart ? selectedChart.name : '选择图形'}</button>
           <button type="button" className="composer-tool" onClick={onImportData} disabled={importing}>
@@ -838,84 +887,151 @@ function ActivityMessage({
   </div>
 }
 
-function ConversationHistory({ messages }: { messages: ConversationMessage[] }): React.JSX.Element {
-  return <>{messages.map((message) => message.role === 'user'
-    ? <div className="message message--user" key={message.id}><div className="message-content">{message.text}</div><time className="message-time">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div>
-    : <div className={`message message--agent conversation-history-message conversation-history-message--${message.kind ?? 'info'}`} key={message.id}>
-        <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response">{message.title && <strong>{message.title}</strong>}<p>{message.text}</p></div>
-      </div>)}</>
+function ConversationTextMessage({ message }: { message: ConversationTextItem }): React.JSX.Element {
+  return message.role === 'user'
+    ? <div className="message message--user"><div className="message-content">{message.text}</div><time className="message-time">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div>
+    : <div className={`message message--agent conversation-history-message conversation-history-message--${message.kind ?? 'info'}`}>
+        <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response">{message.title && <strong>{message.title}</strong>}<p>{message.text}</p>{message.questions?.map((question) => <p className="agent-question" key={question}>{question}</p>)}</div>
+      </div>
+}
+
+function ExportResult({
+  record,
+  onOpen,
+  onReveal,
+}: {
+  record: ConversationExportRecord
+  onOpen: (resourceId: string) => void
+  onReveal: (resourceId: string) => void
+}): React.JSX.Element {
+  return <section className="object-block product-result-strip product-result-strip--success" role="status" aria-live="polite" aria-label="导出记录">
+    <CircleCheck size={17} />
+    <div><strong>{record.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{record.fileName}{record.artifactSize === undefined ? '' : ` · ${record.artifactSize.toLocaleString('zh-CN')} B`}</p>{record.artifactHash && <code title={record.artifactHash}>{record.artifactHash.slice(0, 12)}…</code>}</div>
+    <div className="product-result-strip__actions"><button type="button" onClick={() => onOpen(record.resourceId)}>打开文件</button><button type="button" onClick={() => onReveal(record.resourceId)}>打开所在文件夹</button></div>
+  </section>
 }
 
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
   const { project, datasets, activeDataset, selectedChart, plot, exportRecord, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
-  const [messages, setMessages] = useState<ConversationMessage[]>(() => (
-    project ? readConversationMessages(window.localStorage, project.projectId) : []
+  const [timeline, setTimeline] = useState<ConversationTimelineItem[]>(() => (
+    project ? readConversationTimeline(window.localStorage, project.projectId) : []
   ))
-  const [plotMessageBoundary, setPlotMessageBoundary] = useState(messages.length)
-  const activeTurnRef = useRef<HTMLDivElement>(null)
-  const plotId = plot?.plotId
-  const plotVersion = plot?.plotVersion
+  const initialPlotIds = [...new Set([...props.projectPlots.map((item) => item.plotId), ...(plot ? [plot.plotId] : [])])]
+  const [plotReferences, setPlotReferences] = useState<PlotReference[]>(() => (
+    project ? registerPlotReferences(window.localStorage, project.projectId, initialPlotIds) : []
+  ))
+  const activeTurnIdRef = useRef(timeline.at(-1)?.turnId)
+  const scrollAnchorRef = useRef<HTMLDivElement>(null)
+  const availablePlots = useMemo(() => {
+    const latestById = new Map(props.projectPlots.map((item) => [item.plotId, item]))
+    if (plot) latestById.set(plot.plotId, plot)
+    return plotReferences.flatMap((reference) => {
+      const candidate = latestById.get(reference.plotId)
+      return candidate ? [{ reference, plot: candidate }] : []
+    })
+  }, [plot, plotReferences, props.projectPlots])
+
+  const updateTimeline = useCallback((update: (current: ConversationTimelineItem[]) => ConversationTimelineItem[]): void => {
+    if (!project) return
+    setTimeline((current) => {
+      const updated = update(current)
+      if (updated === current) return current
+      writeConversationTimeline(window.localStorage, project.projectId, updated)
+      return updated
+    })
+  }, [project])
 
   useEffect(() => {
-    if (plotId === undefined) return
-    queueMicrotask(() => setPlotMessageBoundary(messages.length))
-    // The boundary is intentionally captured only when the authoritative plot version changes.
-    // Later messages must remain after that plot instead of moving the plot to the end again.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plotId, plotVersion])
+    if (!project) return
+    const plotIds = [...new Set([...props.projectPlots.map((item) => item.plotId), ...(plot ? [plot.plotId] : [])])]
+    queueMicrotask(() => setPlotReferences(registerPlotReferences(window.localStorage, project.projectId, plotIds)))
+  }, [plot, project, props.projectPlots])
 
   useEffect(() => {
     const outcome = props.workflowOutcome
     if (!project || !outcome || outcome.kind === 'task_plan') return
-    queueMicrotask(() => setMessages((current) => {
+    const questions = outcome.questions?.map((question) => question.prompt) ?? []
+    queueMicrotask(() => updateTimeline((current) => {
       const last = current.at(-1)
-      if (last?.role === 'agent' && last.title === outcome.title && last.text === outcome.message) return current
-      const updated = [...current, {
-        id: `message:agent:${crypto.randomUUID()}`,
-        role: 'agent' as const,
-        title: outcome.title,
-        text: outcome.message,
-        createdAt: new Date().toISOString(),
-        kind: outcome.kind === 'rejected' ? 'error' as const : outcome.kind === 'needs_input' ? 'warning' as const : 'info' as const,
+      if (last?.type === 'text' && last.role === 'agent' && last.title === outcome.title && last.text === outcome.message
+        && JSON.stringify(last.questions ?? []) === JSON.stringify(questions)) return current
+      return [...current, {
+        type: 'text', id: `message:agent:${crypto.randomUUID()}`, turnId: activeTurnIdRef.current,
+        role: 'agent', title: outcome.title, text: outcome.message, questions, createdAt: new Date().toISOString(),
+        kind: outcome.kind === 'rejected' ? 'error' : outcome.kind === 'needs_input' ? 'warning' : 'info',
       }]
-      writeConversationMessages(window.localStorage, project.projectId, updated)
-      return updated
     }))
-  }, [project, props.workflowOutcome])
-
-  const visibleMessages = useMemo(() => {
-    const outcome = props.workflowOutcome
-    if (!outcome || outcome.kind === 'task_plan') return messages
-    return messages.filter((message, index) => !(
-      index === messages.length - 1
-      && message.role === 'agent'
-      && message.title === outcome.title
-      && message.text === outcome.message
-    ))
-  }, [messages, props.workflowOutcome])
-  const messagesBeforePlot = plot ? visibleMessages.slice(0, plotMessageBoundary) : visibleMessages
-  const messagesAfterPlot = plot ? visibleMessages.slice(plotMessageBoundary) : []
+  }, [project, props.workflowOutcome, updateTimeline])
 
   useEffect(() => {
-    if (messages.length === 0 && busyAction === undefined && props.workflowOutcome === undefined && props.workflowPlan === undefined && exportRecord === undefined) return
-    queueMicrotask(() => activeTurnRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
-  }, [busyAction, exportRecord, messages.length, props.workflowOutcome, props.workflowPlan])
-
-  const submitInstruction = (instruction: string, scope: ScopeMode): void => {
-    if (!project) return
-    const message: ConversationMessage = {
-      id: `message:user:${crypto.randomUUID()}`,
-      role: 'user',
-      text: instruction,
-      createdAt: new Date().toISOString(),
-    }
-    setMessages((current) => {
-      const updated = [...current, message]
-      writeConversationMessages(window.localStorage, project.projectId, updated)
+    const plan = props.workflowPlan
+    if (!project || !plan) return
+    queueMicrotask(() => updateTimeline((current) => {
+      const index = current.findIndex((item) => item.type === 'plan' && item.plan.planId === plan.planId)
+      if (index < 0) return [...current, {
+        type: 'plan', id: `timeline:plan:${plan.planId}`, turnId: activeTurnIdRef.current,
+        createdAt: new Date().toISOString(), plan,
+      }]
+      const existing = current[index]
+      if (existing.type !== 'plan') return current
+      const updated = [...current]
+      updated[index] = { ...existing, plan }
       return updated
-    })
-    props.onAgentInstruction(instruction, scope)
+    }))
+  }, [project, props.workflowPlan, updateTimeline])
+
+  useEffect(() => {
+    if (!project || !plot) return
+    const references = registerPlotReferences(window.localStorage, project.projectId, [plot.plotId])
+    const plotNumber = references.find((item) => item.plotId === plot.plotId)?.number
+    if (plotNumber === undefined) return
+    queueMicrotask(() => updateTimeline((current) => {
+      const itemId = `timeline:plot:${plot.plotId}:v${plot.plotVersion}`
+      const index = current.findIndex((item) => item.id === itemId)
+      if (index < 0) return [...current, {
+        type: 'plot', id: itemId, turnId: activeTurnIdRef.current,
+        createdAt: new Date().toISOString(), plotNumber, plot,
+      }]
+      const existing = current[index]
+      if (existing.type !== 'plot') return current
+      const updated = [...current]
+      updated[index] = { ...existing, plotNumber, plot }
+      return updated
+    }))
+  }, [plot, project, updateTimeline])
+
+  useEffect(() => {
+    if (!project || !exportRecord) return
+    queueMicrotask(() => updateTimeline((current) => {
+      const itemId = `timeline:export:${exportRecord.exportId}`
+      if (current.some((item) => item.id === itemId)) return current
+      return [...current, {
+        type: 'export', id: itemId, turnId: activeTurnIdRef.current, createdAt: new Date().toISOString(),
+        record: {
+          exportId: exportRecord.exportId, resourceId: exportRecord.resourceId, fileName: exportRecord.fileName,
+          format: exportRecord.format, targetId: exportRecord.targetId,
+          ...(exportRecord.artifactHash ? { artifactHash: exportRecord.artifactHash } : {}),
+          ...(exportRecord.artifactSize === undefined ? {} : { artifactSize: exportRecord.artifactSize }),
+        },
+      }]
+    }))
+  }, [exportRecord, project, updateTimeline])
+
+  useEffect(() => {
+    if (timeline.length === 0 && busyAction === undefined) return
+    queueMicrotask(() => scrollAnchorRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
+  }, [busyAction, timeline.length])
+
+  const submitInstruction = (instruction: string, selectedPlotIds: string[]): void => {
+    if (!project) return
+    const turnId = `turn:${crypto.randomUUID()}`
+    activeTurnIdRef.current = turnId
+    updateTimeline((current) => [...current, {
+      type: 'text', id: `message:user:${crypto.randomUUID()}`, turnId, role: 'user',
+      text: instruction, createdAt: new Date().toISOString(),
+    }])
+    props.onAgentInstruction(instruction, selectedPlotIds)
   }
   return (
     <main className="workspace-main" id="conversation-main">
@@ -934,17 +1050,18 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             ) : (
               <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></div></div>
             )}
-            <ConversationHistory messages={messagesBeforePlot} />
-            {plot && <PlotObject {...props} chart={selectedChart} />}
-            <ConversationHistory messages={messagesAfterPlot} />
+            {timeline.map((item) => {
+              if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
+              if (item.type === 'plan') return <div className="message message--agent" key={item.id}>
+                <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div>
+                <div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></div>
+              </div>
+              if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
+              return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
+            })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
-            {props.workflowOutcome && props.workflowOutcome.kind !== 'task_plan' && <div className={`message message--agent conversation-history-message conversation-history-message--${props.workflowOutcome.kind === 'rejected' ? 'error' : props.workflowOutcome.kind === 'needs_input' ? 'warning' : 'info'}`} role={props.workflowOutcome.kind === 'rejected' ? 'alert' : 'status'}>
-              <div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><strong>{props.workflowOutcome.title}</strong><p>{props.workflowOutcome.message}</p>{props.workflowOutcome.questions?.map((question) => <p className="agent-question" key={question.questionKey}>{question.prompt}</p>)}</div>
-            </div>}
-            {props.workflowPlan && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={props.workflowPlan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan'} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></div></div>}
-            {exportRecord && <section className="object-block product-result-strip product-result-strip--success" aria-label="导出记录" role="status" aria-live="polite"><CircleCheck size={17} /><div><strong>{exportRecord.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{exportRecord.fileName}{exportRecord.artifactSize === undefined ? '' : ` · ${exportRecord.artifactSize.toLocaleString('zh-CN')} B`}</p>{exportRecord.artifactHash && <code title={exportRecord.artifactHash}>{exportRecord.artifactHash.slice(0, 12)}…</code>}</div><div className="product-result-strip__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}>打开所在文件夹</button></div></section>}
-            <div ref={activeTurnRef} className="conversation-turn-anchor" aria-hidden="true" />
+            <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
             {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <div className="message message--agent"><div className="agent-avatar" aria-label="PlotAgent"><span>PA</span></div><div className="agent-response"><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></div></div>}
           </div>
@@ -957,7 +1074,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
       </aside>}
 
-      {project && <ConversationComposer plot={plot} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plot={plot} plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

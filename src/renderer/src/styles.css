@@ -1682,6 +1682,46 @@ input[type="checkbox"] {
   color: var(--muted);
 }
 
+.plot-mention-menu {
+  position: absolute;
+  left: 10px;
+  bottom: 44px;
+  z-index: var(--z-dropdown);
+  width: min(320px, calc(100% - 20px));
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 5px;
+  border-radius: 9px;
+  background: var(--canvas);
+  box-shadow: 0 6px 14px rgb(23 23 23 / 16%);
+}
+
+.plot-mention-menu button {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.plot-mention-menu button:hover,
+.plot-mention-menu button:focus-visible { background: var(--surface-2); }
+.plot-mention-menu strong { min-width: 42px; font-size: 12px; }
+.plot-mention-menu span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+
+.composer-mention-error {
+  margin: 0;
+  padding: 0 11px 4px;
+  color: var(--danger);
+  font-size: 11px;
+}
+
 .composer-toolbar {
   min-height: 35px;
   display: flex;
@@ -5094,6 +5134,7 @@ input[type="checkbox"] {
 .agent-plan__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 
 .conversation-history-message { margin: 4px 0 14px; }
+.conversation-history-message .agent-response > p { white-space: pre-line; }
 .conversation-history-message--error .agent-response > p { color: var(--danger); }
 .conversation-history-message--warning .agent-response > p { color: var(--warning); }
 
@@ -5344,6 +5385,12 @@ input[type="checkbox"] {
   background: var(--canvas);
   font-size: 11px;
   font-weight: 650;
+}
+
+.composer-context__hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .product-toast__actions button:hover { background: var(--surface-2); }

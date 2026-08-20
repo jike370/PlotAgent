@@ -692,7 +692,7 @@ describe('PlotAgent real desktop workflow', () => {
         plotVersion: 2,
       }))
     expect(await screen.findByRole('img', { name: '线点图 真实渲染预览' })).toBeInTheDocument()
-    expect(screen.getByText('plot:alpha · v2')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '@图2 · 线点图 · v2' })).toBeInTheDocument()
   })
 
   it('opens historical projects without silently replacing removed chart types', async () => {
@@ -1184,7 +1184,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('K01 · 新图')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('plot:one · v1')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
-    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
+    await waitFor(() => expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成'))
   })
 
   it('presents a terminal execution failure as stopped instead of resumable partial work', async () => {
@@ -1208,7 +1208,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await openSampleAndCreatePlot(user)
 
-    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: /创建批次/ }))
     await user.click(await screen.findByRole('button', { name: '确认并执行' }))
 
     const card = (await screen.findByRole('heading', { name: '任务计划' })).closest('section')
@@ -1246,7 +1246,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
     await user.click(screen.getByRole('button', { name: '手动映射' }))
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
-    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: /创建批次/ }))
 
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({
       selectedSources: [
@@ -1310,7 +1310,7 @@ describe('PlotAgent real desktop workflow', () => {
       instruction: '取消失败项，保留成功结果。',
     }))
     expect(await screen.findByRole('button', { name: '确认修订计划' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('等待重新确认')
+    expect(screen.getAllByRole('heading', { name: '任务计划' }).at(-1)?.closest('section')).toHaveTextContent('等待重新确认')
     await user.click(screen.getByRole('button', { name: '确认修订计划' }))
     expect(await screen.findByText('更改已保存')).toBeInTheDocument()
     expect(runTaskPlan).toHaveBeenCalledTimes(1)
@@ -1332,7 +1332,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
 
     expect(await screen.findByRole('img', { name: '散点图 真实渲染预览' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '散点图 · v1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '@图1 · 散点图 · v1' })).toBeInTheDocument()
   })
 
   it('plans one plot from explicitly selected compatible sources', async () => {
@@ -1407,15 +1407,18 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
   })
 
-  it('appends live Agent feedback and its confirmation card below the existing plot', async () => {
+  it('keeps the plan in place, appends its result below it, and sends an explicit plot mention', async () => {
     const user = userEvent.setup()
     let finishDecision: ((result: DesktopDataResult) => void) | undefined
     const prepareWorkflow = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishDecision = resolve }))
-    installApi(fakeDesktop({ runWorkflow: prepareWorkflow }))
+    installApi(fakeDesktop({
+      runWorkflow: prepareWorkflow,
+      executePlotAction: vi.fn(async () => ok(enginePlotFixture('plot:one', 1, 'K01', 2))),
+    }))
     render(<App />)
     await openSampleAndCreatePlot(user)
 
-    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把标题改成温度响应')
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '@图1 把标题改成温度响应')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 
     const activity = await screen.findByText('正在理解你的要求…')
@@ -1429,6 +1432,41 @@ describe('PlotAgent real desktop workflow', () => {
     const planMessage = (await screen.findByRole('heading', { name: '任务计划' })).closest('.message')
     expect(plotCard?.compareDocumentPosition(planMessage as Node) ?? 0)
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(prepareWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      instruction: '@图1 把标题改成温度响应',
+      selectedPlotIds: ['plot:one'],
+    }))
+
+    await user.click(screen.getByRole('button', { name: '确认并执行' }))
+    const resultPlot = await screen.findByRole('heading', { name: '@图1 · 折线图 · v2' })
+    expect(planMessage?.compareDocumentPosition(resultPlot.closest('section') as Node) ?? 0)
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(screen.getAllByRole('heading', { name: '任务计划' })).toHaveLength(1)
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成')
+  })
+
+  it('rejects unknown plot mentions and never turns vague references into a target', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async (input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0]) => {
+      void input
+      return ok(workflowResultWithPlan(workflowPlanFixture()))
+    })
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '@图99 修改标题')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('项目中不存在 @图99')
+    expect(runWorkflow).not.toHaveBeenCalled()
+
+    await user.clear(composer)
+    await user.type(composer, '把上一张图改成红色')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await screen.findByRole('heading', { name: '任务计划' })
+    expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({ instruction: '把上一张图改成红色' }))
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlotIds')
   })
 
   it('opens the current-plot edit panel with only portable Origin-mapped categories', async () => {
