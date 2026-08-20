@@ -28,7 +28,12 @@ import {
   Undo2,
 } from 'lucide-react'
 
-import type { CoreStatus, FieldMappingInput, TaskEvent } from '../../../shared/desktop-contract'
+import type {
+  CoreStatus,
+  FieldMappingInput,
+  TaskEvent,
+  WorkflowPlotSelection,
+} from '../../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from '../data/chartCatalog'
 import type {
   WorkflowBindingView,
@@ -101,7 +106,7 @@ interface ConversationWorkspaceProps {
   onToggleWorkflowSource: (datasetId: string) => void
   onConfirmMapping: (mapping: FieldMappingInput) => void
   onConfirmMultiSourceMapping: (mapping: FieldMappingInput) => void
-  onAgentInstruction: (instruction: string, selectedPlotIds: string[]) => void
+  onAgentInstruction: (instruction: string, selectedPlots: WorkflowPlotSelection[]) => void
   onConfirmWorkflowPlan: (planId: string) => void
   onRejectWorkflowPlan: (planId: string) => void
   onRunWorkflowPlan: (planId: string) => void
@@ -590,7 +595,6 @@ function PlotObject({
 }
 
 function ConversationComposer({
-  plot,
   plotReferences,
   selectedChart,
   datasetCount,
@@ -603,7 +607,6 @@ function ConversationComposer({
   onOpenLibrary,
   onImportData,
 }: {
-  plot?: ProductPlot
   plotReferences: { reference: PlotReference; plot: ProductPlot }[]
   selectedChart?: ChartType
   datasetCount: number
@@ -611,7 +614,7 @@ function ConversationComposer({
   busy: boolean
   importing: boolean
   notice?: ProductNotice
-  onSubmit: (instruction: string, selectedPlotIds: string[]) => void
+  onSubmit: (instruction: string, selectedPlots: WorkflowPlotSelection[]) => void
   onConfigure: () => void
   onOpenLibrary: () => void
   onImportData: () => void
@@ -620,20 +623,27 @@ function ConversationComposer({
   const [mentionOpen, setMentionOpen] = useState(false)
   const [mentionError, setMentionError] = useState<string>()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const currentReference = plotReferences.find((item) => item.plot.plotId === plot?.plotId)?.reference
+  const mentionedNumbers = parsePlotMentions(value)
+  const mentionedTargets = mentionedNumbers.flatMap((number) => {
+    const match = plotReferences.find((item) => item.reference.number === number)
+    return match === undefined ? [] : [`@图${number} · v${match.plot.plotVersion}`]
+  })
   const submit = (): void => {
     const instruction = value.trim()
     if (!instruction || busy) return
     const numbers = parsePlotMentions(instruction)
-    const byNumber = new Map(plotReferences.map((item) => [item.reference.number, item.plot.plotId]))
+    const byNumber = new Map(plotReferences.map((item) => [item.reference.number, item.plot]))
     const missing = numbers.filter((number) => !byNumber.has(number))
     if (missing.length > 0) {
       setMentionError(`项目中不存在 ${missing.map((number) => `@图${number}`).join('、')}。`)
       return
     }
     onSubmit(instruction, numbers.flatMap((number) => {
-      const plotId = byNumber.get(number)
-      return plotId === undefined ? [] : [plotId]
+      const selected = byNumber.get(number)
+      return selected === undefined ? [] : [{
+        plotId: selected.plotId,
+        plotVersion: selected.plotVersion,
+      }]
     }))
     setValue('')
     setMentionOpen(false)
@@ -660,7 +670,13 @@ function ConversationComposer({
       {notice?.kind === 'success' && <div className="composer-success" role="status"><Check size={14} />{notice.title}</div>}
       <div className="composer" aria-label="自然语言绘图指令">
         <div className="composer-context">
-          <span className="target-chip"><Layers3 size={14} />{plot && currentReference ? `@图${currentReference.number} · v${plot.plotVersion}` : selectedChart ? `${selectedChart.id} · ${selectedChart.name}` : '新建图形'}</span>
+          <span className="target-chip"><Layers3 size={14} />{
+            mentionedTargets.length > 0
+              ? mentionedTargets.join('、')
+              : selectedChart
+                ? `${selectedChart.id} · ${selectedChart.name}`
+                : '新建图形'
+          }</span>
           {plotReferences.length > 0 && <span className="composer-context__hint">输入 @ 指定图形</span>}
         </div>
         <textarea ref={textareaRef} value={value} disabled={busy} onChange={(event) => {
@@ -1023,7 +1039,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
     queueMicrotask(() => scrollAnchorRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
   }, [busyAction, timeline.length])
 
-  const submitInstruction = (instruction: string, selectedPlotIds: string[]): void => {
+  const submitInstruction = (instruction: string, selectedPlots: WorkflowPlotSelection[]): void => {
     if (!project) return
     const turnId = `turn:${crypto.randomUUID()}`
     activeTurnIdRef.current = turnId
@@ -1031,7 +1047,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       type: 'text', id: `message:user:${crypto.randomUUID()}`, turnId, role: 'user',
       text: instruction, createdAt: new Date().toISOString(),
     }])
-    props.onAgentInstruction(instruction, selectedPlotIds)
+    props.onAgentInstruction(instruction, selectedPlots)
   }
   return (
     <main className="workspace-main" id="conversation-main">
@@ -1074,7 +1090,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
       </aside>}
 
-      {project && <ConversationComposer plot={plot} plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

@@ -151,7 +151,7 @@ class DurableAgentCoreHost:
             raise AgentFoundationError(
                 "ACTIVATION_NOT_ACTIVE", "The Agent activation is no longer active."
             )
-        envelope = self.ledger.get_envelope(activation.task_id)
+        envelope = self.ledger.get_effective_envelope(activation.task_id)
         checkpoint = self.ledger.get_task(activation.task_id)
         self.domain.require_revision(checkpoint.project_revision)
         if checkpoint.active_activation_id != activation.activation_id:
@@ -490,7 +490,7 @@ class DurableAgentCoreHost:
             raise AgentFoundationError(
                 "TASK_PLAN_STATE_INVALID", "The task is not ready for plan projection."
             )
-        envelope = self.ledger.get_envelope(task_id)
+        envelope = self.ledger.get_effective_envelope(task_id)
         self.domain.require_revision(checkpoint.project_revision)
         workflow_context, _source_contexts, _provider, _plot_contexts = self._source_context(
             envelope
@@ -504,7 +504,7 @@ class DurableAgentCoreHost:
         workflow_context: WorkflowContext,
     ) -> TaskPlan:
         validated = intent
-        envelope = self.ledger.get_envelope(intent.task_id)
+        envelope = self.ledger.get_effective_envelope(intent.task_id)
         latest_user_event = self.ledger.latest_user_event(intent.task_id)
         grounding_instruction = envelope.original_instruction
         if (
@@ -1246,7 +1246,7 @@ class DurableTaskCoordinator:
         return self._wait(checkpoint)
 
     def _new_activation(self, checkpoint: TaskCheckpoint) -> AgentActivation:
-        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        envelope = self._ledger.get_effective_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
         return AgentActivation(
@@ -1274,7 +1274,7 @@ class DurableTaskCoordinator:
             "verification_failed"
         ),
     ) -> AgentActivation:
-        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        envelope = self._ledger.get_effective_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
         repairable = tuple(
@@ -1320,7 +1320,7 @@ class DurableTaskCoordinator:
         reason: Literal["user_answered", "user_corrected"],
         message: str,
     ) -> AgentActivation:
-        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        envelope = self._ledger.get_effective_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
         return AgentActivation(
@@ -1349,7 +1349,7 @@ class DurableTaskCoordinator:
             "resume_after_restart"
         ),
     ) -> AgentActivation:
-        envelope = self._ledger.get_envelope(checkpoint.task_id)
+        envelope = self._ledger.get_effective_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
         return AgentActivation(

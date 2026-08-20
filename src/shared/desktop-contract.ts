@@ -225,6 +225,11 @@ export interface PlotIdInput extends ProjectIdInput {
   readonly plotVersion: number
 }
 
+export interface WorkflowPlotSelection {
+  readonly plotId: string
+  readonly plotVersion: number
+}
+
 export interface WorkflowRunInput extends ProjectIdInput {
   readonly selectedSources: readonly {
     readonly datasetId: string
@@ -232,7 +237,7 @@ export interface WorkflowRunInput extends ProjectIdInput {
   }[]
   readonly expectedProjectVersion: number
   readonly selectedProfileIds?: readonly string[]
-  readonly selectedPlotIds?: readonly string[]
+  readonly selectedPlots?: readonly WorkflowPlotSelection[]
   readonly continuationWorkflowRunId?: string
   readonly instruction: string
 }
@@ -590,7 +595,7 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     ['projectId', 'selectedSources', 'expectedProjectVersion', 'instruction'],
     [
       'selectedProfileIds',
-      'selectedPlotIds',
+      'selectedPlots',
       'continuationWorkflowRunId',
     ],
   )) return null
@@ -614,31 +619,42 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
       && value.selectedProfileIds.length <= 8
       && value.selectedProfileIds.every((item) => typeof item === 'string' && CHART_IDS.has(item))
       ? value.selectedProfileIds as string[] : null
-  const selectedPlotIds = value.selectedPlotIds === undefined
+  const selectedPlots = value.selectedPlots === undefined
     ? undefined
-    : Array.isArray(value.selectedPlotIds)
-      && value.selectedPlotIds.length <= 8
-      && value.selectedPlotIds.every((item) => parseId(item) !== null)
-      ? value.selectedPlotIds as string[] : null
+    : Array.isArray(value.selectedPlots)
+      && value.selectedPlots.length <= 8
+      ? value.selectedPlots.map((item) => {
+        if (!isRecord(item) || !hasExactKeys(item, ['plotId', 'plotVersion'])) return null
+        const plotId = parseId(item.plotId)
+        const plotVersion = parseVersion(item.plotVersion, 1)
+        return plotId === null || plotVersion === null ? null : { plotId, plotVersion }
+      })
+      : null
   const continuationWorkflowRunId = value.continuationWorkflowRunId === undefined
     ? undefined : parseId(value.continuationWorkflowRunId)
   if (
     selectedProfileIds === null
-    || selectedPlotIds === null
+    || selectedPlots === null
+    || selectedPlots?.some((item) => item === null)
     || continuationWorkflowRunId === null
   ) return null
   if (
     selectedSources.length === 0
-    && (selectedPlotIds === undefined || selectedPlotIds.length === 0)
+    && (selectedPlots === undefined || selectedPlots.length === 0)
     && continuationWorkflowRunId === undefined
   ) return null
-  if (selectedPlotIds !== undefined && new Set(selectedPlotIds).size !== selectedPlotIds.length) return null
+  if (
+    selectedPlots !== undefined
+    && new Set(selectedPlots.map((item) => item?.plotId)).size !== selectedPlots.length
+  ) return null
   return {
     projectId,
     selectedSources: selectedSources as { datasetId: string; sourceVersion: number }[],
     expectedProjectVersion,
     ...(selectedProfileIds === undefined ? {} : { selectedProfileIds }),
-    ...(selectedPlotIds === undefined ? {} : { selectedPlotIds }),
+    ...(selectedPlots === undefined ? {} : {
+      selectedPlots: selectedPlots as WorkflowPlotSelection[],
+    }),
     ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
     instruction,
   }

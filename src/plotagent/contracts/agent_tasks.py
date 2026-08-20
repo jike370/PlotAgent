@@ -210,6 +210,39 @@ class TaskEnvelope(StrictModel):
         return self
 
 
+class TaskContextUpdate(StrictModel):
+    """User-authorized context replacement carried by a durable continuation event.
+
+    The original task envelope remains immutable for audit.  Each non-null selection
+    replaces that part of the effective context for subsequent activations; omitted
+    selections preserve the task's previous effective value.
+    """
+
+    project_revision: NonNegativeInt
+    selected_sources: Annotated[tuple[SourceDatasetRef, ...], Field(max_length=64)] | None = None
+    selected_plots: Annotated[tuple[SelectedPlotRef, ...], Field(max_length=64)] | None = None
+    selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=64)] | None = None
+
+    @model_validator(mode="after")
+    def selections_are_unique(self) -> TaskContextUpdate:
+        groups = tuple(
+            group
+            for group in (
+                None
+                if self.selected_sources is None
+                else tuple(item.source_dataset_id for item in self.selected_sources),
+                None
+                if self.selected_plots is None
+                else tuple(item.plot_id for item in self.selected_plots),
+                self.selected_profile_ids,
+            )
+            if group is not None
+        )
+        if any(len(group) != len(set(group)) for group in groups):
+            raise ValueError("task context update selections must be unique")
+        return self
+
+
 class SemanticDecision(StrictModel):
     decision_id: Token
     kind: Literal[
@@ -1012,12 +1045,15 @@ class UserTaskEvent(TaskEventBase):
     user_event_id: Token
     payload_hash: Sha256
     message: NonEmptyText | None = None
+    context_update: TaskContextUpdate | None = None
 
     @model_validator(mode="after")
     def message_matches_action(self) -> UserTaskEvent:
         needs_message = self.action in {"answered", "corrected"}
         if needs_message != (self.message is not None):
             raise ValueError("answers and corrections alone carry user message text")
+        if self.context_update is not None and not needs_message:
+            raise ValueError("only answers and corrections may update task context")
         return self
 
 

@@ -22,6 +22,7 @@ from plotagent.contracts.agent_tasks import (
     TERMINAL_TASK_STATES,
     AgentActivation,
     TaskCompletion,
+    TaskContextUpdate,
     TaskEnvelope,
 )
 from plotagent.contracts.canonical import JsonValue, canonical_hash
@@ -425,9 +426,17 @@ class DesktopApplication:
                 "user_event_id",
                 "payload_hash",
             },
-            optional={"message"},
+            optional={"message", "context_update"},
         )
         session = self._session(_text(values["project_id"], "project_id"))
+        context_update_value = values.get("context_update")
+        context_update = (
+            None
+            if context_update_value is None
+            else TaskContextUpdate.model_validate(context_update_value)
+        )
+        if context_update is not None:
+            session.domain.require_revision(context_update.project_revision)
         checkpoint = session.durable_tasks.record_user_event(
             _text(values["task_id"], "task_id"),
             expected_task_version=_integer(
@@ -437,6 +446,7 @@ class DesktopApplication:
             user_event_id=_text(values["user_event_id"], "user_event_id"),
             payload_hash=_text(values["payload_hash"], "payload_hash"),
             message=_optional_text(values.get("message"), "message"),
+            context_update=context_update,
         )
         return cast(RpcJsonValue, checkpoint.model_dump(mode="json"))
 

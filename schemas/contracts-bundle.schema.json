@@ -13864,6 +13864,71 @@
       "title": "TaskCompletion",
       "type": "object"
     },
+    "TaskContextUpdate": {
+      "additionalProperties": false,
+      "description": "User-authorized context replacement carried by a durable continuation event.\n\nThe original task envelope remains immutable for audit.  Each non-null selection\nreplaces that part of the effective context for subsequent activations; omitted\nselections preserve the task's previous effective value.",
+      "properties": {
+        "project_revision": {
+          "minimum": 0,
+          "title": "Project Revision",
+          "type": "integer"
+        },
+        "selected_plots": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SelectedPlotRef"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Plots"
+        },
+        "selected_profile_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Profile Ids"
+        },
+        "selected_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SourceDatasetRef"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Sources"
+        }
+      },
+      "required": [
+        "project_revision"
+      ],
+      "title": "TaskContextUpdate",
+      "type": "object"
+    },
     "TaskDraft": {
       "additionalProperties": false,
       "properties": {
@@ -15946,6 +16011,17 @@
           ],
           "title": "Action",
           "type": "string"
+        },
+        "context_update": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskContextUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "event_id": {
           "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",

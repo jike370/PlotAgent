@@ -1826,6 +1826,13 @@ export type TaskCompletion = {
   readonly skipped_item_ids?: ReadonlyArray<string>;
 }
 
+export type TaskContextUpdate = {
+  readonly project_revision: number;
+  readonly selected_sources?: ReadonlyArray<SourceDatasetRef> | null;
+  readonly selected_plots?: ReadonlyArray<SelectedPlotRef> | null;
+  readonly selected_profile_ids?: ReadonlyArray<string> | null;
+}
+
 export type TaskDraft = {
   readonly schema_version?: "task-draft.v1";
   readonly draft_id: string;
@@ -2117,6 +2124,7 @@ export type UserTaskEvent = {
   readonly user_event_id: string;
   readonly payload_hash: string;
   readonly message?: string | null;
+  readonly context_update?: TaskContextUpdate | null;
 }
 
 export type VerificationClaim = {

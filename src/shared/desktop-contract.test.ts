@@ -111,10 +111,17 @@ describe('desktop contract validation', () => {
     expect(parseWorkflowRunInput({
       projectId: 'project:one',
       selectedSources: [],
-      selectedPlotIds: ['plot:one'],
+      selectedPlots: [{ plotId: 'plot:one', plotVersion: 2 }],
       expectedProjectVersion: 2,
       instruction: 'Y axis 改成 log10，图例放到左上角',
-    })).not.toBeNull()
+    })).toMatchObject({ selectedPlots: [{ plotId: 'plot:one', plotVersion: 2 }] })
+    expect(parseWorkflowRunInput({
+      projectId: 'project:one',
+      selectedSources: [],
+      selectedPlots: [{ plotId: 'plot:one' }],
+      expectedProjectVersion: 2,
+      instruction: '修改图形',
+    })).toBeNull()
     expect(parseWorkflowRunInput({
       projectId: 'project:one',
       selectedSources: [{ datasetId: 'source:one', sourceVersion: 1 }],

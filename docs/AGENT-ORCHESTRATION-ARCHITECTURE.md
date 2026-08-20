@@ -229,6 +229,7 @@ Recipe 保存处理步骤、绑定、图类、参数、前置条件和合同版�
 
 - 原样发送用户 instruction；
 - 以结构化字段发送用户选中的 source/profile/plot；
+- plot 选择必须携带用户实际看到的 `plot_id + plot_version`，不得由 Main 静默改取最新版本；
 - 把项目数据目录、失败 TaskPlan 和当前对象作为上下文，而不是拼进提示词；
 - 显示 Agent 的检查、追问、预演、校验和执行阶段；
 - 显示确认卡、撤销/重做、局部失败和重试入口。
@@ -241,6 +242,8 @@ Recipe 保存处理步骤、绑定、图类、参数、前置条件和合同版�
 - 以伪造进度、隐藏推理或未发生的工具调用包装 Agent。
 
 按钮表达的明确操作可以直接构造结构化请求，例如“仅重试失败项”；这不是自然语言解析。
+
+续轮回答仍属于同一 durable task。若用户在回答追问时新选了数据、图类或 `@图N`，Main 必须把这些结构化选择随 `UserTaskEvent.context_update` 一起写入 ledger；Core 在后续 activation 中折叠原始 TaskEnvelope 与所有已授权更新。原始 envelope 保持不可变以供审计，续轮上下文不得只存在于 React 状态、聊天文本或 Main 内存中。
 
 ## 12. 失败恢复
 
@@ -284,6 +287,7 @@ TaskItem 是局部失败与幂等重试的最小单位。程序保留成功项�
 ### 14.3 对话与计划
 
 - 信息不足时 Agent 可结构化追问并续跑同一 WorkflowRun。
+- 追问后通过图形库、数据选择器或 `@图N` 补充的上下文必须进入同一 task；精确 plot 版本、source 版本与项目 revision 均可在重启后恢复。
 - TaskDraft 被 Core 拒绝后可在预算内修订；确认前项目 revision 不变。
 - 数据更新当前图生成新版本且可撤销，不被限制为纯视觉 edit。
 

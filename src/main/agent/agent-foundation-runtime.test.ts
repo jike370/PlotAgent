@@ -220,6 +220,9 @@ describe('AgentFoundationRuntime', () => {
         if (method === 'agent.tasks.get') return {
           task_id: 'task:fixed', task_version: 2, state: 'awaiting_input', items: [],
         }
+        if (method === 'engine.plots.get') return {
+          document: { plot_id: 'plot:chosen', plot_version: 7, profile_id: 'X38' },
+        }
         if (method === 'agent.tasks.user_event') {
           phase = 'continued'
           nextCalls = 0
@@ -299,13 +302,25 @@ describe('AgentFoundationRuntime', () => {
     const continued = await runtime.run({
       projectId: 'project:test',
       selectedSources: [],
-      expectedProjectVersion: 0,
+      selectedPlots: [{ plotId: 'plot:chosen', plotVersion: 7 }],
+      expectedProjectVersion: 4,
       continuationWorkflowRunId: 'task:fixed',
-      instruction: '第一列。',
+      instruction: '@图1。',
     })
     expect(continued).toMatchObject({ plan: { plan_id: 'plan:fixed' } })
     expect(calls.find((call) => call.method === 'agent.tasks.user_event')).toMatchObject({
-      params: { task_id: 'task:fixed', action: 'answered', message: '第一列。' },
+      params: {
+        task_id: 'task:fixed',
+        action: 'answered',
+        message: '@图1。',
+        context_update: {
+          project_revision: 4,
+          selected_plots: [{
+            plot_id: 'plot:chosen', plot_version: 7, profile_id: 'X38',
+          }],
+          selected_profile_ids: [],
+        },
+      },
     })
   })
 
@@ -1219,7 +1234,7 @@ describe('AgentFoundationRuntime', () => {
     const input = {
       projectId: 'project:test',
       selectedSources: [],
-      selectedPlotIds: ['plot:existing'],
+      selectedPlots: [{ plotId: 'plot:existing', plotVersion: 3 }],
       expectedProjectVersion: 4,
       instruction: '把标题改成温度响应。',
     }
@@ -1227,7 +1242,9 @@ describe('AgentFoundationRuntime', () => {
     await runtime.run(input)
 
     expect(core.calls.find((call) => call.method === 'engine.plots.get')).toMatchObject({
-      params: { project_id: 'project:test', plot_id: 'plot:existing' },
+      params: {
+        project_id: 'project:test', plot_id: 'plot:existing', plot_version: 3,
+      },
     })
     expect(core.calls.find((call) => call.method === 'agent.tasks.create')).toMatchObject({
       params: {

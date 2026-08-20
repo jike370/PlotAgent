@@ -20,7 +20,10 @@ export interface AgentFoundationRunInput {
     readonly sourceVersion: number
   }[]
   readonly selectedProfileIds?: readonly string[]
-  readonly selectedPlotIds?: readonly string[]
+  readonly selectedPlots?: readonly {
+    readonly plotId: string
+    readonly plotVersion: number
+  }[]
   readonly expectedProjectVersion: number
   readonly instruction: string
   readonly parentTaskId?: string
@@ -276,7 +279,7 @@ export class AgentFoundationRuntime {
 
   canRun(input: AgentFoundationRunInput): boolean {
     const durableContinuation = input.continuationWorkflowRunId?.startsWith('task:') === true
-    const plotCount = input.selectedPlotIds?.length ?? 0
+    const plotCount = input.selectedPlots?.length ?? 0
     return (durableContinuation || input.selectedSources.length >= 1 || plotCount >= 1)
       && input.selectedSources.length <= 8
       && (input.selectedProfileIds?.length ?? 0) <= 34
@@ -365,44 +368,8 @@ export class AgentFoundationRuntime {
     const taskId = `task:${runToken}`
     const runId = `workflow:${runToken}`
     this.emit(runId, input.projectId, 'preparing_context', '正在读取所选数据…')
-    const selectedSources = await Promise.all(input.selectedSources.map(async (source) => {
-      const described = await this.core.request('datasets.describe', {
-        project_id: input.projectId,
-        source_dataset_id: source.datasetId,
-        source_version: source.sourceVersion,
-      })
-      const contentHash = sourceContentHash(described, source.datasetId, source.sourceVersion)
-      if (contentHash === undefined) {
-        throw new AgentFoundationRuntimeError(
-          'AGENT_V2_SOURCE_IDENTITY_MISSING',
-          '所选数据缺少不可变内容标识，请重新选择数据表。',
-        )
-      }
-      return {
-        source_dataset_id: source.datasetId,
-        source_version: source.sourceVersion,
-        content_hash: contentHash,
-      }
-    }))
-    const selectedPlots = await Promise.all((input.selectedPlotIds ?? []).map(async (plotId) => {
-      const described = record(await this.core.request('engine.plots.get', {
-        project_id: input.projectId,
-        plot_id: plotId,
-      }, 15_000), 'selected plot')
-      const document = record(described.document, 'selected plot document')
-      const resolvedPlotId = string(document.plot_id, 'selected plot ID')
-      if (resolvedPlotId !== plotId) {
-        throw new AgentFoundationRuntimeError(
-          'AGENT_V2_PLOT_IDENTITY_MISMATCH',
-          '所选图形身份已经变化，请重新选择图形。',
-        )
-      }
-      return {
-        plot_id: resolvedPlotId,
-        plot_version: integer(document.plot_version, 'selected plot version'),
-        profile_id: string(document.profile_id, 'selected plot profile'),
-      }
-    }))
+    const selectedSources = await this.resolveSelectedSources(input)
+    const selectedPlots = await this.resolveSelectedPlots(input)
     await this.core.request('agent.tasks.create', {
       project_id: input.projectId,
       envelope: {
@@ -448,6 +415,63 @@ export class AgentFoundationRuntime {
     return await this.finishPlanningPump(input.projectId, taskId, runId, drained)
   }
 
+  private async resolveSelectedSources(input: AgentFoundationRunInput): Promise<{
+    source_dataset_id: string
+    source_version: number
+    content_hash: string
+  }[]> {
+    return await Promise.all(input.selectedSources.map(async (source) => {
+      const described = await this.core.request('datasets.describe', {
+        project_id: input.projectId,
+        source_dataset_id: source.datasetId,
+        source_version: source.sourceVersion,
+      })
+      const contentHash = sourceContentHash(described, source.datasetId, source.sourceVersion)
+      if (contentHash === undefined) {
+        throw new AgentFoundationRuntimeError(
+          'AGENT_V2_SOURCE_IDENTITY_MISSING',
+          '所选数据缺少不可变内容标识，请重新选择数据表。',
+        )
+      }
+      return {
+        source_dataset_id: source.datasetId,
+        source_version: source.sourceVersion,
+        content_hash: contentHash,
+      }
+    }))
+  }
+
+  private async resolveSelectedPlots(input: AgentFoundationRunInput): Promise<{
+    plot_id: string
+    plot_version: number
+    profile_id: string
+  }[]> {
+    return await Promise.all((input.selectedPlots ?? []).map(async (selection) => {
+      const described = record(await this.core.request('engine.plots.get', {
+        project_id: input.projectId,
+        plot_id: selection.plotId,
+        plot_version: selection.plotVersion,
+      }, 15_000), 'selected plot')
+      const document = record(described.document, 'selected plot document')
+      const resolvedPlotId = string(document.plot_id, 'selected plot ID')
+      const resolvedPlotVersion = integer(document.plot_version, 'selected plot version')
+      if (
+        resolvedPlotId !== selection.plotId
+        || resolvedPlotVersion !== selection.plotVersion
+      ) {
+        throw new AgentFoundationRuntimeError(
+          'AGENT_V2_PLOT_IDENTITY_MISMATCH',
+          '所选图形版本已经变化，请重新选择图形。',
+        )
+      }
+      return {
+        plot_id: resolvedPlotId,
+        plot_version: resolvedPlotVersion,
+        profile_id: string(document.profile_id, 'selected plot profile'),
+      }
+    }))
+  }
+
   private async continueTask(
     input: AgentFoundationRunInput,
     taskId: string,
@@ -470,14 +494,35 @@ export class AgentFoundationRuntime {
     }
     this.authorityByTask.set(taskId, input.projectId)
     const taskVersion = integer(task.task_version, 'task version')
+    const selectedSources = input.selectedSources.length === 0
+      ? undefined
+      : await this.resolveSelectedSources(input)
+    const selectedPlots = (input.selectedPlots?.length ?? 0) === 0
+      ? undefined
+      : await this.resolveSelectedPlots(input)
+    const contextUpdate = {
+      project_revision: input.expectedProjectVersion,
+      ...(selectedSources === undefined ? {} : { selected_sources: selectedSources }),
+      ...(selectedPlots === undefined ? {} : { selected_plots: selectedPlots }),
+      ...(selectedPlots !== undefined
+        ? { selected_profile_ids: [] }
+        : input.selectedProfileIds === undefined
+          ? {}
+          : { selected_profile_ids: [...input.selectedProfileIds] }),
+    }
+    const durablePayload = JSON.stringify({
+      message: input.instruction,
+      context_update: contextUpdate,
+    })
     await this.core.request('agent.tasks.user_event', {
       project_id: input.projectId,
       task_id: taskId,
       expected_task_version: taskVersion,
       action,
       user_event_id: `user-event:${this.id()}`,
-      payload_hash: createHash('sha256').update(input.instruction, 'utf8').digest('hex'),
+      payload_hash: createHash('sha256').update(durablePayload, 'utf8').digest('hex'),
       message: input.instruction,
+      context_update: contextUpdate,
     }, 15_000)
     const runId = `workflow:continue:${taskId.replace(/^task:/, '')}`
     this.taskByRunId.set(runId, taskId)

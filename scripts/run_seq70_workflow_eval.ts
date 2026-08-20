@@ -410,7 +410,7 @@ async function createSetupPlot(
   revision: number,
   dataset: ImportedDataset,
   profileId: string,
-): Promise<{ plotId: string; revision: number }> {
+): Promise<{ plotId: string; plotVersion: number; revision: number }> {
   if (dataset.fields.length < 2) throw new Error('setup dataset requires two fields')
   const plotId = `plot:seq70-setup-${randomUUID()}`
   const completed = record(await harness.core.request('engine.actions.execute', {
@@ -435,6 +435,7 @@ async function createSetupPlot(
   }, 30_000), 'setup plot create')
   return {
     plotId: text(completed.plot_id, 'setup plot id'),
+    plotVersion: integer(completed.plot_version, 'setup plot version'),
     revision: integer(completed.project_version, 'setup revision'),
   }
 }
@@ -457,13 +458,13 @@ async function runWorkflowCase(
       harness, project.projectId, project.revision, task.fixture_keys, fixturePaths,
     )
     let revision = imported.revision
-    let plotIds: string[] = []
+    let selectedPlots: { plotId: string; plotVersion: number }[] = []
     if (task.setup_plot_profile !== undefined) {
       const setup = await createSetupPlot(
         harness, project.projectId, revision, imported.datasets[0], task.setup_plot_profile,
       )
       revision = setup.revision
-      plotIds = [setup.plotId]
+      selectedPlots = [{ plotId: setup.plotId, plotVersion: setup.plotVersion }]
     }
     const before = record(await harness.core.request('projects.open', {
       project_id: project.projectId,
@@ -471,9 +472,9 @@ async function runWorkflowCase(
     beforeRevision = integer(before.project_version, 'before revision')
     const response = record(await harness.agent.run({
       projectId: project.projectId,
-      selectedSources: plotIds.length === 0 ? selectedSources(imported.datasets) : [],
+      selectedSources: selectedPlots.length === 0 ? selectedSources(imported.datasets) : [],
       selectedProfileIds: task.selected_profile_ids,
-      selectedPlotIds: plotIds,
+      selectedPlots,
       expectedProjectVersion: revision,
       instruction: task.instruction,
     }), 'Agent response')

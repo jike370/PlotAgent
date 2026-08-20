@@ -14,6 +14,7 @@ from plotagent.contracts.agent_tasks import (
     SideEffectReceipt,
     TaskBudgetLimits,
     TaskCompletion,
+    TaskContextUpdate,
     TaskEnvelope,
     TaskIntent,
     ToolReceipt,
@@ -249,6 +250,79 @@ def test_activation_needs_input_and_user_answer_are_ordered(tmp_path) -> None:
         assert conflict.value.code == StorageErrorCode.IDEMPOTENCY_CONFLICT
         sequences = [event.sequence for event in ledger.list_events("task:test")]
         assert sequences == list(range(1, len(sequences) + 1))
+
+
+def test_user_answer_durably_replaces_effective_context_without_mutating_envelope(
+    tmp_path,
+) -> None:
+    workspace = tmp_path / "context-update-project"
+    with ProjectStore.create(
+        workspace, project_id="project:test"
+    ) as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        ledger.advance(
+            "task:test",
+            expected_task_version=1,
+            next_state="investigating",
+            reason_code="TEST_START",
+        )
+        waiting = ledger.advance(
+            "task:test",
+            expected_task_version=2,
+            next_state="awaiting_input",
+            reason_code="TEST_QUESTION",
+        )
+        context_update = TaskContextUpdate(
+            project_revision=2,
+            selected_plots=(
+                {
+                    "plot_id": "plot:chosen",
+                    "plot_version": 7,
+                    "profile_id": "X38",
+                },
+            ),
+            selected_profile_ids=("X38",),
+        )
+
+        answered = ledger.record_user_event(
+            "task:test",
+            expected_task_version=waiting.task_version,
+            action="answered",
+            user_event_id="user-event:context-update",
+            payload_hash=HASH_B,
+            message="Use @plot:chosen.",
+            context_update=context_update,
+        )
+
+        assert answered.project_revision == 2
+        assert ledger.get_envelope("task:test") == envelope()
+        effective = ledger.get_effective_envelope("task:test")
+        assert effective.project_revision == 2
+        assert effective.selected_sources == envelope().selected_sources
+        assert [plot.plot_id for plot in effective.selected_plots] == ["plot:chosen"]
+        assert effective.selected_plots[0].plot_version == 7
+        assert effective.selected_profile_ids == ("X38",)
+        assert (
+            ledger.record_user_event(
+                "task:test",
+                expected_task_version=waiting.task_version,
+                action="answered",
+                user_event_id="user-event:context-update",
+                payload_hash=HASH_B,
+                message="Use @plot:chosen.",
+                context_update=context_update,
+            )
+            == answered
+        )
+
+    with ProjectStore.open(workspace) as reopened:
+        restored = TaskLedgerRepository(reopened)
+        assert restored.get_envelope("task:test") == envelope()
+        effective = restored.get_effective_envelope("task:test")
+        assert effective.project_revision == 2
+        assert effective.selected_plots[0].plot_id == "plot:chosen"
+        assert effective.selected_plots[0].plot_version == 7
 
 
 def test_waiting_input_checkpoint_survives_restart_without_new_activation(

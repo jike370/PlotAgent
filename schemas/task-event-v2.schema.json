@@ -139,6 +139,33 @@
       "title": "ResourceRef",
       "type": "object"
     },
+    "SelectedPlotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "plot_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Plot Id",
+          "type": "string"
+        },
+        "plot_version": {
+          "minimum": 1,
+          "title": "Plot Version",
+          "type": "integer"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plot_id",
+        "plot_version",
+        "profile_id"
+      ],
+      "title": "SelectedPlotRef",
+      "type": "object"
+    },
     "SideEffectReceipt": {
       "additionalProperties": false,
       "properties": {
@@ -216,6 +243,33 @@
         "effect_kind"
       ],
       "title": "SideEffectReceipt",
+      "type": "object"
+    },
+    "SourceDatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "source_dataset_id": {
+          "pattern": "^source:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "content_hash"
+      ],
+      "title": "SourceDatasetRef",
       "type": "object"
     },
     "TaskBudgetEvent": {
@@ -455,6 +509,71 @@
         }
       },
       "title": "TaskBudgetUsage",
+      "type": "object"
+    },
+    "TaskContextUpdate": {
+      "additionalProperties": false,
+      "description": "User-authorized context replacement carried by a durable continuation event.\n\nThe original task envelope remains immutable for audit.  Each non-null selection\nreplaces that part of the effective context for subsequent activations; omitted\nselections preserve the task's previous effective value.",
+      "properties": {
+        "project_revision": {
+          "minimum": 0,
+          "title": "Project Revision",
+          "type": "integer"
+        },
+        "selected_plots": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SelectedPlotRef"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Plots"
+        },
+        "selected_profile_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Profile Ids"
+        },
+        "selected_sources": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SourceDatasetRef"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Sources"
+        }
+      },
+      "required": [
+        "project_revision"
+      ],
+      "title": "TaskContextUpdate",
       "type": "object"
     },
     "TaskError": {
@@ -964,6 +1083,17 @@
           ],
           "title": "Action",
           "type": "string"
+        },
+        "context_update": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TaskContextUpdate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "event_id": {
           "pattern": "^event:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",

@@ -9,6 +9,7 @@ import type {
   FieldMappingInput,
   JsonValue,
   TaskEvent,
+  WorkflowPlotSelection,
 } from '../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from './data/chartCatalog'
 import {
@@ -238,7 +239,10 @@ export function App(): React.JSX.Element {
   const [busyAction, setBusyAction] = useState<string>()
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent>>({})
   const [agentRuntimeEvent, setAgentRuntimeEvent] = useState<WorkflowRuntimeEvent>()
-  const pendingAgentRequest = useRef<{ instruction: string; selectedPlotIds: string[] } | undefined>(
+  const pendingAgentRequest = useRef<{
+    instruction: string
+    selectedPlots: WorkflowPlotSelection[]
+  } | undefined>(
     undefined,
   )
   const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
@@ -926,10 +930,13 @@ export function App(): React.JSX.Element {
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
-  const runAgent = async (instruction: string, selectedPlotIds: string[]): Promise<void> => {
+  const runAgent = async (
+    instruction: string,
+    selectedPlots: WorkflowPlotSelection[],
+  ): Promise<void> => {
     if (!project) return
-    if (!activeDataset) {
-      pendingAgentRequest.current = { instruction, selectedPlotIds }
+    if (!activeDataset && selectedPlots.length === 0) {
+      pendingAgentRequest.current = { instruction, selectedPlots }
       setWorkflowOutcome({ kind: 'needs_input', title: '请先上传数据', message: '收到你的要求了。上传数据后，我会继续声明字段绑定。' })
       return
     }
@@ -949,7 +956,7 @@ export function App(): React.JSX.Element {
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
     try {
-      const selectedIds = [
+      const selectedIds = activeDataset === undefined ? [] : [
         activeDataset.datasetId,
         ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
       ].slice(0, 8)
@@ -963,8 +970,10 @@ export function App(): React.JSX.Element {
         projectId: project.projectId,
         selectedSources,
         expectedProjectVersion: project.projectVersion,
-        ...(selectedChart === undefined ? {} : { selectedProfileIds: [selectedChart.id] }),
-        ...(selectedPlotIds.length === 0 ? {} : { selectedPlotIds }),
+        ...(selectedChart === undefined || selectedPlots.length > 0
+          ? {}
+          : { selectedProfileIds: [selectedChart.id] }),
+        ...(selectedPlots.length === 0 ? {} : { selectedPlots }),
         ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
         instruction,
       }))
@@ -987,8 +996,8 @@ export function App(): React.JSX.Element {
     }
   }
   const resumePendingAgent = useEffectEvent(
-    (pending: { instruction: string; selectedPlotIds: string[] }) => {
-      void runAgent(pending.instruction, pending.selectedPlotIds)
+    (pending: { instruction: string; selectedPlots: WorkflowPlotSelection[] }) => {
+      void runAgent(pending.instruction, pending.selectedPlots)
     },
   )
 
@@ -1454,14 +1463,17 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlotIds) => void runAgent(instruction, selectedPlotIds)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
         invalidateAgentRequest()
-        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined); setWorkflowOutcome(undefined); rememberWorkspace({ chartId: chart.id, mapping: null })
+        const answersPendingQuestion = workflowOutcome?.kind === 'needs_input'
+        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined)
+        if (!answersPendingQuestion) setWorkflowOutcome(undefined)
+        rememberWorkspace({ chartId: chart.id, mapping: null })
         setUndoStack([]); setRedoStack([])
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}

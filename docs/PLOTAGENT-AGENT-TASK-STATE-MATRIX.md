@@ -129,6 +129,7 @@
 | SM-60 | 用户动作状态闭集 | 8 种 `UserTaskAction` × 全部 TaskState | 每个动作仅在冻结的允许状态生效；取消、跳过、重试、恢复、回答、确认、拒绝、纠正没有隐式入口 | `tests/tasking/test_task_ledger.py::test_complete_user_action_state_matrix_is_frozen` 及对应行为测试 |
 | SM-61 | 多来源计划确认前门禁 | `investigating` + 多来源 item 未声明完整合并 → validator reject | 不生成“0 项数据处理”的错误确认卡；遗漏来源的部分合并同样拒绝 | `tests/workflows/test_workflow_contracts.py::test_compiler_rejects_uncombined_multi_source_item_before_confirmation`、`test_compiler_rejects_combine_operation_that_omits_a_declared_source` |
 | SM-62 | 计划结构失败自动返修 | `partial` + plan-revision error → `repairing` → 下一版 `intent_staged` → `awaiting_reconfirmation` | 不按原计划盲重试；Agent 只修订未完成项，保留成功项，修订必须由用户重新确认 | `tests/desktop_core/test_application.py::test_multi_source_plan_structure_failure_requires_agent_revision`、`tests/desktop_core/test_agent_foundation.py::test_repair_host_requires_the_next_intent_version_and_preserves_item_scope`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `returns an Agent-revised plan for reconfirmation...` |
+| SM-63 | 追问后补充结构化上下文 | `awaiting_input` → 用户选择 source/profile/精确 plot version → `answered` → `investigating` | 同一 task 的 durable context 被更新；原始 envelope 不变；重启后继续使用新选择，不能只记录聊天文本 | `tests/tasking/test_task_ledger.py::test_user_answer_durably_replaces_effective_context_without_mutating_envelope`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `continues the same durable task after the reply`、`src/renderer/src/App.test.tsx` 中 `continues a pending question with the exact plot selected by an @ mention` 与 `keeps a pending task when chart selection answers the Agent question` |
 
 ## 4. 一次性缺口审计结论
 
@@ -159,6 +160,7 @@
 23. 计划恢复按 TaskState 过滤：规划、追问、修复和阻断阶段只恢复检查点，不把缺失 plan 当协议失败，也不把上一版 plan 误呈现为当前确认卡。
 24. 多来源任务项必须在确认前编译为单一 prepared view；没有 `concatenate_sources` / `align_sources_on_x` 或只合并部分来源时，Core 将草稿退回 Agent，不向用户展示非法确认卡。
 25. 执行期若仍发现结构性计划错误，将其分类为需要修订的语义冲突，自动再激活 Agent 生成下一版 intent；旧计划不得直接重放，修订计划必须重新确认。
+26. 续轮回答的结构化 source/profile/plot 选择进入 durable `UserTaskEvent`；Core 以事件折叠得到有效 envelope，前端选择、Main 内存和聊天文案不再形成互相割裂的上下文。
 
 ## 5. 冻结门禁
 

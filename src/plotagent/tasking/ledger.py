@@ -25,6 +25,7 @@ from plotagent.contracts.agent_tasks import (
     TaskBudgetUsage,
     TaskCheckpoint,
     TaskCompletion,
+    TaskContextUpdate,
     TaskEnvelope,
     TaskError,
     TaskEvent,
@@ -244,6 +245,16 @@ class TaskLedgerRepository:
         envelope = TaskEnvelope.model_validate_json(str(row[0]))
         if str(row[1]) != canonical_hash(envelope):
             raise sqlite3.DatabaseError("Agent task envelope hash does not match its content")
+        return envelope
+
+    def get_effective_envelope(self, task_id: str) -> TaskEnvelope:
+        """Fold durable user-authorized context updates over the immutable envelope."""
+
+        envelope = self.get_envelope(task_id)
+        for event in self.list_events(task_id):
+            if not isinstance(event, UserTaskEvent) or event.context_update is None:
+                continue
+            envelope = self._replace_task_context(envelope, event.context_update)
         return envelope
 
     def get_task(self, task_id: str) -> TaskCheckpoint:
@@ -872,6 +883,7 @@ class TaskLedgerRepository:
         user_event_id: str,
         payload_hash: str,
         message: str | None = None,
+        context_update: TaskContextUpdate | None = None,
     ) -> TaskCheckpoint:
         if action not in USER_TASK_ACTION_TRANSITIONS:
             raise ValueError("unsupported user task action")
@@ -900,6 +912,7 @@ class TaskLedgerRepository:
                     duplicate.action != action
                     or duplicate.payload_hash != payload_hash
                     or duplicate.message != message
+                    or duplicate.context_update != context_update
                 ):
                     raise self._idempotency(
                         "User event id already has different content."
@@ -908,6 +921,20 @@ class TaskLedgerRepository:
             self._expect_version(current, expected_task_version)
             if current.state not in allowed_states:
                 raise self._conflict("User action is not valid in the current task state.")
+            if (
+                context_update is not None
+                and context_update.project_revision < current.project_revision
+            ):
+                raise self._conflict("Task context cannot move the project revision backwards.")
+            if context_update is not None:
+                try:
+                    self._replace_task_context(
+                        self.get_effective_envelope(task_id), context_update
+                    )
+                except ValueError as error:
+                    raise self._conflict(
+                        "Task context update would leave the task without a valid scope."
+                    ) from error
             if action == "resumed":
                 latest = connection.execute(
                     """
@@ -954,11 +981,15 @@ class TaskLedgerRepository:
                 user_event_id=user_event_id,
                 payload_hash=payload_hash,
                 message=message,
+                context_update=context_update,
             )
             updated = self._copy_checkpoint(
                 current,
                 event_sequence=sequence,
                 updated_at=now,
+                project_revision=(
+                    None if context_update is None else context_update.project_revision
+                ),
             )
             self._append_event_and_checkpoint(connection, event, updated, now)
             if action == "partial_accepted":
@@ -1729,6 +1760,21 @@ class TaskLedgerRepository:
             content_hash="0" * 64,
         )
         return draft.model_copy(update={"content_hash": _checkpoint_hash(draft)})
+
+    @staticmethod
+    def _replace_task_context(
+        envelope: TaskEnvelope,
+        context: TaskContextUpdate,
+    ) -> TaskEnvelope:
+        payload = envelope.model_dump(mode="python")
+        payload["project_revision"] = context.project_revision
+        if context.selected_sources is not None:
+            payload["selected_sources"] = context.selected_sources
+        if context.selected_plots is not None:
+            payload["selected_plots"] = context.selected_plots
+        if context.selected_profile_ids is not None:
+            payload["selected_profile_ids"] = context.selected_profile_ids
+        return TaskEnvelope.model_validate(payload)
 
     @staticmethod
     def _copy_checkpoint(
