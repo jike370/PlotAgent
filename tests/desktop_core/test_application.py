@@ -153,6 +153,92 @@ def test_agent_task_v2_api_persists_checkpoint_and_events(
     assert restored == advanced
 
 
+def test_agent_task_answer_accepts_json_selection_arrays_in_context_update(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, _revision = _create_open(harness)
+    sources = [
+        {
+            "source_dataset_id": f"source:sheet-{position}",
+            "source_version": 1,
+            "content_hash": format(position, "064x"),
+        }
+        for position in range(1, 6)
+    ]
+    created = harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": "task:multi-question-answer",
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": 0,
+                "original_instruction": "Create one K01 plot for each selected sheet.",
+                "selected_sources": sources,
+                "selected_profile_ids": ["K01"],
+                "budget": {"max_estimated_cost": 10},
+                "created_at": "2026-08-21T10:00:00Z",
+            },
+        },
+    )
+    investigating = harness.call(
+        "agent.tasks.advance",
+        {
+            "project_id": project_id,
+            "task_id": "task:multi-question-answer",
+            "expected_task_version": created["task_version"],
+            "next_state": "investigating",
+            "reason_code": "ASKING_MULTIPLE_BINDINGS",
+        },
+    )
+    waiting = harness.call(
+        "agent.tasks.advance",
+        {
+            "project_id": project_id,
+            "task_id": "task:multi-question-answer",
+            "expected_task_version": investigating["task_version"],
+            "next_state": "awaiting_input",
+            "reason_code": "MULTIPLE_BINDINGS_REQUIRED",
+        },
+    )
+
+    answered = harness.call(
+        "agent.tasks.user_event",
+        {
+            "project_id": project_id,
+            "task_id": "task:multi-question-answer",
+            "expected_task_version": waiting["task_version"],
+            "action": "answered",
+            "user_event_id": "user-event:multi-question-answer",
+            "payload_hash": "b" * 64,
+            "message": (
+                "Events_A: X=Time_min, Y=Signal_mV; "
+                "Events_B: X=Dose_uM, Y=Response_mV."
+            ),
+            "context_update": {
+                "project_revision": 0,
+                "selected_sources": sources,
+                "selected_plots": [],
+                "selected_profile_ids": ["K01"],
+            },
+        },
+    )
+
+    assert answered["state"] == "investigating"
+    events = harness.call(
+        "agent.tasks.events",
+        {"project_id": project_id, "task_id": "task:multi-question-answer"},
+    )["events"]
+    user_event = next(event for event in events if event["event_type"] == "user_task_event")
+    assert user_event["context_update"] == {
+        "project_revision": 0,
+        "selected_sources": sources,
+        "selected_plots": [],
+        "selected_profile_ids": ["K01"],
+    }
+
+
 def test_agent_task_v2_cancel_is_durable_and_terminal(harness: ApplicationHarness) -> None:
     project_id, _revision = _create_open(harness)
     task_id = "task:desktop-cancel"

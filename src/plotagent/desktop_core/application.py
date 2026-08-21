@@ -433,7 +433,10 @@ class DesktopApplication:
         context_update = (
             None
             if context_update_value is None
-            else TaskContextUpdate.model_validate(context_update_value)
+            # RPC parameters are JSON values.  Strict contracts intentionally use
+            # tuples for immutable selections, so validate in JSON mode rather
+            # than treating decoded JSON arrays as arbitrary Python lists.
+            else TaskContextUpdate.model_validate_json(json.dumps(context_update_value))
         )
         if context_update is not None:
             session.domain.require_revision(context_update.project_revision)

@@ -1848,6 +1848,60 @@ describe('PlotAgent real desktop workflow', () => {
     }))
   })
 
+  it('continues a multi-source task after one reply answers several binding questions', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn()
+      .mockResolvedValueOnce(ok({
+        outcome: 'needs_input',
+        workflow_run_id: 'task:multi-sheet-bindings',
+        questions: [
+          { question_key: 'events_a.x', prompt: 'Events_A 的 X 是哪一列？', answer_kind: 'field', choices: [], required: true },
+          { question_key: 'events_a.y', prompt: 'Events_A 的 Y 是哪一列？', answer_kind: 'field', choices: [], required: true },
+          { question_key: 'events_b.x', prompt: 'Events_B 的 X 是哪一列？', answer_kind: 'field', choices: [], required: true },
+          { question_key: 'events_b.y', prompt: 'Events_B 的 Y 是哪一列？', answer_kind: 'field', choices: [], required: true },
+        ],
+      }))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(workflowPlanFixture())))
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 2, status: 'open' },
+        imported: { kind: 'committed', project_version: 2, datasets: [dataset, secondDataset] },
+      })),
+      runWorkflow,
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '分别把两个数据表各画成一张 K01。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(await screen.findAllByText('Events_A 的 X 是哪一列？')).toHaveLength(1)
+
+    const answer = (
+      'Events_A：X=Time_min，Y=Signal_mV；'
+      + 'Events_B：X=Dose_uM，Y=Response_mV。两个都用 K01。'
+    )
+    await user.type(composer, answer)
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      projectId: 'project:sample',
+      expectedProjectVersion: 2,
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
+      selectedProfileIds: ['K01'],
+      continuationWorkflowRunId: 'task:multi-sheet-bindings',
+      instruction: answer,
+    }))
+  })
+
   it('passes a retry request verbatim without rebuilding hidden task context', async () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn(async (
