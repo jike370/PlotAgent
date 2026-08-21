@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type {
   AgentActivation,
   AgentContextSnapshot,
+  AgentNeedsInput,
   AgentToolResult,
   AgentYieldContract,
   ToolInvocation,
@@ -152,7 +153,7 @@ function environment(input: AgentActivation): PiActivationEnvironmentV2 {
   }
 }
 
-function needsInput(input: AgentActivation): AgentYieldContract {
+function needsInput(input: AgentActivation): AgentNeedsInput {
   return {
     outcome: 'needs_input',
     activation_id: input.activation_id,
@@ -550,14 +551,24 @@ describe('PiRuntimeAdapterV2', () => {
 
   it('lets Pi repair a Core-rejected terminal candidate within the same activation', async () => {
     const input = activation({ allowed_tools: [] })
-    const candidate = needsInput(input)
+    const repairedCandidate = needsInput(input)
+    const invalidCandidate: AgentNeedsInput = {
+      ...repairedCandidate,
+      questions: [{
+        ...repairedCandidate.questions[0],
+        question_key: 'series_1',
+        prompt: 'Bind the long-table values to series_1.',
+      }],
+    }
     let validationAttempts = 0
     let modelCalls = 0
+    const validatedCandidates: JsonValue[] = []
     const runtime = new PiRuntimeAdapterV2({
       host: hostFor(input, {
         validateYield: async (_activation, value) => {
           validationAttempts += 1
-          if (validationAttempts === 1) throw new Error('schema rejected')
+          validatedCandidates.push(value)
+          if (validationAttempts === 1) throw new Error('K01 requires x/y/group, not series_N')
           return value as AgentYieldContract
         },
       }),
@@ -567,14 +578,16 @@ describe('PiRuntimeAdapterV2', () => {
         return toolCallStream(
           `provider-call-yield-${modelCalls}`,
           'submit_agent_yield',
-          terminalArguments(candidate),
+          terminalArguments(modelCalls === 1 ? invalidCandidate : repairedCandidate),
         )
       }) as StreamFn,
     })
 
-    await expect(runtime.run(input)).resolves.toEqual(candidate)
+    await expect(runtime.run(input)).resolves.toEqual(repairedCandidate)
     expect(validationAttempts).toBe(2)
     expect(modelCalls).toBe(2)
+    expect(validatedCandidates).toEqual([invalidCandidate, repairedCandidate])
+    expect(validatedCandidates[0]).not.toEqual(validatedCandidates[1])
   })
 
   it('maps provider disconnects to a stable known-none failure', async () => {

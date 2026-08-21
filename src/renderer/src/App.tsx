@@ -114,7 +114,7 @@ function readProviderConfiguration(value: JsonValue): ProviderConfigurationView 
 function readExportRecord(
   value: JsonValue,
   format: 'png' | 'svg' | 'opju',
-  target: { kind: 'plot'; id: string },
+  target: { kind: 'plot'; id: string; version: number },
 ): ExportRecordView | undefined {
   if (!isJsonRecord(value) || typeof value.export_id !== 'string') return undefined
   const artifact = isJsonRecord(value.artifact) ? value.artifact : undefined
@@ -124,15 +124,20 @@ function readExportRecord(
     || typeof resource.resourceId !== 'string'
     || typeof resource.fileName !== 'string'
   ) return undefined
+  if (
+    value.plot_id !== target.id
+    || value.plot_version !== target.version
+  ) {
+    throw new Error('导出返回的图形版本与当前版本不一致，未报告成功。请刷新图形后重试。')
+  }
   return {
     exportId: value.export_id,
     resourceId: resource.resourceId,
     fileName: resource.fileName,
     format,
     targetKind: 'plot',
-    targetId: typeof value.target_id === 'string'
-      ? value.target_id
-      : typeof value.plot_id === 'string' ? value.plot_id : target.id,
+    targetId: target.id,
+    plotVersion: target.version,
     ...(artifact && typeof artifact.content_hash === 'string' ? { artifactHash: artifact.content_hash } : {}),
     ...(artifact && typeof artifact.size === 'number' ? { artifactSize: artifact.size } : {}),
   }
@@ -1329,7 +1334,7 @@ export function App(): React.JSX.Element {
       setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: '请在 PlotAgent 桌面应用中验证真实文件导出。' })
       return
     }
-    const target = { kind: 'plot' as const, id: plot.plotId, version: plot.plotVersion }
+    let exportPlot = plot
     if (format === 'opju' && originStatus === 'unavailable') {
       setNotice({ kind: 'error', title: 'Origin 不可用', message: originDiagnostic })
       return
@@ -1338,6 +1343,40 @@ export function App(): React.JSX.Element {
     setBusyAction(`export-${format}`); setNotice(undefined); setExportRecord(undefined)
     if (format === 'opju') setOriginStatus('exporting')
     try {
+      const listedValue = valueOrThrow(await api.listPlots({ projectId: project.projectId }))
+      const durable = readPlots(listedValue).find((candidate) => candidate.plotId === plot.plotId)
+      if (!durable) {
+        const stored = valueOrThrow(await api.getPlot({
+          projectId: project.projectId,
+          plotId: plot.plotId,
+          plotVersion: plot.plotVersion,
+        }))
+        const exact = readPlot(stored)
+        if (!exact || exact.plotId !== plot.plotId || exact.plotVersion !== plot.plotVersion) {
+          throw new Error('Core 中找不到当前界面显示的图形版本，已停止导出。')
+        }
+        exportPlot = exact
+      }
+      if (durable && durable.plotVersion < plot.plotVersion) {
+        throw new Error('Core 中的图形版本落后于当前界面，已停止导出以避免写出错误版本。')
+      }
+      if (durable && durable.plotVersion > plot.plotVersion) {
+        const stored = valueOrThrow(await api.getPlot({
+          projectId: project.projectId,
+          plotId: durable.plotId,
+          plotVersion: durable.plotVersion,
+        }))
+        const synchronized = readPlot(stored)
+        if (!synchronized || synchronized.plotId !== durable.plotId || synchronized.plotVersion !== durable.plotVersion) {
+          throw new Error('无法核对当前图形的最新耐久版本，已停止导出。')
+        }
+        exportPlot = synchronized
+        setPreviousPlot(plot)
+        setPlot(synchronized)
+        mergeProjectPlot(synchronized)
+        setProject(projectWithVersion(project, projectVersionFrom(listedValue, project.projectVersion)))
+      }
+      const target = { kind: 'plot' as const, id: exportPlot.plotId, version: exportPlot.plotVersion }
       const result = format === 'opju'
         ? await api.exportOrigin({ projectId: project.projectId, target })
         : await api.exportPngSvg({ projectId: project.projectId, target, format })

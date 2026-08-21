@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, cast
 
@@ -61,6 +62,34 @@ class DurableExecutionError(RuntimeError):
         self.message = message
 
 
+@dataclass(slots=True)
+class ControlledExecutionFaults:
+    """One-shot failure hook for formal desktop UI fault-path qualification.
+
+    The hook is inert unless both environment variables are present.  It is
+    intentionally evaluated once per opened project session so an explicit
+    retry can prove recovery without changing source code during a black-box run.
+    """
+
+    profile_id: str | None = None
+    remaining: int = 0
+
+    @classmethod
+    def from_environment(cls) -> ControlledExecutionFaults:
+        enabled = os.environ.get("PLOTAGENT_ENABLE_UI_TEST_FAULTS") == "1"
+        profile_id = os.environ.get("PLOTAGENT_UI_TEST_FAIL_PROFILE_ONCE", "").strip()
+        return cls(profile_id=profile_id if enabled and profile_id else None, remaining=1)
+
+    def before_item(self, item: CompiledTaskItem) -> None:
+        if self.remaining < 1 or self.profile_id != item.profile_id:
+            return
+        self.remaining -= 1
+        raise DurableExecutionError(
+            "UI_TEST_RENDERER_FAILURE",
+            f"受控 UI 测试故障：{item.profile_id} 本次执行在提交前失败。",
+        )
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -78,6 +107,9 @@ class DurableTaskExecutionService:
     engine: DesktopEngineSession
     workflow: DesktopWorkflowService
     ledger: TaskLedgerRepository
+    controlled_faults: ControlledExecutionFaults = field(
+        default_factory=ControlledExecutionFaults.from_environment
+    )
 
     def plan_view(self, task_id: str) -> dict[str, object]:
         checkpoint = self.ledger.get_task(task_id)
@@ -304,6 +336,7 @@ class DurableTaskExecutionService:
             before = running.project_revision
             started_at = _now()
             try:
+                self.controlled_faults.before_item(item)
                 after, plot_version = executor.execute_compiled_item(item, before)
                 stored = self.engine.documents.get(item.plot_id, plot_version)
             except Exception as error:

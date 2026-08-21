@@ -1371,6 +1371,29 @@ def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) ->
                 context_hash=cast(str, context["content_hash"]),
             ),
         )
+        invalid_roles_item = candidate.intent.items[0].model_copy(
+            update={
+                "bindings": tuple(
+                    binding.model_copy(update={"role": f"series_{index}"})
+                    for index, binding in enumerate(
+                        candidate.intent.items[0].bindings, start=1
+                    )
+                )
+            }
+        )
+        invalid_roles_intent = candidate.intent.model_copy(
+            update={"items": (invalid_roles_item,), "content_hash": "0" * 64}
+        )
+        invalid_roles = candidate.model_copy(update={"intent": invalid_roles_intent})
+        with pytest.raises(AgentFoundationError) as invalid_roles_error:
+            host.validate_yield(
+                activation_id,
+                cast(JsonValue, invalid_roles.model_dump(mode="json")),
+            )
+        assert invalid_roles_error.value.code == "REQUIRED_ROLE_MISSING"
+        assert ledger.get_task(task_envelope.task_id).state == "created"
+        assert domain.revision == task_envelope.project_revision
+
         bad_item = candidate.intent.items[0].model_copy(
             update={
                 "bindings": (

@@ -1436,6 +1436,50 @@ def test_agent_v2_preserves_successful_items_when_one_batch_item_fails(
     assert attempts == {"item:partial-batch.1": 1, "item:partial-batch.2": 2}
 
 
+def test_agent_v2_formal_ui_fault_fixture_fails_once_then_recovers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PLOTAGENT_ENABLE_UI_TEST_FAULTS", "1")
+    monkeypatch.setenv("PLOTAGENT_UI_TEST_FAIL_PROFILE_ONCE", "K02")
+    harness = ApplicationHarness(tmp_path / "formal-ui-fault")
+    try:
+        project_id, revision = _create_open(harness)
+        imported = _import_dataset(harness, project_id, revision, key="formal-ui-fault")
+        first = _execute_agent_create_batch(
+            harness,
+            project_id,
+            imported,
+            token="formal-ui-fault",
+            profiles=("K01", "K02"),
+        )
+
+        assert first["task"]["state"] == "partial"
+        assert [item["state"] for item in first["task"]["items"]] == [
+            "succeeded",
+            "repairable_failed",
+        ]
+        assert first["failures"][0]["error"]["code"] == "UI_TEST_RENDERER_FAILURE"
+        assert first["failures"][0]["error"]["side_effect_state"] == "known_none"
+        assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 1
+
+        _accept_scoped_retry(
+            harness,
+            project_id,
+            "task:formal-ui-fault",
+            "item:formal-ui-fault.2",
+        )
+        repaired = harness.call(
+            "agent.tasks.execute",
+            {"project_id": project_id, "task_id": "task:formal-ui-fault"},
+        )
+        assert repaired["task"]["state"] == "completed_verified"
+        assert [item["attempt_count"] for item in repaired["task"]["items"]] == [1, 2]
+        assert len(harness.call("engine.plots.list", {"project_id": project_id})["plots"]) == 2
+    finally:
+        harness.close()
+
+
 def test_agent_v2_stops_after_a_scoped_retry_makes_no_progress(
     harness: ApplicationHarness,
     monkeypatch: pytest.MonkeyPatch,

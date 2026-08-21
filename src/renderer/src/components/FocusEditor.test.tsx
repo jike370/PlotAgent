@@ -102,12 +102,12 @@ describe('FocusEditor Agent Native actions', () => {
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(1))
-    expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+    expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_series_style',
       target: 'series:test.primary',
       marker_shape: 'diamond',
       line_style: 'dash',
-    }))
+    })
   })
 
   it('exposes qualified colormap, error, and data-label actions as frontend controls', async () => {
@@ -243,12 +243,13 @@ describe('FocusEditor Agent Native actions', () => {
     await user.click(screen.getByRole('button', { name: '编辑面板' }))
     await user.click(screen.getByRole('tab', { name: '系列' }))
     await user.selectOptions(screen.getByRole('combobox', { name: '作用系列' }), '1')
+    await user.selectOptions(screen.getByRole('combobox', { name: '符号形状' }), 'square')
     await user.click(screen.getByRole('button', { name: '应用系列样式' }))
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(1))
-    expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
-      operation: 'set_series_style', target: 'series:test.two', marker_shape: 'diamond',
-    }))
+    expect(onPatch).toHaveBeenCalledWith({
+      operation: 'set_series_style', target: 'series:test.two', marker_shape: 'square',
+    })
   })
 
   it('emits one set_title action without old PlotSpec patch fields', async () => {
@@ -262,10 +263,9 @@ describe('FocusEditor Agent Native actions', () => {
     await user.type(screen.getByRole('textbox', { name: '图标题' }), '新标题')
     await user.click(screen.getByRole('button', { name: '应用图标题' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_title', target: 'plot:test', text: '新标题',
-      font_family: 'auto', font_size_pt: 10,
-    })))
+    }))
   })
 
   it('emits a typed axis edit against the semantic Y axis', async () => {
@@ -280,10 +280,9 @@ describe('FocusEditor Agent Native actions', () => {
     await user.type(screen.getByRole('textbox', { name: '轴标题' }), 'Response')
     await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_axis', target: 'axis:test.y', label: 'Response',
-      scale: 'log10',
-    })))
+    }))
   })
 
   it('exposes and submits X38 numeric axis bounds', async () => {
@@ -305,12 +304,12 @@ describe('FocusEditor Agent Native actions', () => {
     await user.type(screen.getByRole('spinbutton', { name: '轴最大值' }), '90')
     await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_axis',
       target: 'axis:test.x',
       minimum: 30,
       maximum: 90,
-    })))
+    }))
   })
 
   it('edits series visibility and axis visibility without phrase routing', async () => {
@@ -329,19 +328,16 @@ describe('FocusEditor Agent Native actions', () => {
     await user.click(screen.getByRole('button', { name: '应用坐标轴设置' }))
 
     await waitFor(() => expect(onPatch).toHaveBeenCalledTimes(2))
-    expect(onPatch).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    expect(onPatch).toHaveBeenNthCalledWith(1, {
       operation: 'set_series_style', target: 'series:test.primary', visible: false,
-    }))
-    expect(onPatch).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    })
+    expect(onPatch).toHaveBeenNthCalledWith(2, {
       operation: 'set_axis',
       target: 'axis:test.y',
       tick_labels_visible: false,
-      major_ticks_visible: true,
       minor_ticks_visible: false,
       tick_direction: 'inout',
-      axis_line_visible: true,
-      axis_title_visible: true,
-    }))
+    })
   })
 
   it('maps the visible legend placement to a public anchor', async () => {
@@ -354,9 +350,25 @@ describe('FocusEditor Agent Native actions', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: '图例位置' }), 'outside_right')
     await user.click(screen.getByRole('button', { name: '应用图例设置' }))
 
-    await waitFor(() => expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({
       operation: 'set_legend', target: 'legend:test.main', anchor: 'right',
-    })))
+    }))
+  })
+
+  it('normalizes a persisted right legend anchor and does not create a no-op version', async () => {
+    const user = userEvent.setup()
+    const onPatch = vi.fn(async () => undefined)
+    const value = plot('K02', commonCapabilities)
+    value.style.legendPlacement = 'right'
+    render(<FocusEditor initialIndex={0} plot={value} onPatch={onPatch} onClose={() => undefined} />)
+
+    await user.click(screen.getByRole('button', { name: '编辑面板' }))
+    await user.click(screen.getByRole('tab', { name: '图例' }))
+    expect(screen.getByRole('combobox', { name: '图例位置' })).toHaveValue('outside_right')
+    await user.click(screen.getByRole('button', { name: '应用图例设置' }))
+
+    expect(onPatch).not.toHaveBeenCalled()
+    expect(screen.getByText('当前设置没有变化。')).toBeInTheDocument()
   })
 
   it('renders and submits profile-declared chart parameters generically', async () => {

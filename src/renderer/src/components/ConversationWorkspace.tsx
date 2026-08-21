@@ -75,6 +75,7 @@ export interface ExportRecordView {
   format: 'png' | 'svg' | 'opju'
   targetKind: 'plot'
   targetId: string
+  plotVersion: number
   artifactHash?: string
   artifactSize?: number
 }
@@ -771,13 +772,25 @@ function WorkflowPlanObject({
       : plot
         ? `${plot.plotId} · v${plot.plotVersion}`
         : `${selectedChart?.id ?? '待定'} · 新图`
-  const previewStep = plan.steps[0]
-  const previewDataset = datasets.find((dataset) => (
-    previewStep?.sourceDatasetIds.includes(dataset.datasetId)
-  ))
-  const previewRoles = new Map(
-    (previewStep?.bindings ?? []).map((binding) => [binding.fieldId, binding.role]),
-  )
+  const previewSources = plan.steps.reduce<Array<{
+    dataset: ProductDataset
+    roles: Map<string, string>
+  }>>((sources, step) => {
+    for (const sourceDatasetId of step.sourceDatasetIds) {
+      const existing = sources.find((source) => source.dataset.datasetId === sourceDatasetId)
+      const dataset = datasets.find((candidate) => candidate.datasetId === sourceDatasetId)
+      if (!dataset) continue
+      const roles = existing?.roles ?? new Map<string, string>()
+      for (const binding of step.bindings) {
+        if (
+          binding.sourceDatasetId === sourceDatasetId
+          || (binding.sourceDatasetId === undefined && step.sourceDatasetIds.length === 1)
+        ) roles.set(binding.fieldId, binding.role)
+      }
+      if (!existing) sources.push({ dataset, roles })
+    }
+    return sources
+  }, [])
   return (
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
       <header className="agent-plan__header">
@@ -789,8 +802,8 @@ function WorkflowPlanObject({
         <span><strong>对象</strong>{objectLabel}</span>
         <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
       </div>
-      {previewDataset && <section className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
-        <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · {plan.steps.length > 1 ? '首项示例' : '前 3 行'}</span></header>
+      {previewSources.map(({ dataset: previewDataset, roles: previewRoles }) => <section key={previewDataset.datasetId} className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
+        <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · 前 3 行</span></header>
         <div className="mapping-preview-scroll" tabIndex={0} aria-label="计划字段绑定和数据预览，可横向滚动">
           <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, previewDataset.fields.length * 138)}px` }}>
             <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
@@ -806,7 +819,7 @@ function WorkflowPlanObject({
             })}</tr>) ?? <tr><td className="mapping-preview-empty" colSpan={previewDataset.fields.length}>样本预览暂不可用，字段绑定仍来自同一份 Core 计划。</td></tr>}</tbody>
           </table>
         </div>
-      </section>}
+      </section>)}
       <ol className="agent-plan__steps">
         {plan.steps.map((step) => (
           <li className={`agent-plan-step agent-plan-step--${step.state}`} key={step.taskItemId}>
@@ -922,7 +935,7 @@ function ExportResult({
 }): React.JSX.Element {
   return <section className="object-block product-result-strip product-result-strip--success" role="status" aria-live="polite" aria-label="导出记录">
     <CircleCheck size={17} />
-    <div><strong>{record.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{record.fileName}{record.artifactSize === undefined ? '' : ` · ${record.artifactSize.toLocaleString('zh-CN')} B`}</p>{record.artifactHash && <code title={record.artifactHash}>{record.artifactHash.slice(0, 12)}…</code>}</div>
+    <div><strong>{record.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{record.fileName}{record.plotVersion === undefined ? '' : ` · v${record.plotVersion}`}{record.artifactSize === undefined ? '' : ` · ${record.artifactSize.toLocaleString('zh-CN')} B`}</p>{record.artifactHash && <code title={record.artifactHash}>{record.artifactHash.slice(0, 12)}…</code>}</div>
     <div className="product-result-strip__actions"><button type="button" onClick={() => onOpen(record.resourceId)}>打开文件</button><button type="button" onClick={() => onReveal(record.resourceId)}>打开所在文件夹</button></div>
   </section>
 }
@@ -1026,7 +1039,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         type: 'export', id: itemId, turnId: activeTurnIdRef.current, createdAt: new Date().toISOString(),
         record: {
           exportId: exportRecord.exportId, resourceId: exportRecord.resourceId, fileName: exportRecord.fileName,
-          format: exportRecord.format, targetId: exportRecord.targetId,
+          format: exportRecord.format, targetId: exportRecord.targetId, plotVersion: exportRecord.plotVersion,
           ...(exportRecord.artifactHash ? { artifactHash: exportRecord.artifactHash } : {}),
           ...(exportRecord.artifactSize === undefined ? {} : { artifactSize: exportRecord.artifactSize }),
         },

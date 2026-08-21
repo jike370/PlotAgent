@@ -216,7 +216,10 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
   const [titleItalic, setTitleItalic] = useState(false)
   const [titleColor, setTitleColor] = useState('#111827')
   const [legendVisible, setLegendVisible] = useState(plot?.style.legendVisible ?? true)
-  const [legendPlacement, setLegendPlacement] = useState(plot?.style.legendPlacement ?? 'inside')
+  const [legendPlacement, setLegendPlacement] = useState(() => {
+    const placement = plot?.style.legendPlacement ?? 'inside'
+    return placement === 'right' ? 'outside_right' : placement === 'bottom' ? 'outside_bottom' : placement
+  })
   const [legendColumns, setLegendColumns] = useState(1)
   const [legendTitle, setLegendTitle] = useState('')
   const [legendFontSize, setLegendFontSize] = useState(9)
@@ -445,6 +448,10 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     || (axisMinimum !== '' && axisMaximum !== '' && Number(axisMinimum) >= Number(axisMaximum))
   )
 
+  const legendAnchor = (placement: string): string => placement === 'outside_right'
+    ? 'right'
+    : placement === 'outside_bottom' ? 'bottom' : placement
+
   const applyPatch = async (
     operation: string,
     targetId: string | undefined,
@@ -453,6 +460,11 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
     if (!plot || !onPatch || !targetId) {
       setEditState('error')
       setEditMessage('当前图形没有可用的编辑目标。')
+      return
+    }
+    if (Object.keys(values).length === 0) {
+      setEditState('saved')
+      setEditMessage('当前设置没有变化。')
       return
     }
     setEditState('saving')
@@ -473,84 +485,93 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
 
   const applySeriesStyle = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
-    if (editCapabilities.has('series_visibility')) values.visible = seriesVisible
-    if (editCapabilities.has('line_color')) values.line_stroke_color = lineColor
-    if (editCapabilities.has('line_width')) values.line_width_pt = lineWidth
-    if (editCapabilities.has('line_style')) values.line_style = lineStyle
-    if (editCapabilities.has('line_opacity')) values.line_opacity = lineOpacity
-    if (editCapabilities.has('marker_size')) values.marker_size_pt = markerSize
-    if (editCapabilities.has('marker_shape')) values.marker_shape = markerShape
-    if (editCapabilities.has('marker_interior')) values.marker_interior = markerInterior
-    if (editCapabilities.has('marker_fill_color')) values.marker_fill_color = markerFillColor
-    if (editCapabilities.has('marker_stroke_color')) {
+    const current = plot?.seriesStyles[seriesTargetIndex]?.style ?? plot?.style ?? {}
+    if (editCapabilities.has('series_visibility') && seriesVisible !== (current.visible ?? true)) values.visible = seriesVisible
+    if (editCapabilities.has('line_color') && lineColor !== (current.lineStrokeColor ?? '#2A6FDB')) values.line_stroke_color = lineColor
+    if (editCapabilities.has('line_width') && lineWidth !== (current.lineWidthPt ?? 0.8)) values.line_width_pt = lineWidth
+    if (editCapabilities.has('line_style') && lineStyle !== (current.lineStyle ?? 'solid')) values.line_style = lineStyle
+    if (editCapabilities.has('line_opacity') && lineOpacity !== (current.lineOpacity ?? 1)) values.line_opacity = lineOpacity
+    if (editCapabilities.has('marker_size') && markerSize !== (current.markerSizePt ?? 4.5)) values.marker_size_pt = markerSize
+    if (editCapabilities.has('marker_shape') && markerShape !== (current.markerShape ?? 'circle')) values.marker_shape = markerShape
+    if (editCapabilities.has('marker_interior') && markerInterior !== (current.markerInterior ?? 'solid')) values.marker_interior = markerInterior
+    if (editCapabilities.has('marker_fill_color') && markerFillColor !== (current.markerFillColor ?? '#2A6FDB')) values.marker_fill_color = markerFillColor
+    if (editCapabilities.has('marker_stroke_color') && markerStrokeColor !== (current.markerStrokeColor ?? '#2A6FDB')) {
       values.marker_stroke_color = markerStrokeColor
     }
-    if (editCapabilities.has('marker_stroke_width')) {
+    if (editCapabilities.has('marker_stroke_width') && markerStrokeWidth !== (current.markerStrokeWidthPt ?? 0.8)) {
       values.marker_stroke_width_pt = markerStrokeWidth
     }
-    if (editCapabilities.has('marker_opacity')) values.marker_opacity = markerOpacity
-    if (editCapabilities.has('fill_color')) values.fill_color = fillColor
-    if (editCapabilities.has('fill_opacity')) values.fill_opacity = fillOpacity
-    if (editCapabilities.has('fill_stroke_color')) {
+    if (editCapabilities.has('marker_opacity') && markerOpacity !== (current.markerOpacity ?? 1)) values.marker_opacity = markerOpacity
+    if (editCapabilities.has('fill_color') && fillColor !== (current.fillColor ?? '#2A6FDB')) values.fill_color = fillColor
+    if (editCapabilities.has('fill_opacity') && fillOpacity !== (current.fillOpacity ?? 0.8)) values.fill_opacity = fillOpacity
+    if (editCapabilities.has('fill_stroke_color') && fillStrokeColor !== (current.fillStrokeColor ?? '#1F4F99')) {
       values.fill_stroke_color = fillStrokeColor
     }
-    if (editCapabilities.has('fill_stroke_width')) {
+    if (editCapabilities.has('fill_stroke_width') && fillStrokeWidth !== (current.fillStrokeWidthPt ?? 0.8)) {
       values.fill_stroke_width_pt = fillStrokeWidth
     }
     await applyPatch('set_series_style', selectedSeriesId, values)
   }
 
+  const applyTitleSettings = async (): Promise<void> => {
+    const values: Record<string, JsonValue> = {}
+    const text = plotTitle.trim()
+    if (text !== (plot?.plotTitle ?? '')) values.text = text
+    if (titleFontFamily !== 'auto') values.font_family = titleFontFamily
+    if (titleFontSize !== (plot?.fontSizePt ?? 11)) values.font_size_pt = titleFontSize
+    if (titleFontWeight !== 'normal') values.font_weight = titleFontWeight
+    if (titleItalic) values.italic = true
+    if (titleColor !== '#111827') values.color = titleColor
+    await applyPatch('set_title', plot?.plotId, values)
+  }
+
   const applyAxisSettings = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
-    if (editCapabilities.has('axis_label') && axisLabel.trim()) values.label = axisLabel.trim()
-    if (editCapabilities.has('axis_scale')) values.scale = axisScale
+    const current = plot?.axisStates[axisTarget]
+    if (editCapabilities.has('axis_label') && axisLabel.trim() !== (current?.label ?? '')) values.label = axisLabel.trim()
+    if (editCapabilities.has('axis_scale') && axisScale !== (current?.scale ?? 'linear')) values.scale = axisScale
     if (editCapabilities.has('axis_range') && axisMinimum !== '' && axisMaximum !== '') {
-      values.minimum = Number(axisMinimum)
-      values.maximum = Number(axisMaximum)
+      const minimum = Number(axisMinimum)
+      const maximum = Number(axisMaximum)
+      if (minimum !== current?.minimum || maximum !== current?.maximum) {
+        values.minimum = minimum
+        values.maximum = maximum
+      }
     }
-    if (editCapabilities.has('axis_reverse')) values.reverse = axisReverse
-    if (editCapabilities.has('tick_labels_visibility')) {
-      values.tick_labels_visible = tickLabelsVisible
-    }
-    if (editCapabilities.has('major_ticks_visibility')) {
-      values.major_ticks_visible = majorTicksVisible
-    }
-    if (editCapabilities.has('minor_ticks_visibility')) {
-      values.minor_ticks_visible = minorTicksVisible
-    }
-    if (editCapabilities.has('tick_direction')) values.tick_direction = tickDirection
-    if (editCapabilities.has('axis_line_visibility')) values.axis_line_visible = axisLineVisible
-    if (editCapabilities.has('axis_title_visibility')) {
-      values.axis_title_visible = axisTitleVisible
-    }
-    if (axisParameters.has('title_font_size_pt')) values.title_font_size_pt = axisTitleSize
-    if (axisParameters.has('title_color')) values.title_color = axisTitleColor
-    if (axisParameters.has('tick_format')) values.tick_format = axisTickFormat
-    if (axisParameters.has('tick_rotation_deg')) values.tick_rotation_deg = axisTickRotation
-    if (axisParameters.has('tick_font_size_pt')) values.tick_font_size_pt = axisTickSize
-    if (axisParameters.has('axis_line_color')) values.axis_line_color = axisLineColor
-    if (axisParameters.has('axis_line_width_pt')) values.axis_line_width_pt = axisLineWidth
-    if (axisParameters.has('major_grid_visible')) values.major_grid_visible = majorGridVisible
-    if (axisParameters.has('minor_grid_visible')) values.minor_grid_visible = minorGridVisible
-    if (axisParameters.has('grid_color')) values.grid_color = gridColor
-    if (axisParameters.has('grid_line_width_pt')) values.grid_line_width_pt = gridLineWidth
+    if (editCapabilities.has('axis_reverse') && axisReverse !== (current?.reverse ?? false)) values.reverse = axisReverse
+    if (editCapabilities.has('tick_labels_visibility') && tickLabelsVisible !== (current?.tickLabelsVisible ?? true)) values.tick_labels_visible = tickLabelsVisible
+    if (editCapabilities.has('major_ticks_visibility') && majorTicksVisible !== (current?.majorTicksVisible ?? true)) values.major_ticks_visible = majorTicksVisible
+    if (editCapabilities.has('minor_ticks_visibility') && minorTicksVisible !== (current?.minorTicksVisible ?? true)) values.minor_ticks_visible = minorTicksVisible
+    if (editCapabilities.has('tick_direction') && tickDirection !== (current?.tickDirection ?? 'out')) values.tick_direction = tickDirection
+    if (editCapabilities.has('axis_line_visibility') && axisLineVisible !== (current?.axisLineVisible ?? true)) values.axis_line_visible = axisLineVisible
+    if (editCapabilities.has('axis_title_visibility') && axisTitleVisible !== (current?.axisTitleVisible ?? true)) values.axis_title_visible = axisTitleVisible
+    if (axisParameters.has('title_font_size_pt') && axisTitleSize !== 10) values.title_font_size_pt = axisTitleSize
+    if (axisParameters.has('title_color') && axisTitleColor !== '#111827') values.title_color = axisTitleColor
+    if (axisParameters.has('tick_format') && axisTickFormat !== 'auto') values.tick_format = axisTickFormat
+    if (axisParameters.has('tick_rotation_deg') && axisTickRotation !== 0) values.tick_rotation_deg = axisTickRotation
+    if (axisParameters.has('tick_font_size_pt') && axisTickSize !== 9) values.tick_font_size_pt = axisTickSize
+    if (axisParameters.has('axis_line_color') && axisLineColor !== '#111827') values.axis_line_color = axisLineColor
+    if (axisParameters.has('axis_line_width_pt') && axisLineWidth !== 0.8) values.axis_line_width_pt = axisLineWidth
+    if (axisParameters.has('major_grid_visible') && majorGridVisible) values.major_grid_visible = true
+    if (axisParameters.has('minor_grid_visible') && minorGridVisible) values.minor_grid_visible = true
+    if (axisParameters.has('grid_color') && gridColor !== '#D1D5DB') values.grid_color = gridColor
+    if (axisParameters.has('grid_line_width_pt') && gridLineWidth !== 0.5) values.grid_line_width_pt = gridLineWidth
     await applyPatch('set_axis', selectedAxisId, values)
   }
 
   const applyLegendSettings = async (): Promise<void> => {
     const values: Record<string, JsonValue> = {}
-    if (editCapabilities.has('legend_visibility')) values.visible = legendVisible
+    if (editCapabilities.has('legend_visibility') && legendVisible !== (plot?.style.legendVisible ?? true)) values.visible = legendVisible
     if (editCapabilities.has('legend_position')) {
-      values.anchor = legendPlacement === 'outside_right'
-        ? 'right'
-        : legendPlacement === 'outside_bottom' ? 'bottom' : 'inside'
+      const anchor = legendAnchor(legendPlacement)
+      if (anchor !== (plot?.style.legendPlacement ?? 'inside')) values.anchor = anchor
     }
-    if (legendParameters.has('columns')) values.columns = legendColumns
-    if (legendParameters.has('title')) values.title = legendTitle
-    if (legendParameters.has('font_size_pt')) values.font_size_pt = legendFontSize
-    if (legendParameters.has('font_color')) values.font_color = legendFontColor
-    if (legendParameters.has('frame_visible')) values.frame_visible = legendFrameVisible
-    if (legendParameters.has('frame_color')) values.frame_color = legendFrameColor
+    if (legendParameters.has('columns') && legendColumns !== 1) values.columns = legendColumns
+    if (legendParameters.has('title') && legendTitle !== '') values.title = legendTitle
+    if (legendParameters.has('font_size_pt') && legendFontSize !== 9) values.font_size_pt = legendFontSize
+    if (legendParameters.has('font_color') && legendFontColor !== '#111827') values.font_color = legendFontColor
+    if (legendParameters.has('frame_visible') && legendFrameVisible) values.frame_visible = true
+    if (legendParameters.has('frame_color') && legendFrameColor !== '#9CA3AF') values.frame_color = legendFrameColor
     await applyPatch('set_legend', legendTargetId, values)
   }
 
@@ -703,7 +724,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
 
             {parameterTab === 'general' && (
               <>
-                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyPatch('set_title', plot?.plotId, { text: plotTitle.trim(), font_family: titleFontFamily, font_size_pt: titleFontSize, font_weight: titleFontWeight, italic: titleItalic, color: titleColor }) }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><details className="parameter-subsection"><summary>字体与颜色</summary><label><span>字体</span><select aria-label="标题字体" value={titleFontFamily} onChange={(event) => setTitleFontFamily(event.target.value)}><option value="auto">自动</option><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label><label><span>字号</span><div className="unit-input"><input aria-label="标题字号" type="number" min="5" max="72" step="0.5" value={titleFontSize} onChange={(event) => setTitleFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>字重</span><select aria-label="标题字重" value={titleFontWeight} onChange={(event) => setTitleFontWeight(event.target.value)}><option value="normal">常规</option><option value="bold">粗体</option></select></label><label className="parameter-check"><input aria-label="标题斜体" type="checkbox" checked={titleItalic} onChange={(event) => setTitleItalic(event.target.checked)} /><span>斜体</span></label><label><span>颜色</span><input aria-label="标题颜色" type="color" value={titleColor} onChange={(event) => setTitleColor(event.target.value)} /></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
+                {editCapabilities.has('plot_title') && <form className="parameter-section" onSubmit={(event) => { event.preventDefault(); void applyTitleSettings() }}><h3>图标题</h3><label><span>标题</span><input aria-label="图标题" value={plotTitle} maxLength={256} placeholder="留空即隐藏" onChange={(event) => setPlotTitle(event.target.value)} /></label><details className="parameter-subsection"><summary>字体与颜色</summary><label><span>字体</span><select aria-label="标题字体" value={titleFontFamily} onChange={(event) => setTitleFontFamily(event.target.value)}><option value="auto">自动</option><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option><option value="Microsoft YaHei">微软雅黑</option><option value="SimSun">宋体</option></select></label><label><span>字号</span><div className="unit-input"><input aria-label="标题字号" type="number" min="5" max="72" step="0.5" value={titleFontSize} onChange={(event) => setTitleFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>字重</span><select aria-label="标题字重" value={titleFontWeight} onChange={(event) => setTitleFontWeight(event.target.value)}><option value="normal">常规</option><option value="bold">粗体</option></select></label><label className="parameter-check"><input aria-label="标题斜体" type="checkbox" checked={titleItalic} onChange={(event) => setTitleItalic(event.target.checked)} /><span>斜体</span></label><label><span>颜色</span><input aria-label="标题颜色" type="color" value={titleColor} onChange={(event) => setTitleColor(event.target.value)} /></label></details><button className="parameter-apply" type="submit" disabled={editState === 'saving'}>应用图标题</button></form>}
               </>
             )}
 

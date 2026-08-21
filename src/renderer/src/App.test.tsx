@@ -55,6 +55,11 @@ const secondDataset = {
     ...field,
     field_id: field.field_id.replace('field:', 'field:pressure.'),
   })),
+  sample_rows: [
+    [10, 101.2, 'Baseline'],
+    [20, 103.8, 'Baseline'],
+    [30, 108.4, 'Stimulated'],
+  ],
 }
 
 function enginePlotFixture(
@@ -238,6 +243,40 @@ function batchPlanFixture(state = 'awaiting_confirmation'): JsonValue {
   }
 }
 
+function multiSourceBatchPlanFixture(): JsonValue {
+  const payload = structuredClone(batchPlanFixture()) as Record<string, JsonValue>
+  const plan = payload.plan as Record<string, JsonValue>
+  const items = plan.items as Array<Record<string, JsonValue>>
+  const first = items[0]
+  plan.items = [
+    first,
+    {
+      ...first,
+      item_id: 'item:batch.second',
+      plot_alias: 'plot_2',
+      plot_id: 'plot:batch.two',
+      sources: [{
+        source_alias: 'source_2',
+        source_dataset_id: 'source:pressure',
+        source_version: 1,
+        content_hash: 'c'.repeat(64),
+        display_name: 'pressure.csv',
+        row_count: 12,
+      }],
+      bindings: [
+        { role: 'x', source_alias: 'source_2', field_id: 'field:pressure.time' },
+        { role: 'y', source_alias: 'source_2', field_id: 'field:pressure.signal' },
+      ],
+      idempotency_key: 'workflow:batch:item:batch.second',
+    },
+  ]
+  payload.item_progress = [
+    { item_id: 'item:batch', state: 'pending', attempt_count: 0 },
+    { item_id: 'item:batch.second', state: 'pending', attempt_count: 0 },
+  ]
+  return payload
+}
+
 function failedCreatePlanFixture(): JsonValue {
   return {
     plan: {
@@ -351,8 +390,8 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
     runTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
     resumeTaskPlan: vi.fn(async () => ok({ task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }) })),
-    exportPngSvg: vi.fn(async () => ok({ export_id: 'export:one', artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: 'plot.png' }, content_hash: 'a'.repeat(64), size: 1_024 } })),
-    exportOrigin: vi.fn(async () => ok({ export_id: 'export:origin', artifact: { resource: { resourceId: 'resource:origin', kind: 'export', fileName: 'plot.opju' }, content_hash: 'b'.repeat(64), size: 29_999 } })),
+    exportPngSvg: vi.fn(async (input) => ok({ export_id: 'export:one', plot_id: input.target.id, plot_version: input.target.version, artifact: { resource: { resourceId: 'resource:export', kind: 'export', fileName: `plot.${input.format}` }, content_hash: 'a'.repeat(64), size: 1_024 } })),
+    exportOrigin: vi.fn(async (input) => ok({ export_id: 'export:origin', plot_id: input.target.id, plot_version: input.target.version, artifact: { resource: { resourceId: 'resource:origin', kind: 'export', fileName: 'plot.opju' }, content_hash: 'b'.repeat(64), size: 29_999 } })),
     respondToCloseRequest: vi.fn(actionOk),
     onCoreStatus: vi.fn((listener) => { coreListener = listener; return () => { coreListener = undefined } }),
     onTaskEvent: vi.fn((listener) => { taskListener = listener; return () => { taskListener = undefined } }),
@@ -1119,10 +1158,128 @@ describe('PlotAgent real desktop workflow', () => {
     expect(document.body.textContent).not.toMatch(/[A-Za-z]:\\/)
   })
 
+  it('synchronizes the displayed plot to the latest durable version before every export format', async () => {
+    const user = userEvent.setup()
+    let created = false
+    const executePlotAction = vi.fn(async () => {
+      created = true
+      return ok(enginePlotFixture('plot:one', 1, 'K01', 2))
+    })
+    const listPlots = vi.fn(async () => ok({
+      project_version: 5,
+      plots: created ? [enginePlotFixture('plot:one', 4, 'K01', 5)] : [],
+    }))
+    const getPlot = vi.fn(async (input) => ok(enginePlotFixture(
+      input.plotId,
+      input.plotVersion,
+      'K01',
+      5,
+    )))
+    const exportPngSvg = vi.fn(async (input) => ok({
+      export_id: `export:${input.format}`,
+      plot_id: input.target.id,
+      plot_version: input.target.version,
+      artifact: {
+        resource: {
+          resourceId: `resource:${input.format}`,
+          kind: 'export',
+          fileName: `plot.${input.format}`,
+        },
+        content_hash: 'c'.repeat(64),
+        size: 2_048,
+      },
+    }))
+    const exportOrigin = vi.fn(async (input) => ok({
+      export_id: 'export:opju',
+      plot_id: input.target.id,
+      plot_version: input.target.version,
+      artifact: {
+        resource: { resourceId: 'resource:opju', kind: 'export', fileName: 'plot.opju' },
+        content_hash: 'd'.repeat(64),
+        size: 30_001,
+      },
+    }))
+    const api = fakeDesktop({ executePlotAction, listPlots, getPlot, exportPngSvg, exportOrigin })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '导出 PNG' }))
+    await screen.findByText('已导出 PNG', { selector: '.composer-success' })
+    await user.click(screen.getByRole('button', { name: '导出 SVG' }))
+    await screen.findByText('已导出 SVG', { selector: '.composer-success' })
+    await user.click(screen.getByRole('button', { name: '导出 OPJU' }))
+    await screen.findByText('已导出 OPJU', { selector: '.composer-success' })
+
+    expect(listPlots).toHaveBeenCalledTimes(3)
+    expect(getPlot).toHaveBeenCalledWith({
+      projectId: 'project:sample', plotId: 'plot:one', plotVersion: 4,
+    })
+    expect(exportPngSvg).toHaveBeenNthCalledWith(1, {
+      projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 }, format: 'png',
+    })
+    expect(exportPngSvg).toHaveBeenNthCalledWith(2, {
+      projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 }, format: 'svg',
+    })
+    expect(exportOrigin).toHaveBeenCalledWith({
+      projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 },
+    })
+    expect(screen.getByRole('region', { name: /@图\d+.*v4/ })).toBeInTheDocument()
+  })
+
+  it('does not announce success when Core returns a different plot version than requested', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      exportPngSvg: vi.fn(async (input) => ok({
+        export_id: 'export:wrong-version',
+        plot_id: input.target.id,
+        plot_version: input.target.version + 1,
+        artifact: {
+          resource: { resourceId: 'resource:wrong-version', kind: 'export', fileName: 'plot.png' },
+          content_hash: 'e'.repeat(64),
+          size: 1_024,
+        },
+      })),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '导出 PNG' }))
+
+    expect(await screen.findByText(/导出返回的图形版本与当前版本不一致/)).toBeInTheDocument()
+    expect(screen.queryByRole('status', { name: '导出记录' })).not.toBeInTheDocument()
+    expect(screen.queryByText('已导出 PNG')).not.toBeInTheDocument()
+  })
+
+  it('fails closed when the displayed plot version cannot be proven durable', async () => {
+    const user = userEvent.setup()
+    const exportPngSvg = vi.fn(async () => ok({}))
+    installApi(fakeDesktop({
+      listPlots: vi.fn(async () => ok({ project_version: 2, plots: [] })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(
+        input.plotId,
+        input.plotVersion + 1,
+      ))),
+      exportPngSvg,
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '导出 PNG' }))
+
+    expect(await screen.findByText(/Core 中找不到当前界面显示的图形版本/)).toBeInTheDocument()
+    expect(exportPngSvg).not.toHaveBeenCalled()
+    expect(screen.queryByRole('status', { name: '导出记录' })).not.toBeInTheDocument()
+  })
+
   it('keeps OPJU progress explicit and announces a durable completion result', async () => {
     const user = userEvent.setup()
     let finishExport: ((result: DesktopDataResult) => void) | undefined
-    const exportOrigin = vi.fn(() => new Promise<DesktopDataResult>((resolve) => { finishExport = resolve }))
+    let requestedTarget: { id: string; version: number } | undefined
+    const exportOrigin = vi.fn((input) => {
+      requestedTarget = input.target
+      return new Promise<DesktopDataResult>((resolve) => { finishExport = resolve })
+    })
     const api = fakeDesktop({ exportOrigin })
     installApi(api)
     render(<App />)
@@ -1134,7 +1291,8 @@ describe('PlotAgent real desktop workflow', () => {
 
     finishExport?.(ok({
       export_id: 'export:origin',
-      plot_id: 'plot:one',
+      plot_id: requestedTarget?.id ?? '',
+      plot_version: requestedTarget?.version ?? 0,
       artifact: {
         resource: {
           resourceId: 'resource:origin',
@@ -1720,6 +1878,85 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByText('已撤销本轮修改')).toBeInTheDocument()
   })
 
+  it('keeps one exact version through editor change, undo, redo, and all export formats', async () => {
+    const user = userEvent.setup()
+    let version = 0
+    const actions: JsonValue[] = []
+    const executePlotAction = vi.fn(async (input) => {
+      version += 1
+      actions.push(input.action)
+      return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
+    })
+    const listPlots = vi.fn(async () => ok({
+      project_version: version + 1,
+      plots: version === 0 ? [] : [enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions])],
+    }))
+    const getPlot = vi.fn(async (input) => ok(enginePlotFixture(
+      input.plotId,
+      input.plotVersion,
+      'K01',
+      version + 1,
+      [...actions],
+    )))
+    const exportPngSvg = vi.fn(async (input) => ok({
+      export_id: `export:${input.format}`,
+      plot_id: input.target.id,
+      plot_version: input.target.version,
+      artifact: {
+        resource: {
+          resourceId: `resource:${input.format}`,
+          kind: 'export',
+          fileName: `plot.${input.format}`,
+        },
+        content_hash: 'f'.repeat(64),
+        size: 2_048,
+      },
+    }))
+    const exportOrigin = vi.fn(async (input) => ok({
+      export_id: 'export:opju',
+      plot_id: input.target.id,
+      plot_version: input.target.version,
+      artifact: {
+        resource: { resourceId: 'resource:opju', kind: 'export', fileName: 'plot.opju' },
+        content_hash: '1'.repeat(64),
+        size: 30_002,
+      },
+    }))
+    const api = fakeDesktop({ executePlotAction, listPlots, getPlot, exportPngSvg, exportOrigin })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '编辑图形' }))
+    const title = await screen.findByRole('textbox', { name: '图标题' })
+    await user.clear(title)
+    await user.type(title, '可撤销标题')
+    await user.click(screen.getByRole('button', { name: '应用图标题' }))
+    expect(await screen.findByText('版本 v2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '撤销' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '撤销' }))
+    expect(await screen.findByText('版本 v3')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重做' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '重做' }))
+    expect(await screen.findByText('版本 v4')).toBeInTheDocument()
+
+    for (const format of ['PNG', 'SVG', 'OPJU'] as const) {
+      await user.click(screen.getByRole('button', { name: '导出' }))
+      await user.click(screen.getByRole('menuitem', { name: new RegExp(`导出 ${format}`) }))
+      await waitFor(() => expect(screen.getByText(`版本 v4`)).toBeInTheDocument())
+    }
+
+    expect(actions.map((action) => (
+      typeof action === 'object' && action !== null && 'operation' in action
+        ? action.operation : undefined
+    ))).toEqual(['create_plot', 'set_title', 'set_title', 'set_title'])
+    expect(exportPngSvg.mock.calls.map(([input]) => [input.format, input.target.version])).toEqual([
+      ['png', 4], ['svg', 4],
+    ])
+    expect(exportOrigin.mock.calls[0]?.[0].target.version).toBe(4)
+  })
+
   it('offers the optional count role for an aggregated S61 confusion matrix', async () => {
     const user = userEvent.setup()
     render(<App />)
@@ -1900,6 +2137,30 @@ describe('PlotAgent real desktop workflow', () => {
       continuationWorkflowRunId: 'task:multi-sheet-bindings',
       instruction: answer,
     }))
+  })
+
+  it('shows binding evidence and sample rows for every source in a multi-source plan', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 2, status: 'open' },
+        imported: { kind: 'committed', project_version: 2, datasets: [dataset, secondDataset] },
+      })),
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [multiSourceBatchPlanFixture()] })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const previews = await screen.findAllByRole('region', { name: '计划字段绑定与数据样本' })
+    expect(previews).toHaveLength(2)
+    expect(within(previews[0]).getByText('source:temperature')).toBeInTheDocument()
+    expect(within(previews[0]).getByText('3.2')).toBeInTheDocument()
+    expect(within(previews[0]).getByText('x')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('pressure.csv')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('101.2')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('y')).toBeInTheDocument()
+    expect(screen.queryByText('首项示例')).not.toBeInTheDocument()
   })
 
   it('passes a retry request verbatim without rebuilding hidden task context', async () => {

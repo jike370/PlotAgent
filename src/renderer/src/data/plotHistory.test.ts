@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import engineProfileCatalog from '../../../shared/generated/engine-profile-catalog.json'
+import type { JsonValue } from '../../../shared/desktop-contract'
 import type { ProductPlot } from './productState'
 import { plotHistoryEntry } from './plotHistory'
 
@@ -20,6 +21,7 @@ const plot = {
   errorStyles: [{ seriesId: 'series:one' }],
   dataLabelStyles: [{ seriesId: 'series:one' }],
   axisIds: { y: 'axis:y' },
+  legendId: 'legend:one',
   axisStates: { y: { axisId: 'axis:y', label: 'Value', scale: 'linear', reverse: false, tickLabelsVisible: true, majorTicksVisible: true, minorTicksVisible: true, tickDirection: 'out', axisLineVisible: true, axisTitleVisible: true, numberFormat: 'auto', decimalPlaces: 2 } },
   canvasSizeMm: { width: 183, height: 120 },
   annotations: [],
@@ -123,14 +125,18 @@ describe('plot history', () => {
         ...plot,
         chartId: profile.profile_id,
       } as ProductPlot
-      const entry = plotHistoryEntry(profilePlot, [
+      const actions: JsonValue[] = [
         { operation: 'set_title', target: 'plot:one', text: `${profile.profile_id} title` },
         { operation: 'set_axis', target: 'axis:y', label: 'Signal' },
         { operation: 'set_series_style', target: 'series:one', visible: false },
-      ])
+        ...(profile.capabilities.some((capability) => capability.operation === 'set_legend')
+          ? [{ operation: 'set_legend', target: 'legend:one', anchor: 'right' }]
+          : []),
+      ]
+      const entry = plotHistoryEntry(profilePlot, actions)
       expect(entry, profile.profile_id).toBeDefined()
-      expect(entry?.undoActions, profile.profile_id).toHaveLength(3)
-      expect(entry?.redoActions, profile.profile_id).toHaveLength(3)
+      expect(entry?.undoActions, profile.profile_id).toHaveLength(actions.length)
+      expect(entry?.redoActions, profile.profile_id).toHaveLength(actions.length)
     }
   })
 })

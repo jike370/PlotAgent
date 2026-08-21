@@ -4,7 +4,7 @@ import csv
 import json
 from pathlib import Path
 
-from plotagent.engine import PlotDocumentRepository, SetTitle
+from plotagent.engine import PlotDocumentRepository, PlotEngineAction, SetTitle
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
 from scripts.build_release_visual_signatures import build_visual_signatures
@@ -163,9 +163,11 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
         previous_hash = default.readback.style_hash
         for action in actions:
             operation_counts[action.operation] = operation_counts.get(action.operation, 0) + 1
+        final_document = case.document
         for count in range(1, len(actions) + 1):
             history = actions[:count]
             document = document_for_actions(case, history)
+            final_document = document
             change = backend.stage(
                 document,
                 history,
@@ -175,11 +177,31 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
             previous_hash = change.readback.style_hash
             change.publish()
             change.finalize()
+        profile_output = tmp_path / "cross-format" / case.profile_id
+        profile_output.mkdir(parents=True)
+        for format in ("png", "svg"):
+            destination = profile_output / f"v{final_document.plot_version}.{format}"
+            backend.export(final_document, destination, format)
+            assert destination.is_file()
+            assert destination.stat().st_size > 0
+        origin = _origin_request(
+            case,
+            actions,
+            install_dir=tmp_path,
+            output=profile_output / f"v{final_document.plot_version}.opju",
+            previous=profile_output / "v1.opju",
+        )
+        assert origin.document.plot_version == final_document.plot_version
+        assert origin.document.applied_action_ids == final_document.applied_action_ids
+        assert tuple(action.action_id for action in origin.actions) == (
+            case.create.action_id,
+            *(action.action_id for action in actions),
+        )
 
     assert operation_counts["set_title"] == 34
     assert operation_counts["set_axis"] == 34
     assert operation_counts["set_series_style"] == 34
-    assert operation_counts["set_legend"] > 0
+    assert operation_counts["set_legend"] == 29
 
 
 def test_release_edit_origin_request_preserves_linear_action_history(
@@ -244,18 +266,45 @@ def test_all_formal_profile_documents_and_latest_versions_survive_project_reopen
         case for case in RELEASE_CASES if case.variant == "representative"
     )
     assert len(representative) == 34
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    backend = default_matplotlib_backend(tmp_path / "recovery-readback")
+    expected_histories: dict[str, tuple[PlotEngineAction, ...]] = {}
 
     with ProjectStore.create(workspace, project_id="project:release-recovery") as project:
         repository = PlotDocumentRepository(project)
         for case in representative:
             repository.commit(case.document, case.create)
-            title = SetTitle(
-                action_id=f"action:release-recovery-{case.profile_id}-title",
-                target=case.document.plot_id,
-                expected_plot_version=1,
-                text=f"{case.profile_id} recovery",
+            default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+            default.publish()
+            default.finalize()
+            actions = representative_edit_actions(case, default.readback)
+            history: tuple[PlotEngineAction, ...] = ()
+            for action in actions:
+                history = (*history, action)
+                repository.commit(document_for_actions(case, history), action)
+            edited_title = next(
+                action.text for action in actions if isinstance(action, SetTitle)
             )
-            repository.commit(document_for_actions(case, (title,)), title)
+            assert edited_title is not None
+            undo = SetTitle(
+                action_id=f"action:release-recovery-{case.profile_id}-undo-title",
+                target=case.document.plot_id,
+                expected_plot_version=len(history) + 1,
+                text="",
+            )
+            history = (*history, undo)
+            repository.commit(document_for_actions(case, history), undo)
+            redo = SetTitle(
+                action_id=f"action:release-recovery-{case.profile_id}-redo-title",
+                target=case.document.plot_id,
+                expected_plot_version=len(history) + 1,
+                text=edited_title,
+            )
+            history = (*history, redo)
+            repository.commit(document_for_actions(case, history), redo)
+            expected_histories[case.profile_id] = history
 
     with ProjectStore.open(workspace) as project:
         repository = PlotDocumentRepository(project)
@@ -265,16 +314,17 @@ def test_all_formal_profile_documents_and_latest_versions_survive_project_reopen
             profile.profile_id for profile in ENGINE_PROFILES
         }
         for case in representative:
+            history = expected_histories[case.profile_id]
             stored = repository.get(case.document.plot_id)
-            assert stored.document.plot_version == 2
-            assert stored.document.parent_version == 1
+            assert stored.document.plot_version == len(history) + 1
+            assert stored.document.parent_version == len(history)
             assert stored.document.profile_id == case.profile_id
             assert stored.document.data == case.document.data
             assert stored.document.bindings == case.document.bindings
             assert stored.document.applied_action_ids == (
                 case.create.action_id,
-                f"action:release-recovery-{case.profile_id}-title",
+                *(action.action_id for action in history),
             )
             assert [
                 item.action.operation for item in repository.actions(case.document.plot_id)
-            ] == ["create_plot", "set_title"]
+            ] == ["create_plot", *(action.operation for action in history)]

@@ -38,6 +38,7 @@ export interface ConversationExportRecord {
   fileName: string
   format: 'png' | 'svg' | 'opju'
   targetId: string
+  plotVersion?: number
   artifactHash?: string
   artifactSize?: number
 }
@@ -97,6 +98,7 @@ function isExportItem(record: Record<string, unknown>): boolean {
     && isBoundedString(value.fileName, 512)
     && ['png', 'svg', 'opju'].includes(String(value.format))
     && isBoundedString(value.targetId, 240)
+    && (value.plotVersion === undefined || (Number.isSafeInteger(value.plotVersion) && Number(value.plotVersion) >= 1))
 }
 
 function isTimelineItem(value: unknown): value is ConversationTimelineItem {
