@@ -348,6 +348,41 @@ describe('product plot state', () => {
     })
   })
 
+  it('preserves readable names for fields derived inside a workflow', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:derived-binding',
+        items: [{
+          item_id: 'item:derived-binding',
+          task_kind: 'create',
+          profile_id: 'K01',
+          sources: [{ source_alias: 'source_1', source_dataset_id: 'dataset:sensor' }],
+          resolved_fields: [{
+            field_alias: 'signal_v',
+            field_id: 'field:workflow_internal_signal_v',
+            name: 'Signal (V)',
+          }],
+          data_operations: [],
+          bindings: [{
+            role: 'y',
+            source_alias: 'source_1',
+            field_id: 'field:workflow_internal_signal_v',
+          }],
+          visual_actions: [],
+        }],
+      },
+      state: 'awaiting_confirmation',
+      item_progress: [{ item_id: 'item:derived-binding', state: 'pending', attempt_count: 0 }],
+    })
+
+    expect(plan?.steps[0]?.bindings).toEqual([{
+      role: 'y',
+      fieldId: 'field:workflow_internal_signal_v',
+      sourceDatasetId: 'dataset:sensor',
+      fieldName: 'Signal (V)',
+    }])
+  })
+
   it('uses per-item progress for isolated batch failures and retry attempts', () => {
     const plan = readWorkflowPlan({
       plan: {

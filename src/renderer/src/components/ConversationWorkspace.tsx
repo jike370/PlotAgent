@@ -761,6 +761,7 @@ function WorkflowPlanObject({
         ? `${dataset.displayName} · ${displayFieldName(field.name)}`
         : displayFieldName(field.name)
     }
+    if (binding.fieldName !== undefined) return displayFieldName(binding.fieldName)
     return binding.fieldId
   }
   const objectLabel = plan.steps.length > 1

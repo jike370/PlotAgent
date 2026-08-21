@@ -240,7 +240,12 @@ class DurableAgentCoreHost:
                 "The activation context must be prepared before validating a yield.",
             )
         yielded = AGENT_YIELD_ADAPTER.validate_json(
-            canonical_json(self._with_core_owned_intent_hash(candidate))
+            canonical_json(
+                self._with_core_owned_intent_fields(
+                    candidate,
+                    context_hash=runtime.context.content_hash,
+                )
+            )
         )
         if yielded.outcome == "intent_ready":
             # The model-facing schema intentionally omits ``content_hash``.  Derive the
@@ -385,8 +390,12 @@ class DurableAgentCoreHost:
         return yielded
 
     @staticmethod
-    def _with_core_owned_intent_hash(candidate: JsonValue) -> JsonValue:
-        """Derive the integrity hash after the model has supplied semantic intent fields."""
+    def _with_core_owned_intent_fields(
+        candidate: JsonValue,
+        *,
+        context_hash: str,
+    ) -> JsonValue:
+        """Bind authority and integrity fields after the model supplies semantic intent."""
 
         normalized = deepcopy(candidate)
         if not isinstance(normalized, dict):
@@ -408,6 +417,11 @@ class DurableAgentCoreHost:
         raw_intent = normalized.get("intent")
         if not isinstance(raw_intent, dict):
             return normalized
+        # The context digest identifies the exact immutable Core snapshot.  It is
+        # authority metadata, not a semantic choice for the model to transcribe.
+        # Injecting it here prevents a visually similar source/content digest from
+        # being copied into TaskIntent during a long provider turn.
+        raw_intent["context_hash"] = context_hash
         payload = {key: value for key, value in raw_intent.items() if key != "content_hash"}
         raw_intent["content_hash"] = canonical_hash(cast(JsonValue, payload))
         return normalized
@@ -943,6 +957,15 @@ class DurableAgentCoreHost:
             "source plus user-facing output series names derived from the source display names. "
             "This operation is a strict alignment: never sort, interpolate, truncate, or coerce "
             "mismatched X values silently. "
+            "When one source contains one shared X field and two or more explicitly requested "
+            "numeric value fields for a grouped XY chart such as K01, K02, or K03, emit "
+            "reshape_wide_to_long. Preserve X in id_field_aliases, list every requested value "
+            "field in user order, bind x to the original X, y to output_value, and group to "
+            "output_name. Do not bind invented series_2/series_3 roles to a profile whose "
+            "contract exposes x, y, and optional group. "
+            "After a clarification supplies different field mappings for different sources, "
+            "create one task item per source using that source's own mapping; do not force the "
+            "first source's field names onto the remaining items. "
             "Every source_alias and "
             "field_alias is an opaque Core identifier: "
             "copy it exactly from source_contexts and fields in the current context, never use a "
@@ -952,8 +975,8 @@ class DurableAgentCoreHost:
             "name, logical type, and physical type sequences, emit concatenate_sources directly; "
             "call compare_schemas only when those sequences differ or are unavailable. Each "
             "item's bindings must refer only to those exact aliases. Omit "
-            "TaskIntent.content_hash; Core derives that "
-            "integrity field after validating the semantic payload. Ask only the minimum "
+            "TaskIntent.context_hash and TaskIntent.content_hash; Core derives both authority "
+            "and integrity fields after validating the semantic payload. Ask only the minimum "
             "blocking question. needs_input is only for an unresolved semantic fact that "
             "prevents a safe draft; never use needs_input to ask the user to confirm a plan "
             "or execution. When all semantic inputs are available, emit intent_ready and let "
@@ -1041,8 +1064,11 @@ class DurableAgentCoreHost:
         required = task_intent.get("required")
         if not isinstance(properties, dict) or not isinstance(required, list):
             raise AgentFoundationError("YIELD_SCHEMA_INVALID", "TaskIntent schema is invalid.")
+        properties.pop("context_hash", None)
         properties.pop("content_hash", None)
-        task_intent["required"] = [name for name in required if name != "content_hash"]
+        task_intent["required"] = [
+            name for name in required if name not in {"context_hash", "content_hash"}
+        ]
 
         # Cancellation is a product control, not a semantic outcome the model may choose.
         # Programmatic Pi aborts still create AgentCancelled internally and bypass this

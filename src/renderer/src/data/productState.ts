@@ -278,6 +278,7 @@ export interface WorkflowBindingView {
   role: string
   fieldId: string
   sourceDatasetId?: string
+  fieldName?: string
 }
 
 export interface WorkflowPlanView {
@@ -929,6 +930,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     const itemProgress: JsonRecord = progress.get(item.item_id) ?? {}
     const stepBindings: WorkflowBindingView[] = []
     const sourceIds = new Map<string, string>()
+    const fieldNamesById = new Map<string, string>()
+    const fieldNamesByAlias = new Map<string, string>()
     if (Array.isArray(item.sources)) {
       for (const source of item.sources) {
         if (!isJsonRecord(source)) continue
@@ -939,6 +942,16 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
         }
       }
     }
+    if (Array.isArray(item.resolved_fields)) {
+      for (const field of item.resolved_fields) {
+        if (!isJsonRecord(field)) continue
+        const fieldId = stringValue(field, 'field_id')
+        const alias = stringValue(field, 'field_alias')
+        const name = stringValue(field, 'name')
+        if (fieldId !== undefined && name !== undefined) fieldNamesById.set(fieldId, name)
+        if (alias !== undefined && name !== undefined) fieldNamesByAlias.set(alias, name)
+      }
+    }
     if (Array.isArray(item.bindings)) {
       for (const binding of item.bindings) {
         if (!isJsonRecord(binding)) continue
@@ -947,23 +960,20 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
         const sourceAlias = stringValue(binding, 'source_alias')
         if (role !== undefined && fieldId !== undefined) {
           const sourceDatasetId = sourceAlias === undefined ? undefined : sourceIds.get(sourceAlias)
-          const view = { role, fieldId, ...(sourceDatasetId === undefined ? {} : { sourceDatasetId }) }
+          const fieldName = fieldNamesById.get(fieldId)
+          const view = {
+            role,
+            fieldId,
+            ...(sourceDatasetId === undefined ? {} : { sourceDatasetId }),
+            ...(fieldName === undefined ? {} : { fieldName }),
+          }
           bindings.push(view)
           stepBindings.push(view)
         }
       }
     }
-    const fieldNames = new Map<string, string>()
-    if (Array.isArray(item.resolved_fields)) {
-      for (const field of item.resolved_fields) {
-        if (!isJsonRecord(field)) continue
-        const alias = stringValue(field, 'field_alias')
-        const name = stringValue(field, 'name')
-        if (alias !== undefined && name !== undefined) fieldNames.set(alias, name)
-      }
-    }
     const dataOperations = Array.isArray(item.data_operations)
-      ? item.data_operations.flatMap((operation) => workflowDataOperationSummary(operation, fieldNames))
+      ? item.data_operations.flatMap((operation) => workflowDataOperationSummary(operation, fieldNamesByAlias))
       : []
     const visualActions = Array.isArray(item.visual_actions) ? item.visual_actions : []
     boundActions.push(...visualActions)

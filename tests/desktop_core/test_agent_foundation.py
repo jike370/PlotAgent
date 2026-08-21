@@ -12,6 +12,7 @@ from plotagent.contracts.agent_tasks import (
     AgentNeedsInput,
     SelectedPlotRef,
     TaskBudgetLimits,
+    TaskContextUpdate,
     TaskEnvelope,
     TaskError,
     TaskIntent,
@@ -864,6 +865,155 @@ def test_first_intent_after_clarification_is_grounded_in_the_user_answer(
         assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K01"
 
 
+def test_clarification_can_replace_scope_with_two_sources_and_stage_two_items(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        importer = ProjectImportService(project)
+        first_import = importer.import_resource(
+            ImportResource(resource_id="resource:first", path=FILES / "csv_basic.csv")
+        )
+        second_import = importer.import_resource(
+            ImportResource(resource_id="resource:second", path=FILES / "csv_unicode_header.csv")
+        )
+        assert isinstance(first_import, ImportCommitResult)
+        assert isinstance(second_import, ImportCommitResult)
+        first_source = first_import.datasets[0].source_dataset
+        second_source = second_import.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:clarified-batch",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="分别用两个工作表创建 K01。",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=first_source.source_dataset_id,
+                    source_version=first_source.source_version,
+                    content_hash=first_source.content_hash,
+                ),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at="2026-08-18T10:00:00Z",
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        first = coordinator.next_action(task_envelope.task_id)
+        first_id = str(first["activation"]["activation_id"])
+        ledger.mark_activation_running(first_id)
+        first_host = DurableAgentCoreHost(project, domain, ledger)
+        first_host.prepare(first_id)
+        awaiting = first_host.accept_yield(
+            AgentNeedsInput(
+                activation_id=first_id,
+                task_id=task_envelope.task_id,
+                task_version=1,
+                questions=(
+                    InputQuestion(
+                        question_key="second_mapping",
+                        prompt="第二个工作表的 X/Y 是什么？",
+                        answer_kind="field",
+                    ),
+                ),
+            )
+        )
+
+        update = TaskContextUpdate(
+            project_revision=domain.revision,
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=first_source.source_dataset_id,
+                    source_version=first_source.source_version,
+                    content_hash=first_source.content_hash,
+                ),
+                SourceDatasetRef(
+                    source_dataset_id=second_source.source_dataset_id,
+                    source_version=second_source.source_version,
+                    content_hash=second_source.content_hash,
+                ),
+            ),
+            selected_profile_ids=("K01",),
+        )
+        answered = ledger.record_user_event(
+            task_envelope.task_id,
+            expected_task_version=awaiting.task_version,
+            action="answered",
+            user_event_id="user-event:clarified-batch.1",
+            payload_hash="c" * 64,
+            message="第一表用前两列；第二表也用前两列。",
+            context_update=update,
+        )
+        assert answered.state == "investigating"
+        continuation = coordinator.next_action(task_envelope.task_id)
+        continuation_id = str(continuation["activation"]["activation_id"])
+        continuation_version = int(continuation["activation"]["task_version"])
+        ledger.mark_activation_running(continuation_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        prepared = host.prepare(continuation_id)
+        context = cast(dict[str, object], prepared["context"])
+        source_contexts = cast(list[dict[str, object]], context["source_contexts"])
+        items: list[TaskDraftItem] = []
+        for position, source_context in enumerate(source_contexts, start=1):
+            source = cast(dict[str, object], source_context["source"])
+            fields = cast(list[dict[str, object]], source_context["fields"])
+            source_alias = cast(str, source["source_alias"])
+            items.append(
+                TaskDraftItem(
+                    task_kind="create",
+                    item_id=f"item:clarified-batch.{position}",
+                    plot_alias=f"plot_{position}",
+                    profile_id="K01",
+                    source_aliases=(source_alias,),
+                    bindings=(
+                        DraftFieldBinding(
+                            role="x",
+                            source_alias=source_alias,
+                            field_alias=cast(str, fields[0]["field_alias"]),
+                        ),
+                        DraftFieldBinding(
+                            role="y",
+                            source_alias=source_alias,
+                            field_alias=cast(str, fields[1]["field_alias"]),
+                        ),
+                    ),
+                )
+            )
+        draft = TaskIntent(
+            intent_id="intent:clarified-batch",
+            intent_version=1,
+            task_id=task_envelope.task_id,
+            task_version=continuation_version,
+            created_by_activation_id=continuation_id,
+            summary="Create two K01 plots with per-source mappings.",
+            items=tuple(items),
+            context_hash="0" * 64,
+            content_hash="0" * 64,
+        )
+        candidate = AgentIntentReady(
+            activation_id=continuation_id,
+            task_id=task_envelope.task_id,
+            task_version=continuation_version,
+            intent=draft,
+        ).model_dump(mode="json")
+        raw_intent = cast(dict[str, object], candidate["intent"])
+        raw_intent.pop("context_hash")
+        raw_intent.pop("content_hash")
+        validated = host.validate_yield(continuation_id, cast(JsonValue, candidate))
+        staged = host.accept_yield(validated)
+        assert staged.state == "intent_staged"
+        plan = ledger.get_plan(task_envelope.task_id)
+        assert [item.profile_id for item in plan.items] == ["K01", "K01"]
+        assert [
+            tuple((source.source_alias, source.source_dataset_id) for source in item.sources)
+            for item in plan.items
+        ] == [
+            (("data_1", first_source.source_dataset_id),),
+            (("data_2", second_source.source_dataset_id),),
+        ]
+
+
 def test_chart_selection_conflict_requires_one_answer_before_intent(
     tmp_path: Path,
 ) -> None:
@@ -1033,7 +1183,13 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "Use convert_type only after inspecting enough rows" in system_prompt
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
-        assert "Core derives that integrity field" in system_prompt
+        assert "reshape_wide_to_long" in system_prompt
+        assert (
+            "bind x to the original X, y to output_value, and group to output_name"
+            in system_prompt
+        )
+        assert "create one task item per source using that source's own mapping" in system_prompt
+        assert "Core derives both authority and integrity fields" in system_prompt
         assert "perform a completeness check against the original instruction" in system_prompt
         assert "Never silently omit one requested change" in system_prompt
         assert "requires both a filter_rows predicate" in system_prompt
@@ -1053,6 +1209,8 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
             for variant in cast(list[object], yield_schema["oneOf"])
         )
         intent_schema = cast(dict[str, object], definitions["TaskIntent"])
+        assert "context_hash" not in cast(dict[str, object], intent_schema["properties"])
+        assert "context_hash" not in cast(list[str], intent_schema["required"])
         assert "content_hash" not in cast(dict[str, object], intent_schema["properties"])
         assert "content_hash" not in cast(list[str], intent_schema["required"])
         binding_schema = cast(dict[str, object], definitions["DraftFieldBinding"])
@@ -1139,6 +1297,7 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         )
         model_candidate = candidate.model_dump(mode="json")
         model_intent = cast(dict[str, object], model_candidate["intent"])
+        model_intent.pop("context_hash")
         model_intent.pop("content_hash")
         # Real providers commonly omit fields whose value is the schema default.  Core
         # must hash the normalized intent, not the pre-validation JSON shape.
@@ -1162,9 +1321,9 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
 
         stale = candidate.model_dump(mode="json")
         cast(dict[str, object], stale["intent"])["context_hash"] = "f" * 64
-        with pytest.raises(AgentFoundationError) as caught:
-            host.validate_yield(activation_id, cast(JsonValue, stale))
-        assert caught.value.code == "YIELD_CONTEXT_STALE"
+        rebound = host.validate_yield(activation_id, cast(JsonValue, stale))
+        assert rebound.outcome == "intent_ready"
+        assert rebound.intent.context_hash == context_hash
 
 
 def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) -> None:
