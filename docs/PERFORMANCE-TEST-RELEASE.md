@@ -125,6 +125,17 @@ Excel、带仪器信息 TXT、多数据块 TXT，以及批量完成、原子取�
 .venv\Scripts\python.exe scripts\run_release_operational_matrix.py
 ```
 
+运行时故障另使用冻结矩阵逐项执行，不用真实模型的随机响应代替状态机证明：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_fault_matrix.py
+```
+
+该矩阵必须分别记录模型超时、429限流、断网、代理失败、模型坏JSON、Core坏JSON、
+原子边界取消、部分失败、瞬态自动重试、用户显式安全重试、返修无进展停止、语义冲突
+禁止技术重试，以及磁盘发布失败保持旧产物。每项必须验证副作用状态和可执行恢复方式；
+同一条“运行失败”断言不能代替这些不同故障。
+
 ## 8. 安全与可追溯
 
 - local_only零远程出站；

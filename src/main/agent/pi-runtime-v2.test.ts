@@ -577,7 +577,7 @@ describe('PiRuntimeAdapterV2', () => {
     expect(modelCalls).toBe(2)
   })
 
-  it('maps provider disconnects and activation timeouts to stable typed yields', async () => {
+  it('maps provider disconnects to a stable known-none failure', async () => {
     const disconnected = activation({ allowed_tools: [] })
     const disconnectedRuntime = new PiRuntimeAdapterV2({
       host: hostFor(disconnected),
@@ -592,7 +592,9 @@ describe('PiRuntimeAdapterV2', () => {
         side_effect_state: 'known_none',
       },
     })
+  })
 
+  it('maps activation timeouts to a stable wall-time budget yield', async () => {
     const timed = activation({
       activation_id: 'activation:timeout',
       allowed_tools: [],
@@ -608,6 +610,25 @@ describe('PiRuntimeAdapterV2', () => {
     await expect(timedRuntime.run(timed)).resolves.toMatchObject({
       outcome: 'budget_exhausted',
       exhausted_budget: 'wall_time',
+    })
+  })
+
+  it('maps malformed provider JSON to a stable known-none failure', async () => {
+    const input = activation({ allowed_tools: [] })
+    const runtime = new PiRuntimeAdapterV2({
+      host: hostFor(input),
+      emit: () => undefined,
+      streamFn: (() => { throw new Error('Unexpected token in provider JSON') }) as StreamFn,
+    })
+
+    await expect(runtime.run(input)).resolves.toMatchObject({
+      outcome: 'runtime_failed',
+      error: {
+        code: 'PI_V2_PROVIDER_FAILED',
+        message: 'Unexpected token in provider JSON',
+        retryable: true,
+        side_effect_state: 'known_none',
+      },
     })
   })
 

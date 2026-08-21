@@ -1559,6 +1559,58 @@ describe('AgentFoundationRuntime', () => {
 
   it.each([
     {
+      case_name: 'provider-auth',
+      yielded: {
+        outcome: 'runtime_failed',
+        error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          category: 'runtime',
+          message: '401 Unauthorized: invalid api key',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_PROVIDER_AUTH',
+      message: /鉴权失败.*未修改项目/,
+    },
+    {
+      case_name: 'provider-rate-limit',
+      yielded: {
+        outcome: 'runtime_failed',
+        error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          category: 'runtime',
+          message: '429 Too Many Requests',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_PROVIDER_RATE_LIMIT',
+      message: /模型服务当前限流.*未修改项目/,
+    },
+    {
+      case_name: 'provider-proxy',
+      yielded: {
+        outcome: 'runtime_failed',
+        error: {
+          code: 'PI_V2_PROVIDER_FAILED',
+          category: 'runtime',
+          message: 'Proxy CONNECT refused',
+          retryable: true,
+          requires_user: false,
+          side_effect_state: 'known_none',
+        },
+      },
+      wait: { reason: 'terminal', task_state: 'failed' },
+      code: 'AGENT_V2_PROVIDER_UNAVAILABLE',
+      message: /模型服务不可用.*网络或服务状态.*未修改项目/,
+    },
+    {
+      case_name: 'provider-balance',
       yielded: {
         outcome: 'runtime_failed',
         error: {
@@ -1575,6 +1627,7 @@ describe('AgentFoundationRuntime', () => {
       message: /余额不足.*未修改项目/,
     },
     {
+      case_name: 'provider-offline',
       yielded: {
         outcome: 'runtime_failed',
         error: {
@@ -1591,6 +1644,7 @@ describe('AgentFoundationRuntime', () => {
       message: /模型服务不可用.*未修改项目/,
     },
     {
+      case_name: 'provider-wall-timeout',
       yielded: {
         outcome: 'budget_exhausted',
         exhausted_budget: 'wall_time',
@@ -1601,6 +1655,7 @@ describe('AgentFoundationRuntime', () => {
       message: /响应超时.*未修改项目/,
     },
     {
+      case_name: 'provider-model-turn-budget',
       yielded: {
         outcome: 'budget_exhausted',
         exhausted_budget: 'model_turns',
@@ -1610,7 +1665,7 @@ describe('AgentFoundationRuntime', () => {
       code: 'AGENT_V2_BUDGET_EXHAUSTED',
       message: /model_turns 限额.*创建新任务/,
     },
-  ])('reports an actionable failure when planning stops before confirmation', async (example) => {
+  ])('$case_name reports an actionable failure before confirmation', async (example) => {
     class FailureCore extends FakeCore {
       private failurePumpCalls = 0
 

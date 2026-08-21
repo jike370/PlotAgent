@@ -105,7 +105,9 @@ def test_invalid_frames_are_sanitized_and_the_process_survives(sidecar: SidecarP
 
     combined_output = b"".join(sidecar.stdout_lines + sidecar.stderr_lines)
     assert secret.encode("ascii") not in combined_output
-    assert b"Traceback" not in combined_output
+    assert b"Traceback" not in combined_output, combined_output.decode(
+        "utf-8", errors="replace"
+    )
     assert str(__file__).encode() not in combined_output
 
 
