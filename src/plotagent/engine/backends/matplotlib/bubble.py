@@ -90,7 +90,15 @@ class K04BubbleRenderer:
             if main_legend is not None:
                 axis.add_artist(main_legend)
             handles, labels = self._size_key_entries(bubble, state.symbol_size_pt)
-            axis.legend(handles, labels, title=bubble.size_field_name, loc="upper right")
+            size_legend = axis.legend(
+                handles,
+                labels,
+                title=bubble.size_field_name,
+                loc="upper right",
+            )
+            size_legend.set_gid("plotagent-auxiliary-legend:size-key")
+            axis.add_artist(size_legend)
+            axis.legend_ = main_legend
         if state.color_scale_visible:
             if bubble.color_values is None:
                 raise ValueError("K04 cannot show a color scale without a color binding")

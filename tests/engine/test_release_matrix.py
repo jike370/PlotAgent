@@ -161,11 +161,18 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
             range(1, len(actions) + 1)
         )
         previous_hash = default.readback.style_hash
+        baseline_export = backend.export(
+            case.document,
+            tmp_path / "incremental" / case.profile_id / "v1.png",
+            "png",
+        )
+        previous_artifact_hash = baseline_export.artifact_hash
         for action in actions:
             operation_counts[action.operation] = operation_counts.get(action.operation, 0) + 1
         final_document = case.document
         for count in range(1, len(actions) + 1):
             history = actions[:count]
+            current_action = history[-1]
             document = document_for_actions(case, history)
             final_document = document
             change = backend.stage(
@@ -177,6 +184,18 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
             previous_hash = change.readback.style_hash
             change.publish()
             change.finalize()
+            artifact = backend.export(
+                document,
+                tmp_path
+                / "incremental"
+                / case.profile_id
+                / f"v{document.plot_version}.png",
+                "png",
+            )
+            assert artifact.artifact_hash != previous_artifact_hash, (
+                f"{case.profile_id} {current_action.action_id} did not change the rendered PNG"
+            )
+            previous_artifact_hash = artifact.artifact_hash
         profile_output = tmp_path / "cross-format" / case.profile_id
         profile_output.mkdir(parents=True)
         for format in ("png", "svg"):

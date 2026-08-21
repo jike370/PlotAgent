@@ -97,10 +97,11 @@ class K21CorrelationMatrixRenderer:
             axis.set_yticks(np.arange(len(grid.row_labels)), grid.row_labels)
             visible = ~np.ma.getmaskarray(display_values)
             raw_values = np.asarray(grid.values, dtype=float)
+            token = document.plot_id.removeprefix("plot:")
             for row_index, row in enumerate(raw_values):
                 for column_index, value in enumerate(row):
                     if visible[row_index, column_index]:
-                        axis.text(
+                        label = axis.text(
                             column_index,
                             row_index,
                             f"{value:.2f}",
@@ -108,6 +109,7 @@ class K21CorrelationMatrixRenderer:
                             va="center",
                             color="white" if abs(float(value)) >= 0.55 else "black",
                         )
+                        label.set_gid(f"plotagent-label:series:{token}.matrix")
             axis.set_title(state.title)
             axis.set_xlabel(state.x_label)
             axis.set_ylabel(state.y_label)

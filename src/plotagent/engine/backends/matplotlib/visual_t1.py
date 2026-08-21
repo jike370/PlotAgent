@@ -15,15 +15,24 @@ from typing import Any, Literal, cast
 from weakref import WeakSet
 
 import matplotlib.colors as mcolors
+import numpy as np
 from matplotlib import colormaps
 from matplotlib.axes import Axes
 from matplotlib.collections import LineCollection, PathCollection, PolyCollection
 from matplotlib.container import BarContainer, ErrorbarContainer
 from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
 from matplotlib.patches import Patch
-from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MultipleLocator
+from matplotlib.ticker import (
+    AutoMinorLocator,
+    FuncFormatter,
+    LogLocator,
+    MultipleLocator,
+    NullLocator,
+    ScalarFormatter,
+)
 
 from plotagent.engine.contracts import (
     AddAnnotation,
@@ -249,7 +258,16 @@ def _apply_axis(figure: Figure, action: SetAxis) -> None:
     if action.major_tick_step is not None:
         axis_object.set_major_locator(MultipleLocator(action.major_tick_step))
     if action.minor_tick_count is not None:
-        axis_object.set_minor_locator(AutoMinorLocator(action.minor_tick_count + 1))
+        if action.minor_tick_count == 0:
+            axis_object.set_minor_locator(NullLocator())
+        elif getattr(axis, f"get_{name}scale")() == "log":
+            subdivisions = tuple(
+                10 ** (index / (action.minor_tick_count + 1))
+                for index in range(1, action.minor_tick_count + 1)
+            )
+            axis_object.set_minor_locator(LogLocator(base=10, subs=subdivisions))
+        else:
+            axis_object.set_minor_locator(AutoMinorLocator(action.minor_tick_count + 1))
     if action.tick_format is not None:
         formatter = _formatter(action.tick_format)
         if formatter is not None:
@@ -538,15 +556,44 @@ def _apply_colormap(figure: Figure, action: SetColorMap) -> None:
         levels = action.levels or 8
         boundaries = [minimum + (maximum - minimum) * index / levels for index in range(levels + 1)]
         artist.set_norm(mcolors.BoundaryNorm(boundaries, artist.get_cmap().N))
-    colorbar_axes = [axis for axis in figure.axes if axis.get_label() == "<colorbar>"]
+    colorbars = [
+        colorbar
+        for axis in figure.axes
+        if axis.get_label() == "<colorbar>"
+        and (colorbar := getattr(axis, "_colorbar", None)) is not None
+    ]
     if action.colorbar_visible is False:
-        for axis in colorbar_axes:
-            axis.remove()
-    elif action.colorbar_visible is True and not colorbar_axes:
-        orientation = "horizontal" if action.colorbar_anchor == "bottom" else "vertical"
-        colorbar = figure.colorbar(artist, ax=_data_axes(figure), orientation=orientation)
+        for colorbar in colorbars:
+            colorbar.remove()
+        return
+    desired_orientation = (
+        None
+        if action.colorbar_anchor is None
+        else ("horizontal" if action.colorbar_anchor == "bottom" else "vertical")
+    )
+    if desired_orientation is not None:
+        for colorbar in tuple(colorbars):
+            if colorbar.orientation != desired_orientation:
+                colorbar.remove()
+                colorbars.remove(colorbar)
+    if action.colorbar_visible is True and not colorbars:
+        colorbars.append(
+            figure.colorbar(
+                artist,
+                ax=_data_axes(figure),
+                orientation=desired_orientation or "vertical",
+            )
+        )
+    for colorbar in colorbars:
         if action.colorbar_title is not None:
             colorbar.set_label(action.colorbar_title)
+        if action.colorbar_tick_format is not None:
+            colorbar.formatter = (
+                ScalarFormatter()
+                if action.colorbar_tick_format == "auto"
+                else _formatter(action.colorbar_tick_format)
+            )
+            colorbar.update_ticks()
 
 
 def _apply_error(figure: Figure, action: SetErrorStyle) -> None:
@@ -605,25 +652,39 @@ def _apply_data_labels(figure: Figure, action: SetDataLabels) -> None:
         return
     artist = _series_artists(figure, action.target)[0]
     axis = getattr(artist, "axes", axes[0]) or axes[0]
-    points: list[tuple[float, float]] = []
+    points: list[tuple[float, float, float]] = []
     if isinstance(artist, Line2D):
         line_points: Any = artist.get_xydata()
-        points = [(float(row[0]), float(row[1])) for row in line_points]
+        points = [(float(row[0]), float(row[1]), float(row[1])) for row in line_points]
     elif isinstance(artist, PathCollection):
         collection_points: Any = artist.get_offsets()
-        points = [(float(row[0]), float(row[1])) for row in collection_points]
+        points = [
+            (float(row[0]), float(row[1]), float(row[1])) for row in collection_points
+        ]
     elif isinstance(artist, BarContainer):
         points = [
-            (patch.get_x() + patch.get_width() / 2, patch.get_y() + patch.get_height())
+            (
+                patch.get_x() + patch.get_width() / 2,
+                patch.get_y() + patch.get_height(),
+                patch.get_height(),
+            )
             for patch in artist.patches
         ]
-    for x, y in points:
+    elif isinstance(artist, AxesImage):
+        values = np.ma.asarray(artist.get_array())
+        points = [
+            (float(column), float(row), float(value))
+            for row, row_values in enumerate(values)
+            for column, value in enumerate(row_values)
+            if not np.ma.is_masked(value) and np.isfinite(float(value))
+        ]
+    for x, y, value in points:
         horizontal = action.position if action.position in {"left", "right"} else "center"
         vertical = action.position if action.position in {"above", "below", "center"} else "bottom"
         text = axis.text(
             x,
             y,
-            _label_text(float(y), action),
+            _label_text(value, action),
             ha={"left": "right", "right": "left", "center": "center"}.get(horizontal, "center"),
             va={"above": "bottom", "below": "top", "center": "center"}.get(vertical, "bottom"),
             rotation=action.rotation_deg or 0,

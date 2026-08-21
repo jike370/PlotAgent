@@ -77,10 +77,11 @@ class S61ConfusionRenderer:
             )
             axis.set_xticks(np.arange(len(grid.column_labels)), grid.column_labels)
             axis.set_yticks(np.arange(len(grid.row_labels)), grid.row_labels)
+            token = document.plot_id.removeprefix("plot:")
             if state.show_counts:
                 for row_index, row in enumerate(values):
                     for column_index, value in enumerate(row):
-                        axis.text(
+                        label = axis.text(
                             column_index,
                             row_index,
                             f"{value:g}",
@@ -88,6 +89,7 @@ class S61ConfusionRenderer:
                             va="center",
                             color="white" if float(value) > maximum / 2.0 else "black",
                         )
+                        label.set_gid(f"plotagent-label:series:{token}.matrix")
             axis.set_title(state.title)
             axis.set_xlabel(state.x_label)
             axis.set_ylabel(state.y_label)

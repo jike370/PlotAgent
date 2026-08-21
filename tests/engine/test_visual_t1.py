@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import BoundaryNorm
+from matplotlib.ticker import FuncFormatter, LogLocator
 
 from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visual_actions,
@@ -387,6 +388,64 @@ def test_matplotlib_visibility_and_tick_direction_edit_native_objects() -> None:
     plt.close(figure)
 
 
+def test_matplotlib_log_axis_uses_a_logarithmic_minor_tick_locator() -> None:
+    figure, axis = plt.subplots()
+    axis.plot([1, 10, 100], [1, 2, 3])
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetAxis(
+                action_id="action:log-minor-ticks",
+                target="axis:t1.x",
+                expected_plot_version=1,
+                scale="log10",
+                minor_tick_count=2,
+            ),
+        ),
+    )
+
+    assert isinstance(axis.xaxis.get_minor_locator(), LogLocator)
+    figure.canvas.draw()
+    plt.close(figure)
+
+
+def test_matplotlib_data_labels_edit_matrix_cells() -> None:
+    figure, axis = plt.subplots()
+    axis.imshow(np.asarray([[1.25, 2.5], [3.75, 5.0]]))
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetDataLabels(
+                action_id="action:matrix-labels",
+                target="series:t1.matrix",
+                expected_plot_version=1,
+                visible=True,
+                value_format="decimal",
+                prefix="v=",
+                suffix=" unit",
+                position="center",
+            ),
+        ),
+    )
+
+    labels = [
+        text
+        for text in axis.texts
+        if text.get_gid() == "plotagent-label:series:t1.matrix"
+    ]
+    assert [label.get_text() for label in labels] == [
+        "v=1.25 unit",
+        "v=2.5 unit",
+        "v=3.75 unit",
+        "v=5 unit",
+    ]
+    plt.close(figure)
+
+
 def test_matplotlib_colormap_error_band_and_save_hook(tmp_path: Path) -> None:
     figure, axis = plt.subplots()
     image = axis.imshow(np.asarray([[0.0, 1.0], [2.0, np.nan]]), label="Matrix")
@@ -407,6 +466,7 @@ def test_matplotlib_colormap_error_band_and_save_hook(tmp_path: Path) -> None:
             colorbar_visible=True,
             colorbar_anchor="bottom",
             colorbar_title="Intensity",
+            colorbar_tick_format="scientific",
         ),
         SetErrorStyle(
             action_id="action:error",
@@ -432,5 +492,6 @@ def test_matplotlib_colormap_error_band_and_save_hook(tmp_path: Path) -> None:
     assert image.get_clim() == (0.0, 2.0)
     assert len(figure.axes) == 2
     assert figure.axes[-1].get_xlabel() == "Intensity"
+    assert isinstance(figure.axes[-1]._colorbar.formatter, FuncFormatter)
     assert band.get_alpha() == 0.35
     plt.close(figure)
