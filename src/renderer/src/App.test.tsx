@@ -2156,10 +2156,10 @@ describe('PlotAgent real desktop workflow', () => {
     expect(previews).toHaveLength(2)
     expect(within(previews[0]).getByText('source:temperature')).toBeInTheDocument()
     expect(within(previews[0]).getByText('3.2')).toBeInTheDocument()
-    expect(within(previews[0]).getByText('x')).toBeInTheDocument()
+    expect(within(previews[0]).getByText('X')).toBeInTheDocument()
     expect(within(previews[1]).getByText('pressure.csv')).toBeInTheDocument()
     expect(within(previews[1]).getByText('101.2')).toBeInTheDocument()
-    expect(within(previews[1]).getByText('y')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('Y')).toBeInTheDocument()
     expect(screen.queryByText('首项示例')).not.toBeInTheDocument()
   })
 

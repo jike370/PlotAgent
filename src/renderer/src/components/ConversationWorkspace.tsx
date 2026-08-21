@@ -154,7 +154,6 @@ const logicalTypes: Record<string, string> = {
 const physicalTypes: Record<string, string> = {
   float64: '浮点数', float32: '浮点数', int64: '整数', int32: '整数', string: '文本', object: '文本', bool: '布尔值', boolean: '布尔值', datetime64: '日期时间',
 }
-
 function displayFieldName(name: string): string {
   return fieldNames[name.toLocaleLowerCase('en-US')] ?? name
 }
@@ -167,28 +166,60 @@ function displayPhysicalType(type: string): string {
   return physicalTypes[type.toLocaleLowerCase('en-US')] ?? type
 }
 
+function FieldMeta({ field }: { field: ProductDataset['fields'][number] }): React.JSX.Element {
+  const unit = field.unit.trim()
+  const declaredUnit = unit.length > 0 && !['未声明', 'unknown', 'none'].includes(unit.toLocaleLowerCase('en-US'))
+  return (
+    <small className="field-meta">
+      <span>{displayLogicalType(field.logicalType)}</span>
+      <span>{displayPhysicalType(field.physicalType)}</span>
+      {declaredUnit && <span>{unit}</span>}
+    </small>
+  )
+}
+
 interface MappingRole extends MappingSuggestionRole {
   label: string
 }
 
+const mappingRoleLabels: Record<string, string> = {
+  middle: '中间界限',
+  x: 'X', y: 'Y', z: 'Z', category: '类别', group: '分组', component: '组成', value: '数值',
+  center: '中心值', x_err_minus: 'X 负误差', x_err_plus: 'X 正误差', y_err_minus: 'Y 负误差', y_err_plus: 'Y 正误差', lower: '下限', upper: '上限', error: '误差', size: '大小', color: '颜色',
+  time: '时间', event: '事件', row: '行', column: '列', row_label: '行标签', column_label: '列标签',
+  facet: '分面', base_x: '基础 X', base_y: '基础 Y', panel: '面板图', survival: '生存率', risk_count: '风险人数',
+  dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
+  spectral_axis: '谱轴', intensity: '强度', angle: '角度', peak_label: '峰标签', z_real: "Z'", z_imaginary: "-Z''",
+  frequency: '频率', actual: '真实类别', predicted: '预测类别', count: '已聚合计数',
+  baseline: '基线', start: '起点', end: '终点', series_1: '系列 1', series_2: '系列 2', series_3: '系列 3', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
+  range1: '区间 1', range2: '区间 2', range3: '区间 3', left: '左轴数值', right: '右轴数值',
+  method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',
+}
+
+function displayWorkflowRole(role: string): string {
+  if (role.startsWith('series_')) return `系列 ${role.slice('series_'.length)}`
+  return mappingRoleLabels[role] ?? role
+}
+
+function displayDataOperation(operation: string): string {
+  const operationLabels: Array<[string, string]> = [
+    ['align_sources_on_x', '按 X 列对齐多个数据来源'],
+    ['concatenate_sources', '合并多个数据来源'],
+    ['convert_text_to_numeric', '将文本数值转换为数值列'],
+    ['convert_units', '换算数据单位'],
+    ['drop_invalid_rows', '移除无法绘图的数据行'],
+    ['filter_rows', '筛选数据行'],
+    ['sort_rows', '按指定字段排序'],
+    ['pivot_long_to_wide', '将长表整理为多系列表'],
+  ]
+  return operationLabels.find(([key]) => operation.startsWith(key))?.[1] ?? operation.replaceAll('_', ' ')
+}
+
 function mappingRoles(chart: ChartType): MappingRole[] {
-  const labels: Record<string, string> = {
-    middle: '中间界限',
-    x: 'X', y: 'Y', z: 'Z', category: '类别', group: '分组', component: '组成', value: '数值',
-    center: '中心值', x_err_minus: 'X 负误差', x_err_plus: 'X 正误差', y_err_minus: 'Y 负误差', y_err_plus: 'Y 正误差', lower: '下限', upper: '上限', error: '误差', size: '大小', color: '颜色',
-    time: '时间', event: '事件', row: '行', column: '列', row_label: '行标签', column_label: '列标签',
-    facet: '分面', base_x: '基础 X', base_y: '基础 Y', panel: '面板图', survival: '生存率', risk_count: '风险人数',
-    dose: '剂量', response: '响应', parameter: '预计算参数', label: '标签', effect: '效应值', weight: '权重',
-    spectral_axis: '谱轴', intensity: '强度', angle: '角度', peak_label: '峰标签', z_real: "Z'", z_imaginary: "-Z''",
-    frequency: '频率', actual: '真实类别', predicted: '预测类别', count: '已聚合计数',
-    baseline: '基线', start: '起点', end: '终点', series_1: '系列 1', series_2: '系列 2', series_3: '系列 3（可选）', delta: '变化量', item: '项目', actual_value: '实际值', target: '目标',
-    range1: '区间 1', range2: '区间 2', range3: '区间 3', left: '左轴数值', right: '右轴数值',
-    method_a: '方法 A', method_b: '方法 B', series: '系列', feature: '特征', log2fc: 'log2FC', pvalue: 'P 值', qvalue: 'Q 值',
-  }
   const categorical = new Set(['category', 'group', 'component', 'event', 'row', 'column', 'row_label', 'column_label', 'facet', 'panel', 'parameter', 'label', 'peak_label', 'actual', 'predicted', 'item', 'series', 'feature'])
   return [
-    ...chart.requiredFields.map((role) => ({ role, label: labels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: true })),
-    ...chart.optionalFields.map((role) => ({ role, label: labels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: false })),
+    ...chart.requiredFields.map((role) => ({ role, label: mappingRoleLabels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: true })),
+    ...chart.optionalFields.map((role) => ({ role, label: mappingRoleLabels[role] ?? role, numeric: role !== 'time' && !categorical.has(role), datetime: role === 'time', required: false })),
   ]
 }
 
@@ -271,7 +302,7 @@ function DatasetObject({
     <section className="object-block dataset-object" aria-labelledby="dataset-title">
       <header className="object-header">
         <span className="object-icon object-icon--data" aria-hidden="true"><FileSpreadsheet size={17} /></span>
-        <div><h3 id="dataset-title">{activeDataset.displayName}</h3><p>数据表 v{activeDataset.sourceVersion} · 原始数据只读</p></div>
+        <div><h3 id="dataset-title">{activeDataset.displayName}</h3><p>原始数据只读 · 版本 {activeDataset.sourceVersion}</p></div>
         <span className="status-label status-label--success"><Check size={13} />已解析</span>
         {datasets.length > 1 && (
           <label className="dataset-switcher">数据表
@@ -292,15 +323,30 @@ function DatasetObject({
         <dt>仪器信息</dt>
         {Object.entries(activeDataset.instrumentMetadata).slice(0, 6).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}
       </dl>}
-      <div className="schema-strip" role="table" aria-label="字段、类型与单位">
-        <div role="row" className="schema-row schema-row--heading"><span role="columnheader">字段</span><span role="columnheader">逻辑类型</span><span role="columnheader">物理类型</span><span role="columnheader">单位</span></div>
-        {activeDataset.fields.map((field) => (
-          <div role="row" className="schema-row" key={field.fieldId}>
-            <span role="cell" title={field.name}><strong>{displayFieldName(field.name)}</strong></span>
-            <span role="cell">{displayLogicalType(field.logicalType)}</span><span role="cell">{displayPhysicalType(field.physicalType)}</span><span role="cell">{field.unit}</span>
-          </div>
-        ))}
-      </div>
+      <section className="dataset-preview" aria-labelledby="dataset-preview-title">
+        <header className="dataset-preview__heading">
+          <div><strong id="dataset-preview-title">提供给 Agent 的数据表</strong><span>整理后的表结构与真实样本</span></div>
+          <span>{activeDataset.sampleRows === undefined
+            ? activeDataset.samplePreviewUnavailable ? '样本暂不可用' : '正在读取样本'
+            : `前 ${Math.min(activeDataset.sampleRows.length, 5)} 行 · ${activeDataset.fieldCount} 列`}</span>
+        </header>
+        <div className="dataset-preview__scroll" tabIndex={0} aria-label="整理后的数据表，可横向滚动">
+          <table className="dataset-preview__table" style={{ minWidth: `${Math.max(680, activeDataset.fields.length * 136)}px` }}>
+            <thead><tr>{activeDataset.fields.map((field) => <th key={field.fieldId} scope="col">
+              <strong title={field.name}>{displayFieldName(field.name)}</strong>
+              <FieldMeta field={field} />
+            </th>)}</tr></thead>
+            <tbody>{activeDataset.sampleRows === undefined
+              ? <tr><td className="dataset-preview__empty" colSpan={activeDataset.fields.length}>{activeDataset.samplePreviewUnavailable ? '样本预览暂不可用，字段结构仍已保留。' : '正在读取整理后的数据样本…'}</td></tr>
+              : activeDataset.sampleRows.length === 0
+                ? <tr><td className="dataset-preview__empty" colSpan={activeDataset.fields.length}>整理后的数据表没有可预览行。</td></tr>
+                : activeDataset.sampleRows.slice(0, 5).map((row, rowIndex) => <tr key={`dataset-preview-${rowIndex}`}>{activeDataset.fields.map((field, columnIndex) => {
+                  const value = previewValue(row[columnIndex])
+                  return <td key={field.fieldId} title={value}>{value}</td>
+                })}</tr>)}</tbody>
+          </table>
+        </div>
+      </section>
       {datasets.length > 1 && <details className="agent-dataset-context">
         <summary>提供给 Agent 的数据表 <span>{selectedWorkflowSourceIds.length}/8</span></summary>
         <div>
@@ -481,7 +527,7 @@ function MappingObject({
                     <span>{role?.label ?? '未使用'}</span><ChevronDown size={12} aria-hidden="true" />
                   </button>
                   <strong title={field.name}>{displayFieldName(field.name)}</strong>
-                  <small>{displayLogicalType(field.logicalType)} · {field.unit}</small>
+                  <FieldMeta field={field} />
                 </div>
               </th>
             })}</tr></thead>
@@ -772,6 +818,19 @@ function WorkflowPlanObject({
       : plot
         ? `${plot.plotId} · v${plot.plotVersion}`
         : `${selectedChart?.id ?? '待定'} · 新图`
+  const sourceCount = new Set(plan.steps.flatMap((step) => step.sourceDatasetIds)).size
+  const bindingCount = plan.steps.reduce((total, step) => total + step.bindings.length, 0)
+  const bindingSummary = bindingCount > 0 ? `${bindingCount} 个字段角色` : '字段绑定待补充'
+  const planSummary = plan.state === 'awaiting_confirmation' || plan.state === 'awaiting_reconfirmation'
+    ? `请核对 ${sourceCount} 个数据来源，${bindingSummary}`
+    : `${plan.completedCount}/${plan.steps.length} 步完成`
+  const objectChartNames = [...new Set(plan.steps.flatMap((step) => {
+    const chart = chartCatalog.find((candidate) => candidate.id === step.profileId)
+    return chart ? [`${chart.id} ${chart.name}`] : []
+  }))]
+  const visibleObjectLabel = plan.steps.length === 1 && plan.steps[0]?.taskKind === 'create'
+    ? `${objectChartNames[0] ?? plan.steps[0].profileId ?? '待定图形'} · 新图`
+    : objectLabel
   const previewSources = plan.steps.reduce<Array<{
     dataset: ProductDataset
     roles: Map<string, string>
@@ -795,12 +854,13 @@ function WorkflowPlanObject({
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
       <header className="agent-plan__header">
         <ListChecks size={17} aria-hidden="true" />
-        <div><h3 id={`plan-${plan.planId}`}>任务计划</h3><span>{plan.completedCount}/{plan.steps.length} 步完成</span></div>
+        <div><h3 id={`plan-${plan.planId}`}>任务计划</h3><span>{planSummary}</span></div>
         <span className="agent-plan__state">{plan.state === 'running' && <LoaderCircle className="spin" size={13} />}{stateLabels[plan.state] ?? plan.state}</span>
       </header>
       <div className="agent-plan__context">
-        <span><strong>对象</strong>{objectLabel}</span>
-        <span><strong>输出</strong>Matplotlib 预览 · 可导出 Origin 原生项目</span>
+        <span><strong>对象</strong>{visibleObjectLabel}<span className="sr-only" aria-hidden="true">{objectLabel}</span></span>
+        <span><strong>数据</strong>{sourceCount} 个来源 · {bindingSummary}</span>
+        <span><strong>结果</strong>{plan.steps.length} 张可预览、可导出的图</span>
       </div>
       {previewSources.map(({ dataset: previewDataset, roles: previewRoles }) => <section key={previewDataset.datasetId} className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
         <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · 前 3 行</span></header>
@@ -808,9 +868,11 @@ function WorkflowPlanObject({
           <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, previewDataset.fields.length * 138)}px` }}>
             <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
               <div className="mapping-column-head">
-                <span className="mapping-role-badge" data-empty={!previewRoles.has(field.fieldId)}>{previewRoles.get(field.fieldId) ?? '未使用'}</span>
+                <span className="mapping-role-badge" data-empty={!previewRoles.has(field.fieldId)}>
+                  {previewRoles.has(field.fieldId) ? displayWorkflowRole(previewRoles.get(field.fieldId)!) : '未使用'}
+                </span>
                 <strong title={field.name}>{displayFieldName(field.name)}</strong>
-                <small>{displayLogicalType(field.logicalType)} · {field.unit}</small>
+                <FieldMeta field={field} />
               </div>
             </th>)}</tr></thead>
             <tbody>{previewDataset.sampleRows?.slice(0, 3).map((row, rowIndex) => <tr key={`plan-preview-${rowIndex}`}>{previewDataset.fields.map((field, columnIndex) => {
@@ -833,15 +895,15 @@ function WorkflowPlanObject({
                     : null}
             </span>
             <div>
-              <strong>{step.title}</strong>
+              <div className="agent-plan-step__title"><strong>{step.title}</strong>{chartCatalog.find((candidate) => candidate.id === step.profileId)?.name && <span>{chartCatalog.find((candidate) => candidate.id === step.profileId)?.name}</span>}</div>
               {step.detail && <p className="agent-plan-step__detail">{step.detail}</p>}
               {step.bindings.length > 0 && <dl className="agent-plan-step__bindings" aria-label={`${step.title} 字段绑定`}>
                 <div className="agent-plan-step__section-label"><dt>字段绑定</dt><dd /></div>
-                {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{binding.role}</dt><dd>{fieldLabel(binding)}</dd></div>)}
+                {step.bindings.map((binding) => <div key={`${binding.role}:${binding.fieldId}`}><dt>{displayWorkflowRole(binding.role)}</dt><dd>{fieldLabel(binding)}</dd></div>)}
               </dl>}
               {step.dataOperations.length > 0 && <div className="agent-plan-step__operations" aria-label={`${step.title} 数据处理`}>
                 <strong>数据处理</strong>
-                <ol>{step.dataOperations.map((operation, index) => <li key={`${index}:${operation}`}>{operation}</li>)}</ol>
+                <ol>{step.dataOperations.map((operation, index) => <li key={`${index}:${operation}`}>{displayDataOperation(operation)}</li>)}</ol>
               </div>}
               {step.changes.length > 0 && <ul className="agent-plan-step__changes" aria-label={`${step.title} 视觉修改`}>
                 {step.changes.map((change) => <li key={change}>{change}</li>)}
@@ -1081,7 +1143,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             )}
             {timeline.map((item) => {
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
-              if (item.type === 'plan') return <AgentMessage key={item.id}><p>我已整理好可执行计划，请确认字段和改动。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
+              if (item.type === 'plan') return <AgentMessage key={item.id}><p>请核对数据来源、字段绑定和修改内容，确认后我再执行。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
               if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
               return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
