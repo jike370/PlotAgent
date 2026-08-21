@@ -302,7 +302,7 @@ function DatasetObject({
     <section className="object-block dataset-object" aria-labelledby="dataset-title">
       <header className="object-header">
         <span className="object-icon object-icon--data" aria-hidden="true"><FileSpreadsheet size={17} /></span>
-        <div><h3 id="dataset-title">{activeDataset.displayName}</h3><p>原始数据只读 · 版本 {activeDataset.sourceVersion}</p></div>
+        <div><h3 id="dataset-title">{activeDataset.displayName}</h3><p>版本 {activeDataset.sourceVersion}</p></div>
         <span className="status-label status-label--success"><Check size={13} />已解析</span>
         {datasets.length > 1 && (
           <label className="dataset-switcher">数据表
@@ -325,7 +325,7 @@ function DatasetObject({
       </dl>}
       <section className="dataset-preview" aria-labelledby="dataset-preview-title">
         <header className="dataset-preview__heading">
-          <div><strong id="dataset-preview-title">提供给 Agent 的数据表</strong><span>整理后的表结构与真实样本</span></div>
+          <div><strong id="dataset-preview-title">提供给 Agent 的数据表</strong></div>
           <span>{activeDataset.sampleRows === undefined
             ? activeDataset.samplePreviewUnavailable ? '样本暂不可用' : '正在读取样本'
             : `前 ${Math.min(activeDataset.sampleRows.length, 5)} 行 · ${activeDataset.fieldCount} 列`}</span>
