@@ -618,7 +618,7 @@ function PlotObject({
     <section className="object-block product-plot-object" aria-label={`@图${plotNumber} ${plotChart?.name ?? plot.chartId} v${plot.plotVersion}`}>
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
-        <div><h3>@图{plotNumber} · {plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3><p>{plot.chartId} · Agent Native</p></div>
+        <div><h3>@图{plotNumber} · {plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3></div>
         <span className={interactive ? 'status-label status-label--success' : 'status-label'}><Check size={13} />{interactive ? (previewMode ? '界面预览' : '已渲染') : '历史版本'}</span>
       </header>
       <div className="product-preview">
@@ -733,7 +733,7 @@ function ConversationComposer({
         }} onKeyDown={(event) => {
           if (event.key === 'Escape' && mentionOpen) { event.preventDefault(); setMentionOpen(false); return }
           if (event.key === 'Enter' && !event.shiftKey && !mentionOpen) { event.preventDefault(); submit() }
-        }} placeholder={plotReferences.length > 0 ? '输入 @图编号 后描述修改要求；不带 @ 时创建新任务' : '描述绘图要求；缺少数据或图类时，我会告诉你下一步'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
+        }} placeholder={plotReferences.length > 0 ? '通过 @ 指定需编辑的对象' : '描述绘图要求；缺少数据或图类时，我会告诉你下一步'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
         {mentionOpen && <div className="plot-mention-menu" role="listbox" aria-label="选择作用图形">
           {plotReferences.map(({ reference, plot: candidate }) => {
             const chart = chartCatalog.find((item) => item.id === candidate.chartId)
@@ -821,9 +821,6 @@ function WorkflowPlanObject({
   const sourceCount = new Set(plan.steps.flatMap((step) => step.sourceDatasetIds)).size
   const bindingCount = plan.steps.reduce((total, step) => total + step.bindings.length, 0)
   const bindingSummary = bindingCount > 0 ? `${bindingCount} 个字段角色` : '字段绑定待补充'
-  const planSummary = plan.state === 'awaiting_confirmation' || plan.state === 'awaiting_reconfirmation'
-    ? `请核对 ${sourceCount} 个数据来源，${bindingSummary}`
-    : `${plan.completedCount}/${plan.steps.length} 步完成`
   const objectChartNames = [...new Set(plan.steps.flatMap((step) => {
     const chart = chartCatalog.find((candidate) => candidate.id === step.profileId)
     return chart ? [`${chart.id} ${chart.name}`] : []
@@ -854,25 +851,25 @@ function WorkflowPlanObject({
     <section className={`agent-plan agent-plan--${plan.state}`} aria-labelledby={`plan-${plan.planId}`}>
       <header className="agent-plan__header">
         <ListChecks size={17} aria-hidden="true" />
-        <div><h3 id={`plan-${plan.planId}`}>任务计划</h3><span>{planSummary}</span></div>
+        <div><h3 id={`plan-${plan.planId}`}>任务计划</h3></div>
         <span className="agent-plan__state">{plan.state === 'running' && <LoaderCircle className="spin" size={13} />}{stateLabels[plan.state] ?? plan.state}</span>
       </header>
       <div className="agent-context-cards" role="list" aria-label="任务上下文">
         <article className="agent-context-card" role="listitem">
           <FileChartColumn size={16} aria-hidden="true" />
-          <div><span>作用对象</span><strong>{visibleObjectLabel}</strong><span className="sr-only" aria-hidden="true">{objectLabel}</span></div>
+          <strong>{visibleObjectLabel}</strong>
         </article>
         <article className="agent-context-card" role="listitem">
           <TableProperties size={16} aria-hidden="true" />
-          <div><span>使用数据</span><strong>{sourceCount} 个来源 · {bindingSummary}</strong></div>
+          <strong>{sourceCount} 个来源 · {bindingSummary}</strong>
         </article>
         <article className="agent-context-card" role="listitem">
           <Images size={16} aria-hidden="true" />
-          <div><span>预计结果</span><strong>{plan.steps.length} 张可预览、可导出的图</strong></div>
+          <strong>{plan.steps.length} 张可预览、可导出的图</strong>
         </article>
       </div>
       {previewSources.map(({ dataset: previewDataset, roles: previewRoles }) => <section key={previewDataset.datasetId} className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
-        <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · 前 3 行</span></header>
+        <header><strong>{previewDataset.displayName}</strong><span>原始数据 · 前 3 行</span></header>
         <div className="mapping-preview-scroll" tabIndex={0} aria-label="计划字段绑定和数据预览，可横向滚动">
           <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, previewDataset.fields.length * 138)}px` }}>
             <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
@@ -978,14 +975,11 @@ function ActivityMessage({
     ? 'OPJU 已生成，正在完成保存…'
     : '正在生成并验证 OPJU…'
   else if (busyAction.startsWith('export-')) label = '正在生成导出文件…'
-  const activityKind = busyAction === 'agent'
-    ? 'Agent'
-    : busyAction.startsWith('export-') ? '导出工具' : '本地工具'
   const progressLabel = task?.progress?.total
     ? `${task.progress.completed}/${task.progress.total} ${task.progress.unit}`
     : undefined
   return <AgentMessage className="conversation-activity" live>
-    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong>{label}</strong>{progressLabel && <span>{progressLabel}</span>}</div><span className="activity-message__kind">{activityKind}</span>
+    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong>{label}{progressLabel ? ` · ${progressLabel}` : ''}</strong></div>
       {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
   </AgentMessage>
@@ -1158,14 +1152,14 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             )}
             {timeline.map((item) => {
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
-              if (item.type === 'plan') return <AgentMessage key={item.id}><p>请核对数据来源、字段绑定和修改内容，确认后我再执行。</p><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
+              if (item.type === 'plan') return <AgentMessage key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
               if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
               return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
-            {selectedChart && activeDataset && !plot && <section className="selection-actions-card" aria-label="当前图形选择"><span className="selection-actions-card__icon"><FileChartColumn size={16} aria-hidden="true" /></span><div><span>当前图形</span><strong>{selectedChart.id} {selectedChart.name}</strong><small>下一步检查字段与数据样本</small></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段绑定' : '检查字段绑定'}</button></section>}
+            {selectedChart && activeDataset && !plot && <section className="selection-actions-card" aria-label="当前图形选择"><span className="selection-actions-card__icon"><FileChartColumn size={16} aria-hidden="true" /></span><strong>{selectedChart.id} {selectedChart.name}</strong><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段绑定' : '检查字段绑定'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>

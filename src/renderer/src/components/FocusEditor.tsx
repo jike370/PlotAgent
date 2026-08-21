@@ -17,7 +17,6 @@ import {
   Redo2,
   RotateCcw,
   SlidersHorizontal,
-  Sparkles,
   Undo2,
   X,
 } from 'lucide-react'
@@ -40,6 +39,8 @@ interface FocusEditorProps {
   onUndo?: () => void
   onRedo?: () => void
   onExport?: (format: 'png' | 'svg' | 'opju') => void
+  initialParameterTab?: ParameterTab
+  onParameterTabChange?: (tab: ParameterTab) => void
   onClose: () => void
 }
 
@@ -54,7 +55,7 @@ interface Position {
   y: number
 }
 
-type ParameterTab =
+export type ParameterTab =
   | 'general' | 'style' | 'specialist' | 'axis' | 'legend'
   | 'colormap' | 'uncertainty' | 'labels'
 type EditState = 'idle' | 'saving' | 'saved' | 'error'
@@ -131,14 +132,14 @@ function ChartParameterEditor({
   </>
 }
 
-export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePanel = false, plot, previousPlot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onExport, onClose }: FocusEditorProps): React.JSX.Element {
+export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePanel = false, plot, previousPlot, onPatch, canUndo = false, canRedo = false, onUndo, onRedo, onExport, initialParameterTab = 'general', onParameterTabChange, onClose }: FocusEditorProps): React.JSX.Element {
   const initialSeriesStyle = plot?.seriesStyles[0]?.style ?? plot?.style
   const initialAxisState = plot?.axisStates.y ?? plot?.axisStates.x
   const [activeIndex, setActiveIndex] = useState(Math.min(initialIndex, 2))
   const [selected, setSelected] = useState<number[]>([Math.min(initialIndex, 2)])
   const [scope, setScope] = useState<ScopeMode>('current')
   const [panelOpen, setPanelOpen] = useState(initialPanelOpen)
-  const [parameterTab, setParameterTab] = useState<ParameterTab>('general')
+  const [parameterTab, setParameterTab] = useState<ParameterTab>(initialParameterTab)
   const [compareOpen, setCompareOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [editState, setEditState] = useState<EditState>('idle')
@@ -701,7 +702,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
               <div className="compare-label compare-label--right"><span>v{plot.plotVersion}</span>当前版本</div>
             )}
           </div>
-          <div className="canvas-status"><Sparkles size={13} /><span>参数应用后创建新版本，原始数据保持只读</span><span className="zoom-status">100%</span></div>
+          <div className="canvas-status" aria-label="画布缩放"><span className="zoom-status">100%</span></div>
         </main>
 
         {panelOpen && (
@@ -718,7 +719,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                 ['axis', '坐标轴'],
                 ['legend', '图例'],
               ] as [ParameterTab, string][]).map(([value, label]) => (
-                <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => setParameterTab(value)}>{label}</button>
+                <button key={value} className={parameterTab === value ? 'is-active' : ''} type="button" role="tab" aria-selected={parameterTab === value} onClick={() => { setParameterTab(value); onParameterTabChange?.(value) }}>{label}</button>
               ))}
             </div>
 
@@ -829,13 +830,12 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                 <section className="parameter-section parameter-section--target">
                   <h3>作用坐标轴</h3>
                   <label><span>坐标轴</span><select aria-label="作用坐标轴" value={axisTarget} onChange={(event) => selectAxis(event.target.value as 'x' | 'y' | 'yRight')}><option value="x">X 轴</option><option value="y">左 Y 轴</option>{plot?.axisIds.yRight && <option value="yRight">右 Y 轴</option>}</select></label>
-                  <p className="parameter-note">本页设置会合并为一次坐标轴修改，并生成一个可撤销版本。</p>
                 </section>
                 {(editCapabilities.has('axis_label') || editCapabilities.has('axis_scale') || editCapabilities.has('axis_range') || editCapabilities.has('axis_reverse')) && <section className="parameter-section">
                   <h3>标题与范围</h3>
                   {editCapabilities.has('axis_label') && <label><span>标题</span><input aria-label="轴标题" value={axisLabel} onChange={(event) => setAxisLabel(event.target.value)} /></label>}
                   {editCapabilities.has('axis_scale') && <label><span>尺度</span><select aria-label="轴尺度" value={axisScale} onChange={(event) => setAxisScale(event.target.value)}><option value="linear">线性</option><option value="log10">Log10</option></select></label>}
-                  {editCapabilities.has('axis_range') && <details className="parameter-subsection" open><summary>显示范围</summary><label><span>最小值</span><input aria-label="轴最小值" type="number" value={axisMinimum} placeholder="自动" onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" value={axisMaximum} placeholder="自动" onChange={(event) => setAxisMaximum(event.target.value)} /></label><p className="parameter-note">两项都留空时继续使用自动范围。</p></details>}
+                  {editCapabilities.has('axis_range') && <details className="parameter-subsection" open><summary>显示范围</summary><label><span>最小值</span><input aria-label="轴最小值" type="number" value={axisMinimum} placeholder="自动" onChange={(event) => setAxisMinimum(event.target.value)} /></label><label><span>最大值</span><input aria-label="轴最大值" type="number" value={axisMaximum} placeholder="自动" onChange={(event) => setAxisMaximum(event.target.value)} /></label></details>}
                   {editCapabilities.has('axis_reverse') && <label className="parameter-check"><input aria-label="反向坐标轴" type="checkbox" checked={axisReverse} onChange={(event) => setAxisReverse(event.target.checked)} /><span>反向显示</span></label>}
                 </section>}
                 {[...editCapabilities].some((item) => item.endsWith('_visibility') || item === 'tick_direction') && <section className="parameter-section">
@@ -848,22 +848,22 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
                   {editCapabilities.has('tick_direction') && <label><span>刻度线方向</span><select aria-label="刻度线方向" value={tickDirection} onChange={(event) => setTickDirection(event.target.value)}><option value="in">向内</option><option value="out">向外</option><option value="inout">内外两侧</option></select></label>}
                 </section>}
                 {axisParameters.has('title_font_size_pt') && <section className="parameter-section"><h3>视觉样式</h3><details className="parameter-subsection" open><summary>轴标题</summary><label><span>字号</span><div className="unit-input"><input aria-label="轴标题字号" type="number" min="5" max="72" step="0.5" value={axisTitleSize} onChange={(event) => setAxisTitleSize(event.target.valueAsNumber)} /><span>pt</span></div></label><label><span>颜色</span><input aria-label="轴标题颜色" type="color" value={axisTitleColor} onChange={(event) => setAxisTitleColor(event.target.value)} /></label></details><details className="parameter-subsection"><summary>刻度标签</summary><label><span>数值格式</span><select aria-label="刻度数值格式" value={axisTickFormat} onChange={(event) => setAxisTickFormat(event.target.value)}><option value="auto">自动</option><option value="decimal">小数</option><option value="scientific">科学计数</option><option value="percent">百分比</option><option value="date">日期</option><option value="time">时间</option></select></label><label><span>旋转</span><div className="unit-input"><input aria-label="刻度旋转" type="number" min="-180" max="180" value={axisTickRotation} onChange={(event) => setAxisTickRotation(event.target.valueAsNumber)} /><span>°</span></div></label><label><span>字号</span><div className="unit-input"><input aria-label="刻度字号" type="number" min="5" max="72" step="0.5" value={axisTickSize} onChange={(event) => setAxisTickSize(event.target.valueAsNumber)} /><span>pt</span></div></label></details><details className="parameter-subsection"><summary>轴线与网格</summary><label><span>轴线颜色</span><input aria-label="轴线颜色" type="color" value={axisLineColor} onChange={(event) => setAxisLineColor(event.target.value)} /></label><label><span>轴线宽度</span><div className="unit-input"><input aria-label="轴线宽度" type="number" min="0.1" max="20" step="0.1" value={axisLineWidth} onChange={(event) => setAxisLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label><label className="parameter-check"><input aria-label="主网格" type="checkbox" checked={majorGridVisible} onChange={(event) => setMajorGridVisible(event.target.checked)} /><span>主网格</span></label><label className="parameter-check"><input aria-label="次网格" type="checkbox" checked={minorGridVisible} onChange={(event) => setMinorGridVisible(event.target.checked)} /><span>次网格</span></label><label><span>网格颜色</span><input aria-label="网格颜色" type="color" value={gridColor} onChange={(event) => setGridColor(event.target.value)} /></label><label><span>网格线宽</span><div className="unit-input"><input aria-label="网格线宽" type="number" min="0.1" max="20" step="0.1" value={gridLineWidth} onChange={(event) => setGridLineWidth(event.target.valueAsNumber)} /><span>pt</span></div></label></details></section>}
-                <div className="parameter-form-actions"><span>{axisBoundsInvalid ? '请填写完整且有效的范围。' : '仅提交当前坐标轴可稳定映射的设置。'}</span><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisBoundsInvalid}>应用坐标轴设置</button></div>
+                <div className="parameter-form-actions">{axisBoundsInvalid && <span>请填写完整且有效的范围。</span>}<button className="parameter-apply" type="submit" disabled={editState === 'saving' || !selectedAxisId || axisBoundsInvalid}>应用坐标轴设置</button></div>
               </form>
             )}
 
             {parameterTab === 'legend' && (
               <form className="parameter-operation-form" onSubmit={(event) => { event.preventDefault(); void applyLegendSettings() }}>
-                <section className="parameter-section parameter-section--target"><h3>图例</h3><p className="parameter-note">显示、位置和排版会合并为一次图例修改。</p></section>
+                <section className="parameter-section parameter-section--target"><h3>图例</h3></section>
                 {(editCapabilities.has('legend_visibility') || editCapabilities.has('legend_position')) && <section className="parameter-section"><h3>显示与位置</h3>{editCapabilities.has('legend_visibility') && <label className="parameter-check"><input aria-label="显示图例" type="checkbox" checked={legendVisible} onChange={(event) => setLegendVisible(event.target.checked)} /><span>显示图例</span></label>}{editCapabilities.has('legend_position') && <label><span>位置</span><select aria-label="图例位置" value={legendPlacement} onChange={(event) => setLegendPlacement(event.target.value)}><option value="inside">图内</option><option value="outside_right">图外右侧</option><option value="outside_bottom">图外下方</option></select></label>}</section>}
                 {legendParameters.has('columns') && <section className="parameter-section"><h3>排版与边框</h3>{legendParameters.has('title') && <label><span>标题</span><input aria-label="图例标题" value={legendTitle} onChange={(event) => setLegendTitle(event.target.value)} /></label>}<label><span>列数</span><input aria-label="图例列数" type="number" min="1" max="8" value={legendColumns} onChange={(event) => setLegendColumns(event.target.valueAsNumber)} /></label>{legendParameters.has('font_size_pt') && <label><span>字号</span><div className="unit-input"><input aria-label="图例字号" type="number" min="5" max="72" step="0.5" value={legendFontSize} onChange={(event) => setLegendFontSize(event.target.valueAsNumber)} /><span>pt</span></div></label>}{legendParameters.has('font_color') && <label><span>文字颜色</span><input aria-label="图例文字颜色" type="color" value={legendFontColor} onChange={(event) => setLegendFontColor(event.target.value)} /></label>}{legendParameters.has('frame_visible') && <label className="parameter-check"><input aria-label="图例边框" type="checkbox" checked={legendFrameVisible} onChange={(event) => setLegendFrameVisible(event.target.checked)} /><span>显示边框</span></label>}{legendFrameVisible && legendParameters.has('frame_color') && <label><span>边框颜色</span><input aria-label="图例边框颜色" type="color" value={legendFrameColor} onChange={(event) => setLegendFrameColor(event.target.value)} /></label>}</section>}
-                <div className="parameter-form-actions"><span>仅显示当前图形支持的图例设置。</span><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !legendTargetId}>应用图例设置</button></div>
+                <div className="parameter-form-actions"><button className="parameter-apply" type="submit" disabled={editState === 'saving' || !legendTargetId}>应用图例设置</button></div>
               </form>
             )}
 
-            <section className={`parameter-feedback parameter-feedback--${editState}`} aria-live="polite">
-              {editState === 'saving' ? <span>正在保存…</span> : editState === 'saved' ? <span><Check size={14} />{editMessage}</span> : editState === 'error' ? <span>{editMessage}</span> : <span>每次应用都会创建可撤销的新版本。</span>}
-            </section>
+            {editState !== 'idle' && <section className={`parameter-feedback parameter-feedback--${editState}`} aria-live="polite">
+              {editState === 'saving' ? <span>正在保存…</span> : editState === 'saved' ? <span><Check size={14} />{editMessage}</span> : <span>{editMessage}</span>}
+            </section>}
           </aside>
         )}
       </div>

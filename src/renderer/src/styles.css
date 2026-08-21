@@ -3173,13 +3173,13 @@ input[type="checkbox"] {
 }
 
 .canvas-status {
+  min-height: 24px;
   display: flex;
   align-items: center;
-  gap: 5px;
   padding: 0 11px;
-  border-top: 1px solid var(--border);
-  color: var(--faint);
-  background: var(--surface);
+  border: 0;
+  color: var(--muted);
+  background: transparent;
   font-size: 10px;
 }
 
@@ -5222,16 +5222,16 @@ input[type="checkbox"] {
 
 .selection-actions-card {
   width: min(720px, 100%);
-  min-height: 64px;
+  min-height: 48px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   margin: 10px 0 18px;
-  padding: 10px 12px;
-  border-radius: 11px;
-  background: var(--canvas);
-  box-shadow: var(--shadow-sm);
+  padding: 8px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .selection-actions-card__icon {
@@ -5244,21 +5244,13 @@ input[type="checkbox"] {
   background: var(--surface-2);
 }
 
-.selection-actions-card > div {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-
-.selection-actions-card > div > span,
-.selection-actions-card small {
-  color: var(--muted);
-  font-size: 10px;
-}
-
 .selection-actions-card strong {
+  min-width: 0;
+  overflow: hidden;
   font-size: 12px;
   font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .selection-actions-card > button {
@@ -5334,40 +5326,26 @@ input[type="checkbox"] {
   list-style: none;
 }
 
-.agent-plan__context {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-soft);
-  color: var(--muted);
-  background: #fafafa;
-  font-size: 11.5px;
-}
-
-.agent-plan__context span { display: inline-flex; gap: 6px; }
-.agent-plan__context strong { color: var(--ink); }
-.agent-plan__context em { color: var(--muted-strong); font-style: normal; }
-
 .agent-context-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: #fafafa;
+  gap: 24px;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
 }
 
 .agent-context-card {
   min-width: 0;
-  min-height: 58px;
+  min-height: 30px;
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 10px;
-  border-radius: 9px;
-  background: var(--canvas);
-  box-shadow: inset 0 0 0 1px var(--border-soft);
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .agent-context-card > svg {
@@ -5376,18 +5354,8 @@ input[type="checkbox"] {
   color: var(--muted-strong);
 }
 
-.agent-context-card > div {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.agent-context-card span {
-  color: var(--muted);
-  font-size: 10px;
-}
-
 .agent-context-card strong {
+  min-width: 0;
   overflow: hidden;
   font-size: 11.5px;
   font-weight: 650;
@@ -5466,19 +5434,21 @@ input[type="checkbox"] {
 .conversation-history-message--warning .agent-response > p { color: var(--warning); }
 
 .conversation-activity { margin: 4px 0 16px; }
+.conversation-activity .agent-avatar { display: none; }
+.conversation-activity .agent-response { flex: 0 1 auto; }
 .activity-message {
   min-height: 36px;
   display: flex;
   align-items: center;
   gap: 10px;
   width: fit-content;
-  padding: 7px 9px 7px 11px;
+  padding: 4px 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   color: var(--muted-strong);
-  background: var(--canvas);
+  background: transparent;
   font-size: 11.5px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .activity-message button {
@@ -5486,12 +5456,16 @@ input[type="checkbox"] {
   align-items: center;
   gap: 4px;
   margin-left: 5px;
-  padding: 4px 7px;
-  border: 1px solid var(--border);
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 0;
   border-radius: 6px;
-  background: var(--canvas);
-  font-size: 10px;
+  color: #ffffff;
+  background: var(--primary);
+  font-size: 11px;
 }
+
+.activity-message button:hover { background: var(--primary-hover); }
 
 .activity-pulse {
   width: 18px;
@@ -5512,20 +5486,6 @@ input[type="checkbox"] {
 .activity-message__copy strong {
   color: var(--ink);
   font-size: 11.5px;
-  font-weight: 650;
-}
-
-.activity-message__copy span {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.activity-message__kind {
-  padding: 3px 7px;
-  border-radius: 999px;
-  color: var(--muted-strong);
-  background: var(--surface-2);
-  font-size: 10px;
   font-weight: 650;
 }
 

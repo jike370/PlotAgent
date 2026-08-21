@@ -50,7 +50,7 @@ import {
   type ExportRecordView,
   type ProductNotice,
 } from './components/ConversationWorkspace'
-import { FocusEditor } from './components/FocusEditor'
+import { FocusEditor, type ParameterTab } from './components/FocusEditor'
 import { Sidebar } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
@@ -238,6 +238,7 @@ export function App(): React.JSX.Element {
   const [redoStack, setRedoStack] = useState<PlotHistoryEntry[]>([])
   const [providerOpen, setProviderOpen] = useState(false)
   const [providerNotice, setProviderNotice] = useState<ProductNotice>()
+  const [focusParameterTabs, setFocusParameterTabs] = useState<Record<string, ParameterTab>>({})
 
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [tasksOpen, setTasksOpen] = useState(false)
@@ -1505,7 +1506,7 @@ export function App(): React.JSX.Element {
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
           <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
-        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel onClose={() => setScreen('workspace')} />}
+        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel initialParameterTab={focusParameterTabs[plot.plotId]} onParameterTabChange={(tab) => setFocusParameterTabs((current) => ({ ...current, [plot.plotId]: tab }))} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)

@@ -589,7 +589,9 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '上传数据' }))
-    expect(await screen.findByText('当前图形')).toBeInTheDocument()
+    expect(await screen.findByText('K01 折线图')).toBeInTheDocument()
+    expect(screen.queryByText('当前图形')).not.toBeInTheDocument()
+    expect(screen.queryByText('下一步检查字段与数据样本')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     expect(screen.getByRole('heading', { name: '数据预览与字段绑定' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
@@ -1377,7 +1379,11 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('字段绑定')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('时间')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('创建 K01')
-    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('K01 · 新图')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('K01 折线图 · 新图')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('作用对象')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('使用数据')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('预计结果')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('原始数据 · 前 3 行')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('plot:one · v1')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成'))
@@ -1718,6 +1724,30 @@ describe('PlotAgent real desktop workflow', () => {
       '常规', '系列', '坐标轴', '图例',
     ])
     expect(screen.queryByText('批次 B-024')).not.toBeInTheDocument()
+  })
+
+  it('keeps the selected editor tab after a versioned edit remounts the plot', async () => {
+    const user = userEvent.setup()
+    let version = 0
+    const actions: JsonValue[] = []
+    installApi(fakeDesktop({
+      executePlotAction: vi.fn(async (input) => {
+        version += 1
+        actions.push(input.action)
+        return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
+      }),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '编辑图形' }))
+    await user.click(await screen.findByRole('tab', { name: '系列' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: '线型' }), 'dash')
+    await user.click(screen.getByRole('button', { name: '应用系列样式' }))
+
+    expect(await screen.findByText('版本 v2')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '系列' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('combobox', { name: '线型' })).toHaveValue('dash')
   })
 
   it('does not silently accumulate browsed worksheets in the Agent context', async () => {
