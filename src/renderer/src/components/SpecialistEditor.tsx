@@ -103,7 +103,6 @@ export function SpecialistEditor({
           <label><span>边框宽度</span><div className="unit-input"><input aria-label="柱与面积边框宽度" type="number" min="0.1" max="20" step="0.1" value={edgeWidth} onChange={(event) => setEdgeWidth(event.target.valueAsNumber)} /><span>pt</span></div></label>
           <label><span>宽度比例</span><input aria-label="柱宽比例" type="number" min="0.05" max="1" step="0.05" value={widthRatio} onChange={(event) => setWidthRatio(event.target.valueAsNumber)} /></label>
           <label><span>不透明度</span><input aria-label="柱与面积不透明度" type="number" min="0.05" max="1" step="0.05" value={barAlpha} onChange={(event) => setBarAlpha(event.target.valueAsNumber)} /></label>
-          <p className="parameter-note">宽度按类别间距成比例计算，分组数变化时自动重排。</p>
           <button className="parameter-apply" type="submit" disabled={disabled}>应用柱与面积样式</button>
         </form>
       )}
@@ -225,7 +224,6 @@ export function SpecialistEditor({
         }}>
           <h3>图型固定参数</h3>
           {plot.chartId === 'X24' && <label><span>累计参考线</span><div className="unit-input"><input aria-label="帕累托参考百分比" type="number" min="0" max="100" step="1" value={paretoReference} onChange={(event) => setParetoReference(event.target.valueAsNumber)} /><span>%</span></div></label>}
-          <p className="parameter-note">这里只开放该图定义不可分割、且可在 Origin 中保留的参数。</p>
           <button className="parameter-apply" type="submit" disabled={disabled}>应用图型参数</button>
         </form>
       )}

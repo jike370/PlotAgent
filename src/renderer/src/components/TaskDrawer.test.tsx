@@ -92,6 +92,7 @@ describe('TaskDrawer', () => {
     expect(within(dialog).getByText(/1\/2 项已完成/)).toBeInTheDocument()
     expect(within(dialog).getByText('plot:kept · v2')).toBeInTheDocument()
     expect(within(dialog).getByRole('alert')).toHaveTextContent('诊断 diag:safe-1')
+    expect(within(dialog).getByText('技术详情')).toBeInTheDocument()
     fireEvent.click(within(dialog).getByRole('button', { name: '仅重试失败项' }))
     expect(onRetryPlan).toHaveBeenCalledWith('plan:partial')
     fireEvent.click(within(dialog).getByRole('button', { name: '保留成功项并结束' }))

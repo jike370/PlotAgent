@@ -836,7 +836,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByText('荧光强度')).toBeInTheDocument()
-    expect(screen.getAllByText('浮点数', { exact: true })).toHaveLength(2)
+    expect(screen.getAllByTitle(/数值 · 浮点数/)).toHaveLength(2)
     expect(screen.getByText('a.u.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')

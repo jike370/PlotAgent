@@ -132,7 +132,7 @@ export function TaskDrawer({
     <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <aside ref={dialogRef} className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-title" tabIndex={-1}>
         <header>
-          <div><h2 id="task-title">任务中心</h2><p>状态来自本地 Core，关闭窗口后仍可恢复。</p></div>
+          <div><h2 id="task-title">任务中心</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭任务中心"><X size={18} /></button>
         </header>
         <div className="task-tabs" aria-label="任务范围">
@@ -147,7 +147,6 @@ export function TaskDrawer({
             <div className="task-item__icon"><LoaderCircle className="spin" size={17} /></div>
             <div className="task-item__content">
               <header><strong>Agent 绘图任务</strong><span>{runtimeEvent.label}</span></header>
-              <p>{runtimeEvent.taskId}</p>
               <div className="task-item__actions"><button type="button" onClick={() => onCancel(runtimeEvent.taskId as string)}><X size={14} />停止任务</button></div>
             </div>
           </article>}
@@ -188,9 +187,13 @@ export function TaskDrawer({
                       <small>{item.outputPlot ? `${item.outputPlot.plotId} · v${item.outputPlot.plotVersion}` : skipped.has(item.itemId) ? '已跳过' : durableStateLabels[item.state] ?? item.state}</small>
                       {item.failure && <div role="alert" className="task-subitem__failure">
                         <p>{item.failure.message}</p>
-                        <small>阶段：绘图引擎执行与验证 · 类别：{failureCategoryLabels[item.failure.category ?? ''] ?? item.failure.category ?? '技术错误'}</small>
-                        <small>{sideEffectLabel(item.failure.sideEffectState)} · 下一步：{item.failure.retryable ? '仅重试此失败项' : item.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
-                        {item.failure.diagnosticId && <small>诊断 {item.failure.diagnosticId}</small>}
+                        <small>下一步：{item.failure.retryable ? '仅重试此失败项' : item.failure.requiresUser ? '修改要求或字段绑定' : '修改后重试，或跳过此项'}</small>
+                        <details className="task-failure-details">
+                          <summary>技术详情</summary>
+                          <small>阶段：绘图引擎执行与验证 · 类别：{failureCategoryLabels[item.failure.category ?? ''] ?? item.failure.category ?? '技术错误'}</small>
+                          <small>{sideEffectLabel(item.failure.sideEffectState)}</small>
+                          {item.failure.diagnosticId && <small>诊断 {item.failure.diagnosticId}</small>}
+                        </details>
                       </div>}
                     </div>
                   ))}
@@ -214,7 +217,7 @@ export function TaskDrawer({
                 <div className="task-item__content">
                   <header><strong>{task.label ?? '本地后台任务'}</strong><span>{legacyStateLabels[task.state]}</span></header>
                   <p>{task.error?.message ?? (task.progress?.total ? `${task.progress.completed}/${task.progress.total} ${task.progress.unit}` : legacyStateLabels[task.state])}</p>
-                  {task.error && <small>诊断 {task.error.code}</small>}
+                  {task.error && <details className="task-failure-details"><summary>技术详情</summary><small>诊断 {task.error.code}</small></details>}
                 </div>
                 {!terminal && <button type="button" onClick={() => onCancel(task.taskId)} aria-label={`取消任务 ${task.label ?? task.taskId}`}><X size={15} /></button>}
               </article>

@@ -343,7 +343,7 @@ describe('product plot state', () => {
     })
 
     expect(plan?.steps[0]).toMatchObject({
-      detail: '1 个数据来源 · 2 个字段角色 · 2 项数据处理 · 0 项视觉修改',
+      detail: '2 个字段角色 · 2 项数据处理',
       dataOperations: ['筛选：温度 ≥ 30', '排序：Response_mV 降序'],
     })
   })

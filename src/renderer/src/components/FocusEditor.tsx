@@ -11,7 +11,6 @@ import {
   Image,
   Layers3,
   Link2,
-  Lock,
   Maximize2,
   Move,
   Redo2,
@@ -668,7 +667,6 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
               ] as [ScopeMode, string][]).map(([value, label]) => <button key={value} type="button" className={scope === value ? 'is-active' : ''} disabled={Boolean(plot) && value !== 'current'} title={Boolean(plot) && value !== 'current' ? '批量样式应用将在批次审阅中开放' : undefined} onClick={() => setScope(value)}>{label}</button>)}
             </div>
             <div className="stage-meta">
-              <span><Lock size={13} />原始数据只读</span>
               <span><Eye size={13} />{simplePanel ? '当前渲染预览' : '预览 2,406 / 2,406 点'}</span>
               <button type="button"><Maximize2 size={14} />适合窗口</button>
             </div>

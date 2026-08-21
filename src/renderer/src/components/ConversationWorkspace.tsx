@@ -166,13 +166,32 @@ function displayPhysicalType(type: string): string {
   return physicalTypes[type.toLocaleLowerCase('en-US')] ?? type
 }
 
+function isExpectedPhysicalType(logicalType: string, physicalType: string): boolean {
+  const logical = logicalType.toLocaleLowerCase('en-US')
+  const physical = physicalType.toLocaleLowerCase('en-US')
+  const expected: Record<string, Set<string>> = {
+    numeric: new Set(['float64', 'float32', 'int64', 'int32']),
+    number: new Set(['float64', 'float32', 'int64', 'int32']),
+    integer: new Set(['int64', 'int32']),
+    float: new Set(['float64', 'float32', 'int64', 'int32']),
+    decimal: new Set(['float64', 'float32', 'int64', 'int32']),
+    categorical: new Set(['string', 'object']),
+    string: new Set(['string', 'object']),
+    datetime: new Set(['datetime64']),
+    boolean: new Set(['bool', 'boolean']),
+  }
+  return expected[logical]?.has(physical) === true
+}
+
 function FieldMeta({ field }: { field: ProductDataset['fields'][number] }): React.JSX.Element {
   const unit = field.unit.trim()
   const declaredUnit = unit.length > 0 && !['未声明', 'unknown', 'none'].includes(unit.toLocaleLowerCase('en-US'))
+  const physicalType = displayPhysicalType(field.physicalType)
+  const showPhysicalType = !isExpectedPhysicalType(field.logicalType, field.physicalType)
   return (
-    <small className="field-meta">
+    <small className="field-meta" title={`${displayLogicalType(field.logicalType)} · ${physicalType}${declaredUnit ? ` · ${unit}` : ''}`}>
       <span>{displayLogicalType(field.logicalType)}</span>
-      <span>{displayPhysicalType(field.physicalType)}</span>
+      {showPhysicalType && <span>{physicalType}</span>}
       {declaredUnit && <span>{unit}</span>}
     </small>
   )
@@ -242,11 +261,6 @@ function Startup({
   return (
     <div className="conversation-scroll conversation-scroll--empty">
       <section className="startup-empty" aria-label="开始使用 PlotAgent">
-        <div className="startup-dialog" role="status">
-          <span className="startup-dialog__avatar" aria-hidden="true"><FileChartColumn size={18} /></span>
-          <span>请先导入数据</span>
-        </div>
-
         {offline && (
           <div className="startup-core-alert" role="status">
             {core.phase === 'starting' || core.phase === 'restarting'
@@ -315,9 +329,9 @@ function DatasetObject({
       <div className="dataset-stats" aria-label="数据质量摘要">
         <span><strong>{activeDataset.rowCount.toLocaleString('zh-CN')}</strong> 行</span>
         <span><strong>{activeDataset.fieldCount}</strong> 字段</span>
-        <span><strong>{activeDataset.missingCount}</strong> 缺失</span>
-        <span><strong>{activeDataset.nonFiniteCount}</strong> 非有限值</span>
-        <span><strong>{activeDataset.coordinateKinds.length || 1}</strong> 来源坐标类型</span>
+        {activeDataset.missingCount > 0 && <span><strong>{activeDataset.missingCount}</strong> 缺失</span>}
+        {activeDataset.nonFiniteCount > 0 && <span><strong>{activeDataset.nonFiniteCount}</strong> 非有限值</span>}
+        {activeDataset.coordinateKinds.length > 1 && <span><strong>{activeDataset.coordinateKinds.length}</strong> 种来源坐标</span>}
       </div>
       {Object.keys(activeDataset.instrumentMetadata).length > 0 && <dl className="dataset-instrument-metadata" aria-label="仪器信息">
         <dt>仪器信息</dt>
@@ -348,7 +362,7 @@ function DatasetObject({
         </div>
       </section>
       {datasets.length > 1 && <details className="agent-dataset-context">
-        <summary>提供给 Agent 的数据表 <span>{selectedWorkflowSourceIds.length}/8</span></summary>
+        <summary>本次任务数据 <span>{selectedWorkflowSourceIds.length}/8</span></summary>
         <div>
           {datasets.map((dataset) => {
             const active = dataset.datasetId === activeDataset.datasetId
@@ -495,7 +509,7 @@ function MappingObject({
     <div className="mapping-review" role="group" aria-labelledby="mapping-title">
       <header className="mapping-data-context">
         <span className="object-icon object-icon--mapping" aria-hidden="true"><TableProperties size={17} /></span>
-        <div><h3 id="mapping-title">数据预览与字段绑定</h3><p>{dataset.displayName} · 原始数据只读</p></div>
+        <div><h3 id="mapping-title">数据预览与字段绑定</h3><p>{dataset.displayName}</p></div>
       </header>
       <div className="mapping-review__toolbar">
         <span>
@@ -504,7 +518,7 @@ function MappingObject({
             : `预览前 ${Math.min(dataset.sampleRows.length, 5)} 行`}</strong>
           ，共 {dataset.rowCount.toLocaleString('zh-CN')} 行
         </span>
-        <span>字段角色位于原始列名上方</span>
+        <span>点击角色可修改</span>
       </div>
       <section className="mapping-preview-object">
         <div className="mapping-preview-scroll" tabIndex={0} aria-label="字段映射和数据预览，可横向滚动">
@@ -739,7 +753,7 @@ function ConversationComposer({
         }} onKeyDown={(event) => {
           if (event.key === 'Escape' && mentionOpen) { event.preventDefault(); setMentionOpen(false); return }
           if (event.key === 'Enter' && !event.shiftKey && !mentionOpen) { event.preventDefault(); submit() }
-        }} placeholder={plotReferences.length > 0 ? '通过 @ 指定需编辑的对象' : '描述绘图要求；缺少数据或图类时，我会告诉你下一步'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
+        }} placeholder={plotReferences.length > 0 ? '通过 @ 指定需编辑的对象' : '描述绘图要求'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
         {mentionOpen && <div className="plot-mention-menu" role="listbox" aria-label="选择作用图形">
           {plotReferences.map(({ reference, plot: candidate }) => {
             const chart = chartCatalog.find((item) => item.id === candidate.chartId)
@@ -881,7 +895,7 @@ function WorkflowPlanObject({
             <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
               <div className="mapping-column-head">
                 <span className="mapping-role-badge" data-empty={!previewRoles.has(field.fieldId)}>
-                  {previewRoles.has(field.fieldId) ? displayWorkflowRole(previewRoles.get(field.fieldId)!) : '未使用'}
+                  {previewRoles.has(field.fieldId) ? displayWorkflowRole(previewRoles.get(field.fieldId)!) : <span aria-label="未使用">—</span>}
                 </span>
                 <strong title={field.name}>{displayFieldName(field.name)}</strong>
                 <FieldMeta field={field} />

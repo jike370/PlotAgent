@@ -1006,6 +1006,11 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     const errorSideEffectState = durableError === undefined ? undefined : stringValue(durableError, 'side_effect_state')
     const errorRequiresUser = durableError?.requires_user === true
     const diagnosticId = durableError === undefined ? undefined : stringValue(durableError, 'diagnostic_id')
+    const detailParts = [
+      ...(stepBindings.length > 0 ? [`${stepBindings.length} 个字段角色`] : []),
+      ...(dataOperations.length > 0 ? [`${dataOperations.length} 项数据处理`] : []),
+      ...(taskKind === 'update_data' && changes.length > 0 ? [`${changes.length} 项视觉修改`] : []),
+    ]
     return [{
       taskItemId: item.item_id,
       actionType: 'workflow_item',
@@ -1013,8 +1018,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       profileId,
       title: `${taskKind === 'edit' ? '修改' : taskKind === 'update_data' ? '更新数据' : '创建'} ${profileId}`,
       detail: taskKind === 'edit'
-        ? `${changes.length} 项视觉修改`
-        : `${Array.isArray(item.sources) ? item.sources.length : 0} 个数据来源 · ${stepBindings.length} 个字段角色 · ${dataOperations.length} 项数据处理${taskKind === 'update_data' ? ` · ${changes.length} 项视觉修改` : ''}`,
+        ? changes.length > 0 ? `${changes.length} 项视觉修改` : undefined
+        : detailParts.length > 0 ? detailParts.join(' · ') : undefined,
       sourceDatasetIds: [...sourceIds.values()],
       dataOperations,
       bindings: stepBindings,
