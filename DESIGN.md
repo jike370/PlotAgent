@@ -100,7 +100,7 @@ description: 面向通用科研用户的对话式本地绘图工作台
 
 ## 5. Reference component grammar
 
-Beautiful UI 提供 AI 界面的交互语法和视觉参照，不提供 PlotAgent 的领域模型。采用 Loading/Thinking、Approval、Task Rows、Chat、Prompt Bar、Diff/Table、Sidebar 和 Fine-tune Inspector 八类模式；不采用与当前产品无关的 Flowchart、Code Block、Recommendation/Confidence 等组件。所有组件必须以 PlotAgent 的真实状态、字段和动作重新实现。
+Beautiful UI 提供 AI 界面的交互语法和视觉参照，不提供 PlotAgent 的领域模型。当前采用 Loading/Thinking、Approval Card、Tool Chips、Task Rows、Chat、Prompt Bar、Records/Context Cards、Sidebar、Fine-tune Inspector 与 Selection Actions；所有组件必须以 PlotAgent 的真实状态、字段和动作重新实现。暂不采用 Recommendation/Confidence、Streaming Text、Diff Table、Flowchart、Insight Cards、Code Block：前两项分别缺少可信推荐合同和真实流式事件，Diff 缺少结构化前后值，其余组件暂时没有必须承载的主线状态。后续只有领域合同先成立时才启用，不为了凑齐组件而展示假信息。
 
 为控制施工风险，本阶段不整包引入 Tailwind、shadcn 或另一套 design-system runtime，也不复制参考站源码。现有 React、Lucide 与 CSS token 足以表达已选模式；只有未来出现复杂且无法可靠自建的无障碍控件时，才按单组件引入开源 primitive。未采用方案包括整站换壳、引入 assistant-ui 和迁移至 Tailwind/shadcn，原因是会扩大样式迁移面、测试面和桌面包依赖，而不会直接增加绘图能力。
 

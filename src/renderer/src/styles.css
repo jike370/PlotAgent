@@ -2866,12 +2866,12 @@ input[type="checkbox"] {
 
 .focus-title h2 {
   margin: 0 0 1px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .focus-title span {
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: 10px;
 }
 
 .focus-history-tools,
@@ -2888,7 +2888,7 @@ input[type="checkbox"] {
 .focus-version-label {
   padding: 0 8px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2902,7 +2902,7 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .focus-history-tools button:hover,
@@ -2985,7 +2985,7 @@ input[type="checkbox"] {
 }
 
 .focus-body.is-simple.has-panel {
-  grid-template-columns: minmax(0, 1fr) 292px;
+  grid-template-columns: minmax(0, 1fr) 336px;
 }
 
 .focus-stage {
@@ -3013,7 +3013,7 @@ input[type="checkbox"] {
 .scope-control > span {
   margin-right: 5px;
   color: var(--faint);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .scope-control button {
@@ -3023,7 +3023,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--muted);
   background: transparent;
-  font-size: 8.5px;
+  font-size: 10.5px;
 }
 
 .scope-control button.is-active {
@@ -3038,7 +3038,7 @@ input[type="checkbox"] {
   gap: 11px;
   margin-left: auto;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .stage-meta span,
@@ -3054,7 +3054,7 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .plot-stage {
@@ -3180,7 +3180,7 @@ input[type="checkbox"] {
   border-top: 1px solid var(--border);
   color: var(--faint);
   background: var(--surface);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .zoom-status {
@@ -3483,6 +3483,90 @@ input[type="checkbox"] {
   border-radius: 6px;
   background: var(--canvas);
   font-size: 8.5px;
+}
+
+/* Beautiful UI-inspired fine-tune inspector: one calm surface, compact controls. */
+.parameter-panel {
+  background: #f5f6f7;
+}
+
+.parameter-panel > header {
+  min-height: 58px;
+  padding: 0 14px;
+  background: var(--canvas);
+}
+
+.parameter-panel > header strong { font-size: 13px; }
+.parameter-panel > header span { font-size: 10px; }
+
+.parameter-tabs {
+  gap: 3px;
+  padding: 6px 8px;
+  background: var(--canvas);
+}
+
+.parameter-tabs button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 10.5px;
+}
+
+.parameter-tabs button.is-active {
+  color: var(--ink-strong);
+  background: var(--surface-2);
+}
+
+.parameter-section {
+  padding: 14px;
+  background: var(--canvas);
+}
+
+.parameter-section--target { background: #fafafa; }
+.parameter-section h3 { margin-bottom: 10px; font-size: 12px; }
+.parameter-subsection summary { font-size: 11px; }
+
+.parameter-section label {
+  min-height: 40px;
+  font-size: 11px;
+}
+
+.parameter-section select,
+.parameter-section label > input:not([type='checkbox']):not([type='color']),
+.unit-input {
+  width: 132px;
+  height: 32px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.unit-input input { font-size: 11px; }
+.unit-input span { font-size: 9.5px; }
+
+.parameter-section input[type='color'] {
+  width: 40px;
+  height: 30px;
+  border-radius: 7px;
+}
+
+.parameter-note,
+.parameter-form-actions > span { font-size: 9.5px; }
+
+.parameter-apply {
+  min-height: 34px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.parameter-feedback {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 10.5px;
+}
+
+.parameter-form-actions {
+  padding: 11px 14px 14px;
+  background: rgb(255 255 255 / 96%);
 }
 
 .thumbnail-dock {
@@ -5136,6 +5220,62 @@ input[type="checkbox"] {
 .chart-selection-strip strong { font-size: 12px; }
 .chart-selection-strip span { color: var(--muted); font-size: 11px; }
 
+.selection-actions-card {
+  width: min(720px, 100%);
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 18px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--canvas);
+  box-shadow: var(--shadow-sm);
+}
+
+.selection-actions-card__icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--muted-strong);
+  background: var(--surface-2);
+}
+
+.selection-actions-card > div {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.selection-actions-card > div > span,
+.selection-actions-card small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.selection-actions-card strong {
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.selection-actions-card > button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--ink-strong);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.selection-actions-card > button:hover {
+  background: var(--surface-3);
+}
+
 .chart-selection-strip button,
 .agent-plan__actions button:not(.primary-button) {
   min-height: 30px;
@@ -5208,6 +5348,52 @@ input[type="checkbox"] {
 .agent-plan__context span { display: inline-flex; gap: 6px; }
 .agent-plan__context strong { color: var(--ink); }
 .agent-plan__context em { color: var(--muted-strong); font-style: normal; }
+
+.agent-context-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: #fafafa;
+}
+
+.agent-context-card {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 9px;
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+}
+
+.agent-context-card > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--muted-strong);
+}
+
+.agent-context-card > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.agent-context-card span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.agent-context-card strong {
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .agent-plan__data-preview {
   margin: 14px;
@@ -5317,6 +5503,32 @@ input[type="checkbox"] {
   flex: 0 0 auto;
 }
 
+.activity-message__copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.activity-message__copy strong {
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.activity-message__copy span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.activity-message__kind {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--muted-strong);
+  background: var(--surface-2);
+  font-size: 10px;
+  font-weight: 650;
+}
+
 .activity-pulse i {
   width: 3px;
   height: 6px;
@@ -5382,8 +5594,35 @@ input[type="checkbox"] {
 .agent-plan-step__bindings .agent-plan-step__section-label dt { color: var(--text); font-weight: 650; }
 .agent-plan-step__operations { margin-top: 8px; }
 .agent-plan-step__operations > strong { font-size: 10px; font-weight: 650; }
-.agent-plan-step__operations ol { display: grid; gap: 3px; margin: 4px 0 0; padding-left: 18px; color: var(--muted-strong); font-size: 11px; line-height: 1.45; }
-.agent-plan-step__changes { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 17px; color: var(--muted-strong); font-size: 11px; line-height: 1.45; }
+.tool-chip-list,
+.agent-plan-step__changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tool-chip-list li,
+.agent-plan-step__changes li {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  color: var(--muted-strong);
+  background: var(--surface-2);
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.tool-chip-list svg,
+.agent-plan-step__changes svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
 .agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
 
 .agent-plan__warnings,

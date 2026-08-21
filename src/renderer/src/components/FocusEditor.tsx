@@ -706,7 +706,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
 
         {panelOpen && (
           <aside className="parameter-panel" aria-label="图形参数">
-            <header><div><strong>图形参数</strong><span>{scope === 'current' ? active.title : scope === 'selected' ? `${selected.length} 张选中图` : '批次 B-024'}</span></div><button type="button" onClick={() => setPanelOpen(false)} aria-label="关闭参数面板"><X size={17} /></button></header>
+            <header><div><strong>调整图形</strong><span>{scope === 'current' ? `${active.title} · v${plot?.plotVersion ?? 1}` : scope === 'selected' ? `${selected.length} 张选中图` : '批次 B-024'}</span></div><button type="button" onClick={() => setPanelOpen(false)} aria-label="关闭参数面板"><X size={17} /></button></header>
             <div className="parameter-tabs" role="tablist" aria-label="编辑类别">
               {([
                 ['general', '常规'],

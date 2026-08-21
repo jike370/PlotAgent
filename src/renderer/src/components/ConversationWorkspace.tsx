@@ -857,10 +857,19 @@ function WorkflowPlanObject({
         <div><h3 id={`plan-${plan.planId}`}>任务计划</h3><span>{planSummary}</span></div>
         <span className="agent-plan__state">{plan.state === 'running' && <LoaderCircle className="spin" size={13} />}{stateLabels[plan.state] ?? plan.state}</span>
       </header>
-      <div className="agent-plan__context">
-        <span><strong>对象</strong>{visibleObjectLabel}<span className="sr-only" aria-hidden="true">{objectLabel}</span></span>
-        <span><strong>数据</strong>{sourceCount} 个来源 · {bindingSummary}</span>
-        <span><strong>结果</strong>{plan.steps.length} 张可预览、可导出的图</span>
+      <div className="agent-context-cards" role="list" aria-label="任务上下文">
+        <article className="agent-context-card" role="listitem">
+          <FileChartColumn size={16} aria-hidden="true" />
+          <div><span>作用对象</span><strong>{visibleObjectLabel}</strong><span className="sr-only" aria-hidden="true">{objectLabel}</span></div>
+        </article>
+        <article className="agent-context-card" role="listitem">
+          <TableProperties size={16} aria-hidden="true" />
+          <div><span>使用数据</span><strong>{sourceCount} 个来源 · {bindingSummary}</strong></div>
+        </article>
+        <article className="agent-context-card" role="listitem">
+          <Images size={16} aria-hidden="true" />
+          <div><span>预计结果</span><strong>{plan.steps.length} 张可预览、可导出的图</strong></div>
+        </article>
       </div>
       {previewSources.map(({ dataset: previewDataset, roles: previewRoles }) => <section key={previewDataset.datasetId} className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
         <header><strong>{previewDataset.displayName}</strong><span>原始数据只读 · 前 3 行</span></header>
@@ -903,10 +912,10 @@ function WorkflowPlanObject({
               </dl>}
               {step.dataOperations.length > 0 && <div className="agent-plan-step__operations" aria-label={`${step.title} 数据处理`}>
                 <strong>数据处理</strong>
-                <ol>{step.dataOperations.map((operation, index) => <li key={`${index}:${operation}`}>{displayDataOperation(operation)}</li>)}</ol>
+                <ul className="tool-chip-list">{step.dataOperations.map((operation, index) => <li key={`${index}:${operation}`}><TableProperties size={12} aria-hidden="true" />{displayDataOperation(operation)}</li>)}</ul>
               </div>}
               {step.changes.length > 0 && <ul className="agent-plan-step__changes" aria-label={`${step.title} 视觉修改`}>
-                {step.changes.map((change) => <li key={change}>{change}</li>)}
+                {step.changes.map((change) => <li key={change}><Settings2 size={12} aria-hidden="true" />{change}</li>)}
               </ul>}
               {step.outputPlot && <p className="agent-plan-step__output">{step.outputPlot.plotId} · v{step.outputPlot.plotVersion}</p>}
               {step.failure && <div className="agent-plan-step__failure" role="alert">
@@ -969,8 +978,14 @@ function ActivityMessage({
     ? 'OPJU 已生成，正在完成保存…'
     : '正在生成并验证 OPJU…'
   else if (busyAction.startsWith('export-')) label = '正在生成导出文件…'
+  const activityKind = busyAction === 'agent'
+    ? 'Agent'
+    : busyAction.startsWith('export-') ? '导出工具' : '本地工具'
+  const progressLabel = task?.progress?.total
+    ? `${task.progress.completed}/${task.progress.total} ${task.progress.unit}`
+    : undefined
   return <AgentMessage className="conversation-activity" live>
-    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><span>{label}</span>
+    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong>{label}</strong>{progressLabel && <span>{progressLabel}</span>}</div><span className="activity-message__kind">{activityKind}</span>
       {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
   </AgentMessage>
@@ -1150,7 +1165,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
-            {selectedChart && activeDataset && !plot && <section className="chart-selection-strip"><div><strong>{selectedChart.id} {selectedChart.name}</strong><span>已选择图形</span></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段映射' : '手动映射'}</button></section>}
+            {selectedChart && activeDataset && !plot && <section className="selection-actions-card" aria-label="当前图形选择"><span className="selection-actions-card__icon"><FileChartColumn size={16} aria-hidden="true" /></span><div><span>当前图形</span><strong>{selectedChart.id} {selectedChart.name}</strong><small>下一步检查字段与数据样本</small></div><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段绑定' : '检查字段绑定'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>

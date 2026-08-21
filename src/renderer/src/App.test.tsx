@@ -417,7 +417,7 @@ async function openSampleAndCreatePlot(user: ReturnType<typeof userEvent.setup>)
   await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
   await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
   await user.click(screen.getByRole('button', { name: '选择此图形' }))
-  await user.click(screen.getByRole('button', { name: '手动映射' }))
+  await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
   await user.click(screen.getByRole('button', { name: '确认并绘图' }))
   expect(await screen.findByRole('img', { name: '折线图 真实渲染预览' })).toHaveAttribute('src', expect.stringMatching(/^plotagent-resource:/))
   expect(screen.getByText('绘图完成')).toHaveClass('composer-success')
@@ -516,7 +516,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
 
     expect(await screen.findByRole('img', { name: '折线图 界面预览' })).toHaveAttribute('src', expect.stringMatching(/^data:image\/svg\+xml/))
@@ -589,8 +589,8 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '上传数据' }))
-    expect(await screen.findByText('已选择图形')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    expect(await screen.findByText('当前图形')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     expect(screen.getByRole('heading', { name: '数据预览与字段绑定' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '折线图' })).toBeInTheDocument()
   })
@@ -839,7 +839,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     expect(screen.getByRole('heading', { name: '数据预览与字段绑定' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
     expect(api.executePlotAction).toHaveBeenCalledWith(expect.objectContaining({
@@ -876,7 +876,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
 
     const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
     expect(within(review).getByText('是否确认创建')).toBeInTheDocument()
@@ -915,13 +915,13 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
 
     const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
     await user.click(within(review).getByRole('button', { name: '取消' }))
 
     expect(screen.queryByRole('group', { name: '数据预览与字段绑定' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '手动映射' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '检查字段绑定' })).toBeEnabled()
     expect(api.executePlotAction).not.toHaveBeenCalled()
   })
 
@@ -952,7 +952,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K04')
     await user.click(screen.getByRole('button', { name: /K04.*气泡图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
 
     const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
     expect(within(review).queryByRole('menuitemradio', { name: /分组/ })).not.toBeInTheDocument()
@@ -1440,7 +1440,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
     await user.click(await screen.findByRole('button', { name: /创建批次/ }))
 
@@ -1524,7 +1524,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
     await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     await user.click(screen.getByRole('button', { name: '确认并绘图' }))
 
     expect(await screen.findByRole('img', { name: '散点图 真实渲染预览' })).toBeInTheDocument()
@@ -1548,7 +1548,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K03')
     await user.click(screen.getByRole('button', { name: /K03.*散点图/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     await user.click(screen.getByRole('button', { name: '2 个数据表同图绘制' }))
 
     expect(planCombinedSources).toHaveBeenCalledWith(expect.objectContaining({
@@ -1965,7 +1965,7 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'S61')
     await user.click(screen.getByRole('button', { name: /S61.*混淆矩阵/ }))
     await user.click(screen.getByRole('button', { name: '选择此图形' }))
-    await user.click(screen.getByRole('button', { name: '手动映射' }))
+    await user.click(screen.getByRole('button', { name: '检查字段绑定' }))
     const review = screen.getByRole('group', { name: '数据预览与字段绑定' })
     await user.click(within(review).getByRole('button', { name: /时间 的绘图角色/ }))
     expect(screen.getByRole('menuitemradio', { name: '已聚合计数（可选）' })).toBeInTheDocument()
