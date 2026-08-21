@@ -7,6 +7,7 @@ from pathlib import Path
 from plotagent.engine import PlotDocumentRepository, SetTitle
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
+from scripts.build_release_visual_signatures import build_visual_signatures
 from scripts.release_matrix_actions import (
     document_for_actions,
     representative_edit_actions,
@@ -69,6 +70,25 @@ def test_offline_release_matrix_executes_306_unique_keys(tmp_path: Path) -> None
     assert (output / "REPORT.md").is_file()
     assert len(tuple((output / "artifacts").glob("*/*/plot.png"))) == 68
     assert len(tuple((output / "artifacts").glob("*/*/plot.svg"))) == 68
+
+    visual_output = tmp_path / "visual-signatures"
+    manifest = build_visual_signatures(
+        offline=output,
+        output=visual_output,
+        repository=Path(__file__).resolve().parents[2],
+    )
+    assert manifest["schema_version"] == "plotagent.release-visual-signatures.v1"
+    assert manifest["chart_count"] == 34
+    assert len(manifest["charts"]) == 34
+    assert len({chart["profile_id"] for chart in manifest["charts"]}) == 34
+    assert all(chart["chinese_name"] for chart in manifest["charts"])
+    assert all(chart["official_name"] for chart in manifest["charts"])
+    assert all(chart["template_or_process"] for chart in manifest["charts"])
+    assert all(len(chart["sha256"]) == 64 for chart in manifest["charts"])
+    assert len(tuple((visual_output / "images").glob("*.png"))) == 34
+    assert (visual_output / "index.html").is_file()
+    assert (visual_output / "visual-signatures.json").is_file()
+    assert (visual_output / "visual-signatures.csv").is_file()
 
 
 def test_representative_origin_history_uses_a_fresh_linear_edit_version(

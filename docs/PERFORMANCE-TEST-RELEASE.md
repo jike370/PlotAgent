@@ -39,6 +39,18 @@
 `representative:opju` 保持 `UNVERIFIED`，等待后续真实Origin live+fresh阶段关闭。
 离线报告不得把这34项写成PASS，也不得用历史OPJU替代当前提交的原生证据。
 
+同一离线目录还必须生成当前候选的34图视觉签名页。生成器逐图复制
+representative PNG，固定中文图类名、Origin官方名称/模板、PNG身份和当前提交；缺图、
+重复、矩阵身份漂移或HEAD不同均直接失败：
+
+```powershell
+.venv\Scripts\python.exe scripts\build_release_visual_signatures.py `
+  --offline build\release-matrix\offline-<commit>-<timestamp>
+```
+
+该页面默认状态为 `PENDING`，只有产品负责人逐图完成视觉审查后才能在最终验收记录中
+关闭；页面不能代替后续OPJU fresh reopen和机械读回。
+
 真实Origin阶段以离线目录为输入，逐图执行“生成→新进程编辑→另一新进程复核”：
 
 ```powershell
