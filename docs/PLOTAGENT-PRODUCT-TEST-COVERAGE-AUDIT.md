@@ -1,6 +1,6 @@
 # PlotAgent 产品测试覆盖审计
 
-> 状态：2026-08-21 编辑能力审计基线。
+> 状态：2026-08-22 发布候选覆盖审计基线。
 > 范围：34 个正式图类、Agent/工作流、能力目录、Windows UI、Matplotlib、Origin、持久化与导出。
 > 目的：解释既有测试为何没有发现 X38 轴范围缺口，并冻结后续测试分层，避免再用某一层全绿代替产品完整性。
 
@@ -184,4 +184,57 @@
 6. 多来源计划卡不再只展示“首项示例”，而是逐来源显示文件/工作表身份、字段角色和前三行样本。
 7. 正式桌面部分失败测试使用双重显式开关：`PLOTAGENT_ENABLE_UI_TEST_FAULTS=1` 与 `PLOTAGENT_UI_TEST_FAIL_PROFILE_ONCE=<profile>`。故障只触发一次、发生在提交前、默认完全关闭；用于证明成功项保留和失败项单独修复，不得用于发布运行。
 
-确定性门禁：Python `809 passed`；Vitest `29 files / 259 tests`；Ruff、mypy（184 个源文件）、contracts codegen `--check`、TypeScript typecheck、ESLint 和 production build 全部通过。
+确定性门禁：Python `809 passed`；Vitest `29 files / 260 tests`；Ruff、mypy（192 个源文件）、contracts codegen `--check`、TypeScript typecheck、ESLint 和 production build 全部通过。
+
+## 10. 发布覆盖账本
+
+本节把“需求是否真的被测过”与测试总数分开记账。状态只允许
+`PASS`、`FAIL`、`BLOCKED`、`UNVERIFIED` 和 `IN_PROGRESS`；只有实际观察到当前候选的
+预期结果才能写 `PASS`。单元测试、历史截图、旧提交产物和源码推断不能替代正式 UI、
+Origin fresh-reopen 或真实模型证据。
+
+本账本建立时的预冻结代码基线为 `ec4b784587635ea45922eb34ad0429506119d498`；最终候选
+必须在发布运行元数据中记录完整 HEAD。任何产品代码变化都会使候选失效，受影响项必须
+在新提交上重跑；纯文档账本提交不改变已经执行的产品代码门禁结论。
+
+| 证据编号 | 产品风险 | 当前候选必须覆盖的实际链路 | 当前状态 | 发布证据 |
+|---|---|---|---|---|
+| RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | Python 809；Vitest 260；其余门禁全绿 |
+| RC-UI-01 | 数据卡不能解释 Agent 实际看到什么 | 正式 Electron 中核对来源身份、整理后字段、类型、单位、真实样本与分页 | IN_PROGRESS | 待本轮定向 UI 目录 |
+| RC-UI-02 | 确认卡无法核对绑定和多来源 | 正式 Electron 中核对每个来源、文件/工作表/列、字段角色、数据操作和确认前无副作用 | IN_PROGRESS | 待本轮定向 UI 目录 |
+| RC-UI-03 | 任务状态和错误不可读 | 正式 Electron 中核对计划、运行阶段、部分失败、技术详情、取消与结果投影 | IN_PROGRESS | 待本轮定向 UI 目录 |
+| RC-UI-04 | 编辑器与时间线状态漂移 | 正式 Electron 中核对聚焦编辑、tab 保持、结果顺序、撤销、重做和重启恢复 | IN_PROGRESS | 待本轮定向 UI 目录 |
+| RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | IN_PROGRESS | 待本轮定向 UI 与 OPJU 产物 |
+| RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | UNVERIFIED | 待 `run_release_matrix.py` 当前候选报告 |
+| RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | UNVERIFIED | 待 Origin live/fresh 报告 |
+| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | UNVERIFIED | 待公共编辑矩阵报告 |
+| RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | UNVERIFIED | 待数据与性能矩阵报告 |
+| RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | UNVERIFIED | 待故障矩阵与正式 UI 证据 |
+| RC-BB | 组件分别正确但真实长链路失败 | 同一冻结候选的完整 Windows Electron 黑盒；覆盖 34 图代表路径、Agent、多数据任务、编辑、导出和恢复 | UNVERIFIED | 待黑盒报告、CSV、截图与产物 |
+| RC-SEQ70 | 真实模型语义与对象绑定不稳定 | 同一冻结候选的一次完整 SEQ-70；不得用重复运行挑选最好结果 | UNVERIFIED | 待 REPORT.md/report.json |
+| RC-REL | 用局部全绿代替发布结论 | 汇总以上证据和 known issues；关键范围零 FAIL、零 BLOCKED、零应测 UNVERIFIED | UNVERIFIED | 待最终发布判定 |
+
+### 10.1 34 图逐项索引
+
+以下每行最终都必须同时关联 `RC-34-OFFLINE`、`RC-34-ORIGIN` 和 `RC-34-EDIT` 的
+MatrixKey 或 case ID。未产生三类证据中的任一类时，该图不能记为发布通过。
+
+| 图类 | 图类 | 图类 | 图类 |
+|---|---|---|---|
+| K01 折线图 | K02 线点图 | K03 散点图 | K04 气泡与颜色映射散点图 |
+| K06 双向误差棒图 | K07 误差带图 | K08 柱状图 | K09 分组柱状图 |
+| K10 堆积柱状图 | K11 100% 堆积柱状图 | K12 列散点图 | K13 Tukey 箱线图 |
+| K14 小提琴图 | K15 直方图 | K18 面积图 | K19 日期时间折线图 |
+| K20 热图 | K21 相关矩阵图 | K22 填色等高线图 | K24 Trellis 分面图 |
+| S34 Nyquist 图 | S61 混淆矩阵 | X02 垂线图 | X03 棒棒糖图 |
+| X05 蜂群图 | X09 浮动柱状图 | X13 人口金字塔 | X23 双 Y 轴 Y-Y 图 |
+| X24 帕累托图 | X35 双 Y 轴柱状图 | X36 双 Y 轴柱线图 | X38 Y 偏移堆叠线图 |
+| X39 线条序列图 | X40 前后对比图 |  |  |
+
+### 10.2 防遗漏规则
+
+1. 发布汇总必须从本账本生成，不允许只报告“总测试通过数”。
+2. 同一能力在不同层分别记账：确定性测试不能替代 UI，UI 不能替代 Origin 读回，SEQ-70 不能替代状态矩阵。
+3. 探索性黑盒必须包含测试计划之外的自由操作；发现新问题后先审计同类能力族，再决定修复范围。
+4. 任何 `UNVERIFIED` 都必须说明是尚未执行、证据不足还是环境阻断；环境阻断应改记 `BLOCKED`，不能继续保留模糊状态。
+5. 修复使 HEAD 变化后，先按《实施计划》的最小回归原则判定哪些旧证据失效，再更新本账本。
