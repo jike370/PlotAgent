@@ -26,6 +26,7 @@ from plotagent.engine.backends.origin.messages import OriginWorkerRequest  # noq
 from plotagent.engine.contracts import PlotEngineAction  # noqa: E402
 from plotagent.engine.ports import EngineReadback, EngineRenderSource  # noqa: E402
 from scripts.release_matrix_actions import (  # noqa: E402
+    action_parameter_names,
     document_for_actions,
     representative_edit_actions,
 )
@@ -41,6 +42,7 @@ class EditResult:
     status: str
     plot_version: int
     target: str
+    parameters: tuple[str, ...]
     evidence: str | None
     error: str | None
 
@@ -86,6 +88,7 @@ def _failed_rows(
             status="FAIL",
             plot_version=version,
             target=str(getattr(action, "target", case.document.plot_id)),
+            parameters=tuple(sorted(action_parameter_names(action))),
             evidence=None,
             error=f"{type(error).__name__}: {error}",
         )
@@ -168,6 +171,7 @@ def execute_edit_matrix(
                         status="PASS",
                         plot_version=final_document.plot_version,
                         target=str(getattr(action, "target", case.document.plot_id)),
+                        parameters=tuple(sorted(action_parameter_names(action))),
                         evidence=(mpl_dir / "readback.json").relative_to(output).as_posix(),
                         error=None,
                     )
@@ -223,6 +227,7 @@ def execute_edit_matrix(
                         status="PASS",
                         plot_version=final_request.document.plot_version,
                         target=str(getattr(action, "target", case.document.plot_id)),
+                        parameters=tuple(sorted(action_parameter_names(action))),
                         evidence=fresh_json.relative_to(output).as_posix(),
                         error=None,
                     )
@@ -254,6 +259,7 @@ def execute_edit_matrix(
         "origin_baseline_head": baseline_metadata["git_head"],
         "profile_count": len(cases),
         "result_count": len(results),
+        "parameter_result_count": sum(len(row.parameters) for row in results),
         "failures": failures,
     }
     (output / "run-metadata.json").write_text(
@@ -264,7 +270,7 @@ def execute_edit_matrix(
         f"- Profiles: {len(cases)}\n"
         f"- PASS: {counts['PASS']}\n"
         f"- FAIL: {counts['FAIL']}\n"
-        "- 每图覆盖标题、轴、系列；具备图例能力的图额外覆盖图例。\n"
+        "- 每图按能力声明覆盖标题、轴、系列、图例、色图、误差、数据标签和图形参数。\n"
         "- Origin 每个动作形成独立线性版本，最终由另一进程 fresh 复核。\n"
         f"- 资格结论: {'GO' if counts['FAIL'] == 0 else 'NO-GO'}\n"
     )

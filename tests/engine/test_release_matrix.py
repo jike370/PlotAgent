@@ -275,6 +275,7 @@ def test_release_edit_failures_are_recorded_per_backend(tmp_path: Path) -> None:
     assert {row.backend for row in rows} == {"origin"}
     assert {row.status for row in rows} == {"FAIL"}
     assert {row.error for row in rows} == {"RuntimeError: boom"}
+    assert all(row.parameters for row in rows)
 
 
 def test_all_formal_profile_documents_and_latest_versions_survive_project_reopen(

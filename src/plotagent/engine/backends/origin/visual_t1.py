@@ -8,8 +8,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 from plotagent.engine.backends.origin.native_visual_t1 import (
+    read_axis_line_show,
+    read_color_scale_anchor,
+    read_color_scale_tick_format,
     read_color_scale_title,
     read_color_scale_title_show,
+    set_axis_line_show,
+    set_color_scale_anchor,
+    set_color_scale_tick_format,
     set_color_scale_title,
 )
 from plotagent.engine.backends.origin.readback import axis_scale_matches
@@ -232,6 +238,14 @@ def _get_plot_option(op: Any, plot_range: str, option: str) -> float:
     return float(op.lt_float("__PAT1VALUE"))
 
 
+def _get_plot_option_str(op: Any, plot_range: str, option: str) -> str:
+    if not op.lt_exec(
+        f"range __PAT1P={plot_range}; get __PAT1P {option} __PAT1TEXT$;"
+    ):
+        raise RuntimeError(f"Origin could not read back plot option {option}")
+    return str(op.get_lt_str("__PAT1TEXT"))
+
+
 def _set_plot_property(
     op: Any,
     graph: Any,
@@ -407,6 +421,17 @@ def _axis_side_bit(target: str) -> int:
     return 2 if _target_key(target) == "y_right" else 1
 
 
+def _axis_native_code(target: str) -> int:
+    key = _target_key(target)
+    if key == "x":
+        return 0
+    if key in {"y", "y_left"}:
+        return 1
+    if key == "y_right":
+        return 3
+    raise ValueError(f"unknown Origin axis target {target}")
+
+
 def _with_bit(current: int, bit: int, visible: bool) -> int:
     return current | bit if visible else current & ~bit
 
@@ -451,12 +476,26 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         axis.set_limits(action.minimum, action.maximum)
     if action.reverse is not None:
         layer.set_int(f"{axis_name}.reverse", int(action.reverse))
+    title_style_requested = any(
+        value is not None
+        for value in (
+            action.title_font_family,
+            action.title_font_size_pt,
+            action.title_font_weight,
+            action.title_italic,
+            action.title_color,
+        )
+    )
+    title = None
     if action.label is not None:
-        is_right_axis = _layer_index(layer) == len(_layers(graph)) and len(_layers(graph)) > 1
-        name = "xb" if axis_name == "x" else ("yr" if is_right_axis else "yl")
-        title = _label(layer, name, action.label)
+        title = _label(layer, _axis_label_name(graph, layer, axis_name), action.label)
         title.text = _replace_styled_text(title.text, action.label)
         title.set_int("show", 1)
+    elif title_style_requested:
+        title = layer.label(_axis_label_name(graph, layer, axis_name))
+        if title is None:
+            raise RuntimeError("Origin axis title object is unavailable for style editing")
+    if title is not None:
         family = _font(op, action.title_font_family)
         if family is not None:
             title.set_int("font", family)
@@ -477,10 +516,14 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         formats = {"auto": 0, "decimal": 1, "scientific": 2, "percent": 1, "date": 4, "time": 3}
         if action.tick_format in {"date", "time"}:
             layer.set_int(f"{axis_name}.label.type", formats[action.tick_format])
-        elif action.tick_format != "auto":
+            layer.set_str(f"{axis_name}.label.suf", "")
+        else:
+            layer.set_int(f"{axis_name}.label.type", 0)
             layer.set_int(f"{axis_name}.label.numFormat", formats[action.tick_format])
-            if action.tick_format == "percent":
-                layer.set_str(f"{axis_name}.label.suf", "%")
+            layer.set_str(
+                f"{axis_name}.label.suf",
+                "%" if action.tick_format == "percent" else "",
+            )
     if action.tick_rotation_deg is not None:
         layer.set_float(f"{axis_name}.label.rotate", action.tick_rotation_deg)
     tick_font = _font(op, action.tick_font_family)
@@ -504,10 +547,12 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         current = layer.get_int(f"{axis_name}.ticks")
         layer.set_int(f"{axis_name}.ticks", _updated_tick_bits(current, action))
     if action.axis_line_visible is not None:
-        current = layer.get_int(f"{axis_name}.show")
-        layer.set_int(
-            f"{axis_name}.show",
-            _with_bit(current, side_bit, action.axis_line_visible),
+        set_axis_line_show(
+            op,
+            graph.name,
+            _layer_index(layer),
+            _axis_native_code(action.target),
+            action.axis_line_visible,
         )
     if action.axis_title_visible is not None:
         title = layer.label(_axis_label_name(graph, layer, axis_name))
@@ -742,16 +787,20 @@ def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
                 _layer_index(layer),
                 action.colorbar_title,
             )
-        if action.colorbar_anchor == "bottom":
-            spectrum.set_float("rotate", 90)
-        elif action.colorbar_anchor == "right":
-            spectrum.set_float("rotate", 0)
+        if action.colorbar_anchor is not None:
+            set_color_scale_anchor(
+                op,
+                graph.name,
+                _layer_index(layer),
+                action.colorbar_anchor,
+            )
         if action.colorbar_tick_format is not None:
-            formats = {"auto": 1, "decimal": 1, "scientific": 5, "percent": 6}
-            spectrum.set_int("labels.autodisp", int(action.colorbar_tick_format == "auto"))
-            spectrum.set_int("labels.numdisp", formats[action.colorbar_tick_format])
-            if action.colorbar_tick_format == "percent":
-                spectrum.set_str("labels.cusfmt", "*3%")
+            set_color_scale_tick_format(
+                op,
+                graph.name,
+                _layer_index(layer),
+                action.colorbar_tick_format,
+            )
 
 
 def _centered_levels(
@@ -1146,10 +1195,15 @@ def _verify_actions(
                 )
                 observed["show_labels"] = show_labels
             if action.axis_line_visible is not None:
-                show_axis = layer.get_int(f"{axis_name}.show")
+                show_axis = read_axis_line_show(
+                    op,
+                    graph.name,
+                    _layer_index(layer),
+                    _axis_native_code(action.target),
+                )
                 _require_equal(
                     "axis line visibility",
-                    bool(show_axis & side_bit),
+                    bool(show_axis),
                     action.axis_line_visible,
                 )
                 observed["show_axis"] = show_axis
@@ -1241,6 +1295,81 @@ def _verify_actions(
                         tolerance=tolerance,
                     )
                     observed[name] = value
+            if action.tick_format is not None:
+                if action.tick_format in {"date", "time"}:
+                    expected_type = {"date": 4, "time": 3}[action.tick_format]
+                    tick_type = layer.get_int(f"{axis_name}.label.type")
+                    _require_equal("tick format type", tick_type, expected_type)
+                    observed["tick_format_type"] = tick_type
+                else:
+                    expected_format = {
+                        "auto": 0,
+                        "decimal": 1,
+                        "scientific": 2,
+                        "percent": 1,
+                    }[action.tick_format]
+                    tick_format = layer.get_int(f"{axis_name}.label.numFormat")
+                    _require_equal("tick numeric format", tick_format, expected_format)
+                    suffix = layer.get_str(f"{axis_name}.label.suf")
+                    _require_equal(
+                        "tick format suffix",
+                        suffix,
+                        "%" if action.tick_format == "percent" else "",
+                    )
+                    observed["tick_format"] = tick_format
+                    observed["tick_suffix"] = suffix
+            if action.major_grid_visible is not None or action.minor_grid_visible is not None:
+                grid_bits = layer.get_int(f"{axis_name}.grid.show")
+                if action.major_grid_visible is not None:
+                    _require_equal(
+                        "major grid visibility",
+                        bool(grid_bits & 1),
+                        action.major_grid_visible,
+                    )
+                if action.minor_grid_visible is not None:
+                    _require_equal(
+                        "minor grid visibility",
+                        bool(grid_bits & 2),
+                        action.minor_grid_visible,
+                    )
+                observed["grid_visibility"] = grid_bits
+            for prefix in ("major", "minor"):
+                for name, requested, prop, expected_value, tolerance in (
+                    (
+                        f"{prefix}_grid_color",
+                        action.grid_color,
+                        f"{axis_name}.grid.{prefix}Color",
+                        _color(op, action.grid_color) if action.grid_color else None,
+                        1e-7,
+                    ),
+                    (
+                        f"{prefix}_grid_width",
+                        action.grid_line_width_pt,
+                        f"{axis_name}.grid.{prefix}Width",
+                        action.grid_line_width_pt,
+                        0.051,
+                    ),
+                    (
+                        f"{prefix}_grid_style",
+                        action.grid_line_style,
+                        f"{axis_name}.grid.{prefix}Type",
+                        (
+                            _LINE_STYLE[action.grid_line_style]
+                            if action.grid_line_style
+                            else None
+                        ),
+                        1e-7,
+                    ),
+                ):
+                    if requested is not None and expected_value is not None:
+                        value = layer.get_float(prop)
+                        _require_number(
+                            name,
+                            value,
+                            float(expected_value),
+                            tolerance=tolerance,
+                        )
+                        observed[name] = value
             snapshot[action.action_id] = observed
         elif isinstance(action, SetSeriesStyle):
             snapshot[action.action_id] = _verify_series(op, graph, action)
@@ -1263,6 +1392,79 @@ def _verify_actions(
                     title = legend_text.splitlines()[0] if legend_text else ""
                     _require_equal("legend title", title, action.title)
                     observed["title"] = title
+                if action.anchor is not None:
+                    expected_anchor = {
+                        "inside": (1, 0.72, 0.06),
+                        "inside_top_left": (1, 0.06, 0.06),
+                        "inside_top_right": (1, 0.72, 0.06),
+                        "inside_bottom_left": (1, 0.06, 0.82),
+                        "inside_bottom_right": (1, 0.72, 0.82),
+                        "right": (1, 0.84, 0.12),
+                        "bottom": (1, 0.25, 0.88),
+                        "none": (1, 0.72, 0.06),
+                    }[action.anchor]
+                    attach = legend.get_int("attach")
+                    x = legend.get_float("x1")
+                    y = legend.get_float("y1")
+                    _require_equal("legend attachment", attach, expected_anchor[0])
+                    _require_number("legend x", x, expected_anchor[1], tolerance=1e-3)
+                    _require_number("legend y", y, expected_anchor[2], tolerance=1e-3)
+                    observed["anchor"] = (attach, x, y)
+                for name, requested, prop, expected_value, tolerance in (
+                    (
+                        "font",
+                        action.font_family,
+                        "font",
+                        _font(op, action.font_family),
+                        1e-7,
+                    ),
+                    (
+                        "font_size",
+                        action.font_size_pt,
+                        "fsize",
+                        action.font_size_pt,
+                        1e-7,
+                    ),
+                    (
+                        "font_color",
+                        action.font_color,
+                        "color",
+                        _color(op, action.font_color) if action.font_color else None,
+                        1e-7,
+                    ),
+                    (
+                        "frame_visible",
+                        action.frame_visible,
+                        "background",
+                        int(action.frame_visible)
+                        if action.frame_visible is not None
+                        else None,
+                        1e-7,
+                    ),
+                    (
+                        "frame_color",
+                        action.frame_color,
+                        "borderColor",
+                        _color(op, action.frame_color) if action.frame_color else None,
+                        1e-7,
+                    ),
+                    (
+                        "frame_width",
+                        action.frame_width_pt,
+                        "lineWidth",
+                        action.frame_width_pt,
+                        0.051,
+                    ),
+                ):
+                    if requested is not None and expected_value is not None:
+                        value = legend.get_float(prop)
+                        _require_number(
+                            f"legend {name}",
+                            value,
+                            float(expected_value),
+                            tolerance=tolerance,
+                        )
+                        observed[name] = value
                 snapshot[action.action_id] = observed
         elif isinstance(action, SetColorMap):
             layer, _ = _layer_and_plot(graph, action.target)
@@ -1284,6 +1486,13 @@ def _verify_actions(
                     Path(observed_palette).stem.casefold(),
                     _PALETTE[action.palette].casefold(),
                 )
+            if action.reverse is not None:
+                expected_reverse = int(
+                    not action.reverse
+                    if action.palette == "blue_white_red"
+                    else action.reverse
+                )
+                _require_equal("colormap reverse", observed_reverse, expected_reverse)
             if action.minimum is not None and action.maximum is not None:
                 _require_number("colormap minimum", observed_minimum, action.minimum)
                 _require_number("colormap maximum", observed_maximum, action.maximum)
@@ -1297,11 +1506,25 @@ def _verify_actions(
                 midpoint = layer.get_float(f"cmap.z{middle_index}")
                 _require_number("colormap midpoint", midpoint, action.midpoint)
                 observed_colormap["midpoint"] = midpoint
+            if action.missing_color is not None:
+                missing_color = layer.get_int("cmap.colorMiss")
+                _require_equal(
+                    "colormap missing color",
+                    missing_color,
+                    _color(op, action.missing_color),
+                )
+                observed_colormap["missing_color"] = missing_color
             spectrum = layer.label("SPECTRUM1")
-            if action.colorbar_visible is True and (
-                spectrum is None or not spectrum.get_int("show")
-            ):
-                raise RuntimeError("Origin color scale did not survive T1 fresh reopen")
+            if action.colorbar_visible is not None:
+                if spectrum is None:
+                    raise RuntimeError("Origin color scale has no native object")
+                colorbar_visible = spectrum.get_int("show")
+                _require_equal(
+                    "color scale visibility",
+                    colorbar_visible,
+                    int(action.colorbar_visible),
+                )
+                observed_colormap["colorbar_visible"] = colorbar_visible
             if action.colorbar_title is not None:
                 if spectrum is None:
                     raise RuntimeError("Origin color scale title has no native object")
@@ -1314,6 +1537,78 @@ def _verify_actions(
                 observed_title = read_color_scale_title(op, graph.name, layer_index)
                 _require_equal("color scale title", observed_title, action.colorbar_title)
                 observed_colormap["colorbar_title"] = observed_title
+            if action.colorbar_anchor is not None:
+                if spectrum is None:
+                    raise RuntimeError("Origin color scale anchor has no native object")
+                anchor = read_color_scale_anchor(op, graph.name, _layer_index(layer))
+                _require_equal(
+                    "color scale arrangement",
+                    anchor.arrangement,
+                    2 if action.colorbar_anchor == "bottom" else 1,
+                )
+                _require_equal("color scale page attachment", anchor.attach, 1)
+                if action.colorbar_anchor == "bottom":
+                    if anchor.top < anchor.layer_bottom:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for color scale anchor: "
+                            "bottom scale is above the layer bottom"
+                        )
+                    if anchor.width <= anchor.height:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for color scale arrangement: "
+                            "horizontal scale is not wider than it is tall"
+                        )
+                else:
+                    if anchor.left < anchor.layer_right:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for color scale anchor: "
+                            "right scale is left of the layer right edge"
+                        )
+                    if anchor.height <= anchor.width:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for color scale arrangement: "
+                            "vertical scale is not taller than it is wide"
+                        )
+                observed_colormap["colorbar_anchor"] = {
+                    "anchor": action.colorbar_anchor,
+                    "arrangement": anchor.arrangement,
+                    "attach": anchor.attach,
+                    "left": anchor.left,
+                    "top": anchor.top,
+                }
+            if action.colorbar_tick_format is not None:
+                if spectrum is None:
+                    raise RuntimeError("Origin color scale ticks have no native object")
+                tick_format = read_color_scale_tick_format(
+                    op,
+                    graph.name,
+                    _layer_index(layer),
+                )
+                expected_display = {
+                    "auto": None,
+                    "decimal": 0,
+                    "scientific": 4,
+                    "percent": 5,
+                }[action.colorbar_tick_format]
+                _require_equal(
+                    "color scale automatic tick format",
+                    tick_format.automatic,
+                    int(action.colorbar_tick_format == "auto"),
+                )
+                _require_equal("color scale tick label type", tick_format.label_type, 0)
+                if expected_display is not None:
+                    _require_equal(
+                        "color scale numeric tick format",
+                        tick_format.numeric_format,
+                        expected_display,
+                    )
+                if action.colorbar_tick_format == "percent":
+                    _require_equal(
+                        "color scale percent tick format",
+                        tick_format.custom_format,
+                        "*3%",
+                    )
+                observed_colormap["colorbar_tick_format"] = tick_format._asdict()
             snapshot[action.action_id] = observed_colormap
         elif isinstance(action, SetErrorStyle):
             layer, plot_index = _error_plot(op, graph, action.target)
@@ -1405,6 +1700,27 @@ def _verify_actions(
                     value = _get_plot_option(op, plot_range, option)
                     _require_number(name, value, float(expected_value))
                     observed[name] = value
+            if (
+                action.value_format is not None
+                or action.prefix is not None
+                or action.suffix is not None
+            ):
+                format_code = {
+                    "auto": "*",
+                    "decimal": "*3",
+                    "scientific": "E3",
+                    "percent": "*3",
+                }[action.value_format or "auto"]
+                suffix = (
+                    f"{action.suffix or ''}"
+                    f"{'%' if action.value_format == 'percent' else ''}"
+                )
+                expected_label_display = (
+                    f"{action.prefix or ''}$(Y,{format_code}){suffix}"
+                )
+                display = _get_plot_option_str(op, plot_range, "-qms")
+                _require_equal("data label display", display, expected_label_display)
+                observed["display"] = display
             snapshot[action.action_id] = observed
         elif isinstance(action, AddAnnotation):
             name = action.annotation_id.replace(":", "_").replace(".", "_")
