@@ -11,6 +11,7 @@ from plotagent.engine.backends.origin.environment import (
     OriginErrorCode,
     OriginPreflightFailure,
     OriginPreflightSuccess,
+    _discover_installation,
     _environment_for_executable,
     preflight_origin,
 )
@@ -68,6 +69,33 @@ def test_unversioned_origin_named_file_is_not_trusted(
     assert isinstance(result, OriginError)
     assert result.code == OriginErrorCode.VERSION_UNSUPPORTED
     assert "could not be verified" in result.message
+
+
+def test_configured_origin_path_is_authoritative_when_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "PLOTAGENT_ORIGIN_EXECUTABLE",
+        str(tmp_path / "missing" / "Origin64.exe"),
+    )
+
+    assert _discover_installation() is None
+
+
+def test_configured_wrong_version_does_not_fall_back_to_portable_origin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = _executable(tmp_path)
+    monkeypatch.setenv("PLOTAGENT_ORIGIN_EXECUTABLE", str(executable))
+    monkeypatch.setattr(environment_module, "_file_version", lambda _path: (10, 2, 0, 1))
+
+    result = _discover_installation()
+
+    assert isinstance(result, OriginError)
+    assert result.code == OriginErrorCode.VERSION_UNSUPPORTED
+    assert "requires 10.1.0" in result.message
 
 
 def test_preflight_propagates_version_failure_without_starting_origin(

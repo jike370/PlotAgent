@@ -212,9 +212,12 @@ def _environment_for_executable(
 
 def _discover_installation() -> OriginEnvironment | OriginError | None:
     configured = os.environ.get("PLOTAGENT_ORIGIN_EXECUTABLE")
-    candidates: list[tuple[Path, Literal["configured", "portable", "registry"]]] = []
     if configured:
-        candidates.append((Path(configured).expanduser(), "configured"))
+        return _environment_for_executable(
+            Path(configured).expanduser(),
+            "configured",
+        )
+    candidates: list[tuple[Path, Literal["configured", "portable", "registry"]]] = []
     candidates.append((Path(r"D:\origin\Origin64.exe"), "portable"))
     if os.name == "nt":
         import winreg

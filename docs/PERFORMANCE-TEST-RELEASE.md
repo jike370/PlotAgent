@@ -17,6 +17,7 @@
 - 正式 Electron 入口；
 - 打包版 Python Core；
 - 当前声明的单一 Origin exact version：OriginPro 2024、文件版本 10.1.0（本机 Build 178）；预检必须读取 `Origin64.exe` 的 Windows 文件版本，不能根据文件名或安装路径猜版本；
+- 显式设置 `PLOTAGENT_ORIGIN_EXECUTABLE` 时该路径是权威配置；缺失或版本错误必须原样报告，不得静默回退到便携路径或注册表中的另一安装；未设置时才执行便携路径和注册表发现；
 - 同一提交、干净工作树、冻结输入和独立输出目录；
 - Pi/provider状态与本地 Core 状态分开记录。
 
@@ -135,6 +136,16 @@ Excel、带仪器信息 TXT、多数据块 TXT，以及批量完成、原子取�
 原子边界取消、部分失败、瞬态自动重试、用户显式安全重试、返修无进展停止、语义冲突
 禁止技术重试，以及磁盘发布失败保持旧产物。每项必须验证副作用状态和可执行恢复方式；
 同一条“运行失败”断言不能代替这些不同故障。
+
+打包后使用下列矩阵验证 manifest/installer、打包 Core、隔离用户目录中的 Electron，
+并分别覆盖无 Origin、错误版本和声明版本：
+
+```powershell
+.venv\Scripts\python.exe scripts\run_release_packaged_matrix.py
+```
+
+隔离目录只能证明“干净 profile”；报告必须明确它不是不同 Windows SID。真正的新 Windows
+用户仍需在独立 SID 或干净虚拟机中执行安装与首次启动，不能由环境变量改路径冒充。
 
 ## 8. 安全与可追溯
 
