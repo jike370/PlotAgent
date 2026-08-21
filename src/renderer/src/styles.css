@@ -1792,12 +1792,34 @@ input[type="checkbox"] {
 }
 
 .target-chip {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  overflow: hidden;
   color: var(--ink-strong);
   font-size: 11px;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-context__action {
+  min-height: 26px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.composer-context__action:hover:not(:disabled),
+.composer-context__action:focus-visible {
+  background: var(--surface-3);
 }
 
 .scope-switch {
@@ -5220,54 +5242,6 @@ input[type="checkbox"] {
 .chart-selection-strip strong { font-size: 12px; }
 .chart-selection-strip span { color: var(--muted); font-size: 11px; }
 
-.selection-actions-card {
-  width: min(720px, 100%);
-  min-height: 48px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0 18px;
-  padding: 8px 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.selection-actions-card__icon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  color: var(--muted-strong);
-  background: var(--surface-2);
-}
-
-.selection-actions-card strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 12px;
-  font-weight: 680;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.selection-actions-card > button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  color: var(--ink-strong);
-  background: var(--surface-2);
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.selection-actions-card > button:hover {
-  background: var(--surface-3);
-}
-
 .chart-selection-strip button,
 .agent-plan__actions button:not(.primary-button) {
   min-height: 30px;
@@ -5753,12 +5727,6 @@ input[type="checkbox"] {
   background: var(--canvas);
   font-size: 11px;
   font-weight: 650;
-}
-
-.composer-context__hint {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .product-toast__actions button:hover { background: var(--surface-2); }

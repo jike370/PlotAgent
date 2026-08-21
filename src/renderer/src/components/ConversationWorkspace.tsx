@@ -647,10 +647,13 @@ function ConversationComposer({
   busy,
   importing,
   notice,
+  mappingOpen,
+  canInspectMapping,
   onSubmit,
   onConfigure,
   onOpenLibrary,
   onImportData,
+  onToggleMapping,
 }: {
   plotReferences: { reference: PlotReference; plot: ProductPlot }[]
   selectedChart?: ChartType
@@ -659,10 +662,13 @@ function ConversationComposer({
   busy: boolean
   importing: boolean
   notice?: ProductNotice
+  mappingOpen: boolean
+  canInspectMapping: boolean
   onSubmit: (instruction: string, selectedPlots: WorkflowPlotSelection[]) => void
   onConfigure: () => void
   onOpenLibrary: () => void
   onImportData: () => void
+  onToggleMapping: () => void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
   const [mentionOpen, setMentionOpen] = useState(false)
@@ -720,9 +726,9 @@ function ConversationComposer({
               ? mentionedTargets.join('、')
               : selectedChart
                 ? `${selectedChart.id} · ${selectedChart.name}`
-                : '新建图形'
+                : '未选择图形'
           }</span>
-          {plotReferences.length > 0 && <span className="composer-context__hint">输入 @ 指定图形</span>}
+          {mentionedTargets.length === 0 && canInspectMapping && <button className="composer-context__action" type="button" onClick={onToggleMapping} disabled={busy || importing}>{mappingOpen ? '收起字段绑定' : '字段绑定'}</button>}
         </div>
         <textarea ref={textareaRef} value={value} disabled={busy} onChange={(event) => {
           const next = event.target.value
@@ -1159,7 +1165,6 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
-            {selectedChart && activeDataset && !plot && <section className="selection-actions-card" aria-label="当前图形选择"><span className="selection-actions-card__icon"><FileChartColumn size={16} aria-hidden="true" /></span><strong>{selectedChart.id} {selectedChart.name}</strong><button type="button" onClick={() => setManualMappingOpen((open) => !open)}>{manualMappingOpen ? '收起字段绑定' : '检查字段绑定'}</button></section>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>
@@ -1171,7 +1176,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
       </aside>}
 
-      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} />}
+      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )
