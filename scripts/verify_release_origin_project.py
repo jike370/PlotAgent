@@ -12,7 +12,14 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 
 from plotagent.engine.backends.origin.messages import OriginWorkerRequest  # noqa: E402
-from plotagent.engine.backends.origin.visual_t1 import _verify_actions  # noqa: E402
+from plotagent.engine.backends.origin.s34 import (  # noqa: E402
+    s34_equal_axes_enabled,
+    verify_s34_equal_scale_layout,
+)
+from plotagent.engine.backends.origin.visual_t1 import (  # noqa: E402
+    _effective_state_actions,
+    _verify_actions,
+)
 from plotagent.engine.contracts import CreatePlot  # noqa: E402
 from plotagent.engine.visual_t1 import split_visual_actions  # noqa: E402
 
@@ -54,7 +61,16 @@ def main() -> int:
             raise RuntimeError("representative OPJU contains no editable native data page")
         graph = graphs[0]
         graph.activate()
-        snapshot = _verify_actions(op, graph, request.document, visual)
+        snapshot = _verify_actions(
+            op,
+            graph,
+            request.document,
+            _effective_state_actions(visual),
+        )
+        if request.document.profile_id == "S34" and s34_equal_axes_enabled(
+            request.document, request.actions
+        ):
+            snapshot["profile_invariant"] = verify_s34_equal_scale_layout(graph)
         png_path.parent.mkdir(parents=True, exist_ok=True)
         graph.save_fig(str(png_path), type="png", replace=True, width=1600)
         if not png_path.is_file() or png_path.stat().st_size <= 0:

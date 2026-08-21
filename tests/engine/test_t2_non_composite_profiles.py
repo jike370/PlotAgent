@@ -593,6 +593,57 @@ def test_origin_s34_uses_native_dynamic_plots(monkeypatch) -> None:
     assert nyquist.last_native_structure["frequency_columns_plotted"] is False
 
 
+def test_origin_s34_keeps_equal_scale_for_wide_editable_data(monkeypatch) -> None:
+    """A legitimate wide Nyquist range must not make OPJU materialization fail.
+
+    Project 126 exposed a 0..85 by 0..14 range.  Origin's documented unit-
+    aspect workflow permits a shallow native layer; the renderer must preserve
+    equal physical units instead of rejecting the project at an arbitrary
+    percentage threshold.
+    """
+
+    monkeypatch.setattr(
+        s34_origin, "resolve_official_template", lambda *_: Path("LINESYMB.otpu")
+    )
+    document, actions, view = _s34_case(1)
+    project = S34OriginProject(_Origin())
+    project.create(Path("."), document, view)
+    project.graph.floats.update(width=6432.0, height=4923.0)
+    project.layer.axes["x"].limits = (0.0, 85.0, 5.0)
+    project.layer.axes["y"].limits = (0.0, 14.0, 2.0)
+
+    project.reconcile(document, actions, view)
+
+    snapshot = project._equal_scale_snapshot()
+    assert snapshot["relative_error"] < 0.02
+    assert project.layer.get_float("width") == pytest.approx(68.0)
+    assert project.layer.get_float("height") == pytest.approx(14.63, abs=0.01)
+
+
+def test_origin_s34_reflows_equal_scale_after_shared_axis_edits(monkeypatch) -> None:
+    """Public SetAxis limits must not leave the pre-edit Nyquist layout behind."""
+
+    monkeypatch.setattr(
+        s34_origin, "resolve_official_template", lambda *_: Path("LINESYMB.otpu")
+    )
+    document, actions, view = _s34_case(1)
+    project = S34OriginProject(_Origin())
+    project.create(Path("."), document, view)
+    project.graph.floats.update(width=6432.0, height=4923.0)
+    project.layer.axes["x"].limits = (0.0, 85.0, 5.0)
+    project.layer.axes["y"].limits = (0.0, 14.0, 2.0)
+    project.reconcile(document, actions, view)
+    assert project.layer.get_float("height") == pytest.approx(14.63, abs=0.01)
+
+    project.layer.axes["x"].limits = (0.0, 40.0, 5.0)
+    project.layer.axes["y"].limits = (0.0, 40.0, 5.0)
+    snapshot = s34_origin.apply_s34_equal_scale_layout(project.graph)
+
+    assert snapshot["relative_error"] < 0.02
+    assert project.layer.get_float("width") == pytest.approx(52.05, abs=0.01)
+    assert project.layer.get_float("height") == pytest.approx(68.0)
+
+
 def test_origin_s61_writes_one_native_labeled_matrix(monkeypatch) -> None:
     monkeypatch.setattr(
         s61_origin, "resolve_official_template", lambda *_: Path("Heat_Map_With_Labels.otpu")

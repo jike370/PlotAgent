@@ -29,6 +29,76 @@ _LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _SYMBOL = {"circle": 1, "square": 2, "diamond": 3, "triangle": 4, "plus": 5}
 
 
+def _s34_equal_scale_snapshot(graph: Any, layer: Any) -> dict[str, float]:
+    x_from, x_to, _ = layer.xlim
+    y_from, y_to, _ = layer.ylim
+    page_width = float(graph.get_float("width"))
+    page_height = float(graph.get_float("height"))
+    layer_width = float(layer.get_float("width"))
+    layer_height = float(layer.get_float("height"))
+    physical_width = page_width * layer_width / 100.0
+    physical_height = page_height * layer_height / 100.0
+    x_units = abs(float(x_to) - float(x_from)) / physical_width
+    y_units = abs(float(y_to) - float(y_from)) / physical_height
+    if not all(isfinite(value) and value > 0 for value in (x_units, y_units)):
+        raise RuntimeError("Origin S34 equal-scale readback is invalid")
+    return {
+        "x_units_per_physical": x_units,
+        "y_units_per_physical": y_units,
+        "relative_error": abs(x_units - y_units) / max(x_units, y_units),
+    }
+
+
+def apply_s34_equal_scale_layout(graph: Any) -> dict[str, float]:
+    """Re-establish the Nyquist unit aspect after shared visual axis edits."""
+
+    layers = tuple(graph)
+    if len(layers) != 1:
+        raise RuntimeError("Origin S34 equal-scale layout requires one graph layer")
+    layer = layers[0]
+    x_from, x_to, _ = layer.xlim
+    y_from, y_to, _ = layer.ylim
+    x_span, y_span = abs(float(x_to) - float(x_from)), abs(float(y_to) - float(y_from))
+    page_width = float(graph.get_float("width"))
+    page_height = float(graph.get_float("height"))
+    if min(x_span, y_span, page_width, page_height) <= 0:
+        raise RuntimeError("Origin S34 cannot establish an equal physical scale")
+    ratio = (x_span / y_span) * (page_height / page_width)
+    maximum = 68.0
+    if ratio >= 1.0:
+        width, height = maximum, maximum / ratio
+    else:
+        width, height = maximum * ratio, maximum
+    layer.set_float("width", width)
+    layer.set_float("height", height)
+    return _s34_equal_scale_snapshot(graph, layer)
+
+
+def verify_s34_equal_scale_layout(graph: Any) -> dict[str, float]:
+    layers = tuple(graph)
+    if len(layers) != 1:
+        raise RuntimeError("Origin S34 equal-scale verification requires one graph layer")
+    snapshot = _s34_equal_scale_snapshot(graph, layers[0])
+    if float(snapshot["relative_error"]) > 0.02:
+        raise RuntimeError("Origin S34 equal physical axis scale changed")
+    return snapshot
+
+
+def s34_equal_axes_enabled(
+    document: PlotDocument, actions: tuple[PlotEngineAction, ...]
+) -> bool:
+    enabled = True
+    for action in actions:
+        if (
+            isinstance(action, SetChartParameter)
+            and action.target == document.plot_id
+            and action.parameter == "equal_axes"
+            and isinstance(action.value, bool)
+        ):
+            enabled = action.value
+    return enabled
+
+
 @dataclass(frozen=True, slots=True)
 class _AxesState:
     title: str = ""
@@ -392,23 +462,7 @@ class S34OriginProject:
             axis.set_limits(limits[1], limits[0], limits[2])
 
     def _set_equal_physical_scale(self) -> None:
-        x_from, x_to, _ = self.layer.xlim
-        y_from, y_to, _ = self.layer.ylim
-        x_span, y_span = abs(float(x_to) - float(x_from)), abs(float(y_to) - float(y_from))
-        page_width = float(self.graph.get_float("width"))
-        page_height = float(self.graph.get_float("height"))
-        if min(x_span, y_span, page_width, page_height) <= 0:
-            raise RuntimeError("Origin S34 cannot establish an equal physical scale")
-        ratio = (x_span / y_span) * (page_height / page_width)
-        maximum = 68.0
-        if ratio >= 1.0:
-            width, height = maximum, maximum / ratio
-        else:
-            width, height = maximum * ratio, maximum
-        if min(width, height) < 18.0:
-            raise ValueError("S34 data aspect is too extreme for an editable equal-scale graph")
-        self.layer.set_float("width", width)
-        self.layer.set_float("height", height)
+        apply_s34_equal_scale_layout(self.graph)
 
     def _set_legend(self, nyquist: NyquistData, visible: bool) -> None:
         legend = self.layer.label("legend")
@@ -504,23 +558,7 @@ class S34OriginProject:
             raise RuntimeError("Origin S34 hidden legend reappeared")
 
     def _equal_scale_snapshot(self) -> dict[str, float]:
-        x_from, x_to, _ = self.layer.xlim
-        y_from, y_to, _ = self.layer.ylim
-        page_width = float(self.graph.get_float("width"))
-        page_height = float(self.graph.get_float("height"))
-        layer_width = float(self.layer.get_float("width"))
-        layer_height = float(self.layer.get_float("height"))
-        physical_width = page_width * layer_width / 100.0
-        physical_height = page_height * layer_height / 100.0
-        x_units = abs(float(x_to) - float(x_from)) / physical_width
-        y_units = abs(float(y_to) - float(y_from)) / physical_height
-        if not all(isfinite(value) and value > 0 for value in (x_units, y_units)):
-            raise RuntimeError("Origin S34 equal-scale readback is invalid")
-        return {
-            "x_units_per_physical": x_units,
-            "y_units_per_physical": y_units,
-            "relative_error": abs(x_units - y_units) / max(x_units, y_units),
-        }
+        return _s34_equal_scale_snapshot(self.graph, self.layer)
 
     @staticmethod
     def _state(

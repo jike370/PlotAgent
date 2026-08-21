@@ -35,7 +35,12 @@ from .k24 import execute_k24_request
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe
 from .renderer import OriginRendererRegistry
-from .s34 import execute_s34_request
+from .s34 import (
+    apply_s34_equal_scale_layout,
+    execute_s34_request,
+    s34_equal_axes_enabled,
+    verify_s34_equal_scale_layout,
+)
 from .s61 import execute_s61_request
 from .trace import OriginExecutionTrace
 from .visual_t1 import apply_origin_visual_actions
@@ -174,11 +179,25 @@ def main(argv: list[str] | None = None) -> int:
                     "t1_visual_actions_apply",
                     details={"action_count": len(visual_actions)},
                 ):
+                    preserve_s34_equal_scale = (
+                        request.document.profile_id == "S34"
+                        and s34_equal_axes_enabled(request.document, structural_actions)
+                    )
                     visual_snapshot = apply_origin_visual_actions(
                         op,
                         request.document,
                         visual_actions,
                         output,
+                        post_apply_invariant=(
+                            apply_s34_equal_scale_layout
+                            if preserve_s34_equal_scale
+                            else None
+                        ),
+                        post_reopen_invariant=(
+                            verify_s34_equal_scale_layout
+                            if preserve_s34_equal_scale
+                            else None
+                        ),
                     )
                 readback = readback.model_copy(
                     update={"style_hash": visual_style_hash(readback, visual_actions)}

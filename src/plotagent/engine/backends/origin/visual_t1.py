@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import isclose
 from pathlib import Path
 from typing import Any, Literal
@@ -71,6 +72,9 @@ def apply_origin_visual_actions(
     document: PlotDocument,
     actions: tuple[PlotEngineAction, ...],
     output: Path,
+    *,
+    post_apply_invariant: Callable[[Any], dict[str, Any]] | None = None,
+    post_reopen_invariant: Callable[[Any], dict[str, Any]] | None = None,
 ) -> dict[str, object]:
     """Open the native project, apply the closed T1 vocabulary, save and verify.
 
@@ -87,6 +91,9 @@ def apply_origin_visual_actions(
     graph = _graph(op)
     for action in actions:
         _apply_action(op, graph, document, action)
+    applied_invariant = (
+        None if post_apply_invariant is None else post_apply_invariant(graph)
+    )
     graph.activate()
     if not op.lt_exec("doc -uw;"):
         raise RuntimeError("Origin could not redraw after T1 visual edits")
@@ -99,6 +106,10 @@ def apply_origin_visual_actions(
     reopened = _graph(op)
     effective_actions = _effective_state_actions(actions)
     snapshot = _verify_actions(op, reopened, document, effective_actions)
+    if post_reopen_invariant is not None:
+        snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
+    elif applied_invariant is not None:
+        snapshot["post_edit_invariant"] = applied_invariant
     snapshot["actions"] = len(actions)
     snapshot["effective_actions"] = len(effective_actions)
     snapshot["fresh_reopen"] = True
