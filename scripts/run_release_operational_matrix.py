@@ -189,7 +189,7 @@ def _pytest_case(output: Path, nodeid: str) -> OperationalResult:
     completed = subprocess.run(
         [sys.executable, "-m", "pytest", nodeid, "-q"],
         cwd=REPOSITORY,
-        env={**os.environ, "PYTHONUTF8": "1"},
+        env=os.environ.copy(),
         capture_output=True,
         text=True,
         encoding="utf-8",

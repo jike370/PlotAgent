@@ -182,7 +182,7 @@ def _execute_case(output: Path, case: FaultCase) -> FaultResult:
     completed = subprocess.run(
         command,
         cwd=REPOSITORY,
-        env={**os.environ, "PYTHONUTF8": "1", "NO_COLOR": "1"},
+        env={**os.environ, "NO_COLOR": "1"},
         capture_output=True,
         text=True,
         encoding="utf-8",
