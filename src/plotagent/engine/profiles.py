@@ -152,6 +152,11 @@ _LABEL_T1 = (
     "font_color",
 )
 
+# OriginPro 2024 persists one transparency value for mixed primitives such as
+# line+symbol or fill+border plots.  Per-element opacity is therefore declared
+# only when the semantic target is a single native primitive (or a distinct
+# native plot object), so both backends preserve the same public meaning.
+
 
 def _capabilities(
     *,
@@ -263,13 +268,11 @@ K02_LINE_SYMBOL_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -544,7 +547,6 @@ K13_BOX_PROFILE = _profile(
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -577,7 +579,6 @@ K14_VIOLIN_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
     ),
     legend=True,
 )
@@ -624,7 +625,6 @@ K18_AREA_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "fill_color",
         "fill_opacity",
         "fill_stroke_color",
@@ -725,13 +725,11 @@ K24_FACET_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
 )
 
@@ -759,13 +757,11 @@ S34_NYQUIST_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
     chart=("equal_axes",),
@@ -806,13 +802,11 @@ X02_DROP_LINE_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -840,13 +834,11 @@ X03_LOLLIPOP_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -948,13 +940,11 @@ X23_DUAL_Y_LINE_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -1032,13 +1022,11 @@ X36_DUAL_Y_COLUMN_LINE_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
         "fill_color",
         "fill_opacity",
         "fill_stroke_color",
@@ -1097,13 +1085,11 @@ X39_LINE_SERIES_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )
@@ -1132,13 +1118,11 @@ X40_BEFORE_AFTER_PROFILE = _profile(
         "line_stroke_color",
         "line_width_pt",
         "line_style",
-        "line_opacity",
         "marker_shape",
         "marker_size_pt",
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
-        "marker_opacity",
     ),
     legend=True,
 )

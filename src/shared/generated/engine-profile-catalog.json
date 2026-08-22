@@ -204,13 +204,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -1739,8 +1737,7 @@
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -1878,8 +1875,7 @@
             "fill_stroke_style",
             "line_stroke_color",
             "line_width_pt",
-            "line_style",
-            "line_opacity"
+            "line_style"
           ]
         },
         {
@@ -2139,7 +2135,6 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -2860,13 +2855,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -2987,13 +2980,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -3293,13 +3284,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -3439,13 +3428,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -4036,13 +4023,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -4509,13 +4494,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color",
-            "marker_opacity",
             "fill_color",
             "fill_opacity",
             "fill_stroke_color",
@@ -4819,13 +4802,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
@@ -4965,13 +4946,11 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style",
-            "line_opacity",
             "marker_shape",
             "marker_size_pt",
             "marker_interior",
             "marker_fill_color",
-            "marker_stroke_color",
-            "marker_opacity"
+            "marker_stroke_color"
           ]
         },
         {
