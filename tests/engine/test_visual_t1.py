@@ -9,6 +9,8 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pytest
+from matplotlib import colors as mcolors
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter, LogLocator
 
@@ -18,7 +20,7 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
 )
 from plotagent.engine.backends.origin.visual_t1 import (
     _centered_levels,
-    _effective_state_actions,
+    _color_scale_for_action,
     _legend_column_count,
     _series_numeric_tolerance,
     _updated_tick_bits,
@@ -31,6 +33,7 @@ from plotagent.engine.contracts import (
     FieldBinding,
     PlotDocument,
     SetAxis,
+    SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
@@ -40,7 +43,11 @@ from plotagent.engine.contracts import (
 )
 from plotagent.engine.ports import EngineReadback
 from plotagent.engine.repository import document_ref
-from plotagent.engine.visual_t1 import split_visual_actions, visual_style_hash
+from plotagent.engine.visual_t1 import (
+    effective_visual_actions,
+    split_visual_actions,
+    visual_style_hash,
+)
 
 _VISUAL_ACTION_NAMES = (
     "SetTitle",
@@ -137,6 +144,107 @@ def test_rebinding_discards_only_data_derived_visual_edits() -> None:
     assert visual == (title,)
 
 
+def test_later_chart_parameter_supersedes_only_earlier_colorbar_visibility() -> None:
+    colormap = SetColorMap(
+        action_id="action:colormap-before-chart-parameter",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        palette="viridis",
+        colorbar_visible=True,
+    )
+    chart_parameter = SetChartParameter(
+        action_id="action:chart-parameter-after-colormap",
+        target="plot:t1",
+        expected_plot_version=2,
+        parameter="color_scale_visible",
+        value=False,
+    )
+
+    structural, visual = split_visual_actions((_create(), colormap, chart_parameter))
+
+    assert structural == (_create(), chart_parameter)
+    assert len(visual) == 1
+    normalized = visual[0]
+    assert isinstance(normalized, SetColorMap)
+    assert normalized.palette == "viridis"
+    assert normalized.colorbar_visible is False
+
+
+def test_later_chart_parameter_normalizes_visibility_only_colormap_action() -> None:
+    colormap = SetColorMap(
+        action_id="action:visibility-only-before-chart-parameter",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        colorbar_visible=True,
+    )
+    chart_parameter = SetChartParameter(
+        action_id="action:chart-parameter-after-visibility-only",
+        target="plot:t1",
+        expected_plot_version=2,
+        parameter="color_scale_visible",
+        value=False,
+    )
+
+    _structural, visual = split_visual_actions((_create(), colormap, chart_parameter))
+
+    assert len(visual) == 1
+    normalized = visual[0]
+    assert isinstance(normalized, SetColorMap)
+    assert normalized.colorbar_visible is False
+
+
+def test_later_colormap_visibility_is_not_removed_by_earlier_chart_parameter() -> None:
+    chart_parameter = SetChartParameter(
+        action_id="action:chart-parameter-before-colormap",
+        target="plot:t1",
+        expected_plot_version=1,
+        parameter="color_scale_visible",
+        value=False,
+    )
+    colormap = SetColorMap(
+        action_id="action:colormap-after-chart-parameter",
+        target="series:t1.primary",
+        expected_plot_version=2,
+        colorbar_visible=True,
+    )
+
+    structural, visual = split_visual_actions((_create(), chart_parameter, colormap))
+
+    assert structural == (_create(), chart_parameter)
+    assert visual == (colormap,)
+
+
+def test_cross_operation_precedence_uses_the_complete_dotted_plot_id() -> None:
+    matching = SetColorMap(
+        action_id="action:dotted-plot-matching-colormap",
+        target="series:sample.v1.primary",
+        expected_plot_version=1,
+        colorbar_visible=True,
+    )
+    other = matching.model_copy(
+        update={
+            "action_id": "action:dotted-plot-other-colormap",
+            "target": "series:sample.other.primary",
+        }
+    )
+    chart_parameter = SetChartParameter(
+        action_id="action:dotted-plot-chart-parameter",
+        target="plot:sample.v1",
+        expected_plot_version=2,
+        parameter="color_scale_visible",
+        value=False,
+    )
+
+    _structural, visual = split_visual_actions((matching, other, chart_parameter))
+
+    assert len(visual) == 2
+    normalized, untouched = visual
+    assert isinstance(normalized, SetColorMap)
+    assert normalized.target == matching.target
+    assert normalized.colorbar_visible is False
+    assert untouched == other
+
+
 def test_origin_final_state_verification_coalesces_repeated_visual_edits() -> None:
     first = SetTitle(
         action_id="action:title-1",
@@ -164,7 +272,7 @@ def test_origin_final_state_verification_coalesces_repeated_visual_edits() -> No
         scale="log10",
     )
 
-    effective = _effective_state_actions((first, second, x_axis, x_axis_update))
+    effective = effective_visual_actions((first, second, x_axis, x_axis_update))
 
     assert len(effective) == 2
     title, axis = effective
@@ -175,6 +283,36 @@ def test_origin_final_state_verification_coalesces_repeated_visual_edits() -> No
     assert isinstance(axis, SetAxis)
     assert axis.label == "Time"
     assert axis.scale == "log10"
+
+
+def test_effective_visual_actions_keep_latest_cross_type_precedence() -> None:
+    marker_first = SetSeriesStyle(
+        action_id="action:marker-first",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        marker_shape="circle",
+    )
+    colormap = SetColorMap(
+        action_id="action:colormap-middle",
+        target="series:t1.primary",
+        expected_plot_version=2,
+        palette="viridis",
+    )
+    marker_last = SetSeriesStyle(
+        action_id="action:marker-last",
+        target="series:t1.primary",
+        expected_plot_version=3,
+        marker_fill_color="#D1495B",
+    )
+
+    effective = effective_visual_actions((marker_first, colormap, marker_last))
+
+    assert [type(action) for action in effective] == [SetColorMap, SetSeriesStyle]
+    merged_marker = effective[-1]
+    assert isinstance(merged_marker, SetSeriesStyle)
+    assert merged_marker.marker_shape == "circle"
+    assert merged_marker.marker_fill_color == "#D1495B"
+    assert merged_marker.action_id == "action:marker-last"
 
 
 def test_profile_renderers_cannot_reclaim_shared_visual_actions() -> None:
@@ -243,6 +381,88 @@ def test_origin_automatic_vertical_legend_normalizes_to_one_column() -> None:
     assert _legend_column_count(0) == 1
     assert _legend_column_count(1) == 1
     assert _legend_column_count(2) == 2
+
+
+class _NativeColorScale:
+    def IsValid(self) -> bool:
+        return True
+
+
+class _NativeColorScaleCollection:
+    def __init__(self) -> None:
+        self.added: list[int] = []
+
+    def Add(self, object_type: int) -> _NativeColorScale:
+        self.added.append(object_type)
+        return _NativeColorScale()
+
+
+class _NativeColorScaleLayer:
+    def __init__(self) -> None:
+        self.obj = type(
+            "LayerObject",
+            (),
+            {"GraphObjects": _NativeColorScaleCollection()},
+        )()
+        self.label_value = None
+        self.activated = False
+
+    def label(self, name: str):
+        assert name == "SPECTRUM1"
+        return self.label_value
+
+    def activate(self) -> None:
+        self.activated = True
+
+
+class _NativeColorScaleOrigin:
+    def Label(self, native, layer_obj):
+        del native, layer_obj
+        return type("ColorScaleLabel", (), {"name": ""})()
+
+
+def test_origin_colorbar_visibility_creates_a_missing_native_scale() -> None:
+    layer = _NativeColorScaleLayer()
+    action = SetColorMap(
+        action_id="action:create-color-scale",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        colorbar_visible=True,
+    )
+
+    spectrum = _color_scale_for_action(_NativeColorScaleOrigin(), layer, action)
+
+    assert spectrum is not None
+    assert spectrum.name == "SPECTRUM1"
+    assert layer.activated is True
+    assert layer.obj.GraphObjects.added == [13]
+
+
+def test_origin_rejects_styling_an_absent_color_scale() -> None:
+    layer = _NativeColorScaleLayer()
+    action = SetColorMap(
+        action_id="action:style-missing-color-scale",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        colorbar_title="Intensity",
+    )
+
+    with pytest.raises(RuntimeError, match="color scale that is absent"):
+        _color_scale_for_action(_NativeColorScaleOrigin(), layer, action)
+
+
+def test_origin_keeps_hidden_color_scale_style_latent_when_scale_is_absent() -> None:
+    layer = _NativeColorScaleLayer()
+    action = SetColorMap(
+        action_id="action:hidden-missing-color-scale",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        colorbar_visible=False,
+        colorbar_title="Intensity",
+    )
+
+    assert _color_scale_for_action(_NativeColorScaleOrigin(), layer, action) is None
+    assert layer.obj.GraphObjects.added == []
 
 
 def test_matplotlib_shared_visual_language_edits_native_artists() -> None:
@@ -349,6 +569,125 @@ def test_matplotlib_shared_visual_language_edits_native_artists() -> None:
     plt.close(figure)
 
 
+def test_matplotlib_legend_columns_have_native_property_evidence() -> None:
+    figure, axis = plt.subplots()
+    right = axis.twinx()
+    axis.plot([1, 2], [2, 3], label="Control")
+    right.plot([1, 2], [30, 50], label="Treatment")
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetLegend(
+                action_id="action:legend-columns",
+                target="legend:t1.main",
+                expected_plot_version=1,
+                visible=True,
+                columns=2,
+            ),
+        ),
+    )
+
+    legend = axis.get_legend()
+    assert legend is not None
+    assert legend._ncols == 2
+    assert [text.get_text() for text in legend.get_texts()] == ["Control", "Treatment"]
+    assert right.get_legend() is None
+    plt.close(figure)
+
+
+def test_matplotlib_colormap_missing_color_has_native_property_evidence() -> None:
+    figure, axis = plt.subplots()
+    image = axis.imshow(np.asarray([[1.0, np.nan], [2.0, 3.0]]))
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetColorMap(
+                action_id="action:missing-color",
+                target="series:t1.matrix",
+                expected_plot_version=1,
+                missing_color="#A23B72",
+            ),
+        ),
+    )
+
+    np.testing.assert_allclose(
+        image.cmap.get_bad(),
+        mcolors.to_rgba("#A23B72"),
+    )
+    plt.close(figure)
+
+
+def test_matplotlib_explicit_marker_color_overrides_and_can_restore_scalar_mapping() -> None:
+    figure, axis = plt.subplots()
+    collection = axis.scatter([1, 2, 3], [2, 4, 3], c=[0.1, 0.5, 0.9])
+    marker_action = SetSeriesStyle(
+        action_id="action:explicit-marker-fill",
+        target="series:t1.primary",
+        expected_plot_version=1,
+        marker_fill_color="#D1495B",
+    )
+
+    apply_visual_actions(figure, _document(), (marker_action,))
+    figure.canvas.draw()
+    assert collection.get_array() is None
+    np.testing.assert_allclose(
+        collection.get_facecolors()[0],
+        mcolors.to_rgba("#D1495B"),
+    )
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            marker_action,
+            SetColorMap(
+                action_id="action:restore-colormap",
+                target="series:t1.primary",
+                expected_plot_version=2,
+                palette="viridis",
+            ),
+        ),
+    )
+    assert collection.get_array() is not None
+    np.testing.assert_allclose(collection.get_array(), [0.1, 0.5, 0.9])
+    plt.close(figure)
+
+
+def test_matplotlib_shape_edge_and_fill_opacity_are_independent() -> None:
+    figure, axis = plt.subplots()
+    collection = axis.fill_between(
+        [1, 2, 3],
+        [1, 2, 1],
+        [3, 4, 3],
+        alpha=0.35,
+        edgecolor="#1D3557",
+        label="Band",
+    )
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetSeriesStyle(
+                action_id="action:independent-alpha",
+                target="series:t1.primary",
+                expected_plot_version=1,
+                line_opacity=0.8,
+                fill_opacity=0.25,
+            ),
+        ),
+    )
+
+    assert collection.get_alpha() is None
+    assert collection.get_edgecolors()[0, 3] == pytest.approx(0.8)
+    assert collection.get_facecolors()[0, 3] == pytest.approx(0.25)
+    plt.close(figure)
+
+
 def test_matplotlib_visibility_and_tick_direction_edit_native_objects() -> None:
     figure, axis = plt.subplots()
     axis.set_xlabel("Time")
@@ -385,6 +724,29 @@ def test_matplotlib_visibility_and_tick_direction_edit_native_objects() -> None:
     assert all(tick._tickdir == "inout" for tick in axis.xaxis.get_major_ticks())
     assert line.get_visible() is False
     assert band.get_visible() is False
+    plt.close(figure)
+
+
+def test_matplotlib_grid_visibility_does_not_require_style_parameters() -> None:
+    figure, axis = plt.subplots()
+    axis.plot([1, 2, 3], [2, 4, 3])
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetAxis(
+                action_id="action:grid-visibility-only",
+                target="axis:t1.y",
+                expected_plot_version=1,
+                major_grid_visible=True,
+                minor_grid_visible=True,
+            ),
+        ),
+    )
+    figure.canvas.draw()
+
+    assert any(line.get_visible() for line in axis.get_ygridlines())
     plt.close(figure)
 
 
@@ -494,4 +856,71 @@ def test_matplotlib_colormap_error_band_and_save_hook(tmp_path: Path) -> None:
     assert figure.axes[-1].get_xlabel() == "Intensity"
     assert isinstance(figure.axes[-1]._colorbar.formatter, FuncFormatter)
     assert band.get_alpha() == 0.35
+    plt.close(figure)
+
+
+def test_repeated_colormap_actions_preserve_prior_properties_when_shown_later() -> None:
+    figure, axis = plt.subplots()
+    axis.imshow(np.asarray([[0.0, 1.0], [2.0, 3.0]]))
+    hidden_with_title = SetColorMap(
+        action_id="action:hidden-colorbar-title",
+        target="series:t1.matrix",
+        expected_plot_version=1,
+        colorbar_visible=False,
+        colorbar_title="Intensity",
+    )
+    shown_later = SetColorMap(
+        action_id="action:show-colorbar-later",
+        target="series:t1.matrix",
+        expected_plot_version=2,
+        colorbar_visible=True,
+    )
+
+    effective = effective_visual_actions((hidden_with_title, shown_later))
+    apply_visual_actions(figure, _document(), (hidden_with_title, shown_later))
+
+    assert len(effective) == 1
+    merged = effective[0]
+    assert isinstance(merged, SetColorMap)
+    assert merged.colorbar_visible is True
+    assert merged.colorbar_title == "Intensity"
+    assert len(figure.axes) == 2
+    assert figure.axes[-1].get_ylabel() == "Intensity"
+    plt.close(figure)
+
+
+def test_matplotlib_keeps_hidden_colorbar_style_latent_when_bar_is_absent() -> None:
+    figure, axis = plt.subplots()
+    axis.imshow(np.asarray([[0.0, 1.0], [2.0, 3.0]]))
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetColorMap(
+                action_id="action:hidden-absent-colorbar",
+                target="series:t1.matrix",
+                expected_plot_version=1,
+                colorbar_visible=False,
+                colorbar_title="Intensity",
+            ),
+        ),
+    )
+
+    assert len(figure.axes) == 1
+    plt.close(figure)
+
+
+def test_matplotlib_rejects_styling_an_absent_colorbar() -> None:
+    figure, axis = plt.subplots()
+    axis.imshow(np.asarray([[0.0, 1.0], [2.0, 3.0]]))
+    action = SetColorMap(
+        action_id="action:style-absent-colorbar",
+        target="series:t1.matrix",
+        expected_plot_version=1,
+        colorbar_title="Intensity",
+    )
+
+    with pytest.raises(RuntimeError, match="colorbar that is absent"):
+        apply_visual_actions(figure, _document(), (action,))
     plt.close(figure)

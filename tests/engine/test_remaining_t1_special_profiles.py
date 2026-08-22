@@ -135,7 +135,10 @@ def _x24_case():
             ("field:value", "Count", "numeric", (5.0, 20.0, 10.0, 0.0)),
         ),
         styles=(
-            ("bars", {"line_stroke_color": "#2255AA", "line_width_pt": 1.1}),
+            (
+                "bars",
+                {"fill_stroke_color": "#2255AA", "fill_stroke_width_pt": 1.1},
+            ),
             (
                 "cumulative",
                 {
@@ -155,6 +158,16 @@ def _dual_case(profile_id: str):
     }
     if profile_id == "X36":
         right_style.update(line_style="dash", marker_shape="diamond", marker_size_pt=6.0)
+    left_style = (
+        {"fill_stroke_color": "#2255AA", "fill_stroke_width_pt": 1.0}
+        if profile_id in {"X35", "X36"}
+        else {"line_stroke_color": "#2255AA", "line_width_pt": 1.0}
+    )
+    if profile_id == "X35":
+        right_style = {
+            "fill_stroke_color": "#CC6600",
+            "fill_stroke_width_pt": 1.5,
+        }
     return _case(
         profile_id,
         ("category", "left", "right"),
@@ -164,7 +177,7 @@ def _dual_case(profile_id: str):
             ("field:right", "Temperature", "numeric", (3.0, 7.0, 11.0)),
         ),
         styles=(
-            ("left", {"line_stroke_color": "#2255AA", "line_width_pt": 1.0}),
+            ("left", left_style),
             ("right", right_style),
         ),
     )

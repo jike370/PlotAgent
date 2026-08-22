@@ -207,7 +207,7 @@ Origin fresh-reopen 或真实模型证据。
 | RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | IN_PROGRESS | 待本轮定向 UI 与 OPJU 产物 |
 | RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | UNVERIFIED | 待 `run_release_matrix.py` 当前候选报告 |
 | RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | UNVERIFIED | 待 Origin live/fresh 报告 |
-| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | UNVERIFIED | 待公共编辑矩阵报告 |
+| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | IN_PROGRESS | 1,915 个图类—参数覆盖点已枚举；其中 5 组颜色上下界按原子对执行，共 1,910 组合法 A/B 合同。1,896 组由 3,792 次图类专属 PNG 渲染证明两值视觉不同；9 组单条图例的列数与 5 组无缺失样本的缺失颜色，由具备必要状态的共享原生属性测试证明。K04 颜色标尺三种跨动作顺序及完整 8 步编辑历史已由 Origin 2024 fresh-reopen 通过（16 项后端结果、65 个原子合同）；其余 Origin、撤销/重做、重启和三格式链路待候选矩阵 |
 | RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | UNVERIFIED | 待数据与性能矩阵报告 |
 | RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | UNVERIFIED | 待故障矩阵与正式 UI 证据 |
 | RC-BB | 组件分别正确但真实长链路失败 | 同一冻结候选的完整 Windows Electron 黑盒；覆盖 34 图代表路径、Agent、多数据任务、编辑、导出和恢复 | UNVERIFIED | 待黑盒报告、CSV、截图与产物 |

@@ -49,7 +49,7 @@ def _case(
         action_id="action:style-second",
         target="series:k03-dynamic.group_2",
         expected_plot_version=1,
-        line_stroke_color="#AA3300",
+        marker_stroke_color="#AA3300",
         marker_shape="diamond",
         marker_size_pt=8,
     )

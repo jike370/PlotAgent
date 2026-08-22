@@ -31,6 +31,7 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
+from plotagent.engine.visual_t1 import effective_visual_actions
 
 _LINE_STYLE = {"solid": 1, "dash": 2, "dot": 3, "dash_dot": 4, "none": 0}
 _BORDER_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 0}
@@ -91,11 +92,12 @@ def apply_origin_visual_actions(
 
     if not actions:
         return {"actions": 0}
+    effective_actions = effective_visual_actions(actions)
     op.new()
     if not op.open(str(output), readonly=False, asksave=False):
         raise RuntimeError("Origin could not reopen the project for T1 visual edits")
     graph = _graph(op)
-    for action in actions:
+    for action in effective_actions:
         _apply_action(op, graph, document, action)
     applied_invariant = (
         None if post_apply_invariant is None else post_apply_invariant(graph)
@@ -110,7 +112,6 @@ def apply_origin_visual_actions(
     if not op.open(str(output), readonly=True, asksave=False):
         raise RuntimeError("Origin could not fresh-reopen the T1 visual project")
     reopened = _graph(op)
-    effective_actions = _effective_state_actions(actions)
     snapshot = _verify_actions(op, reopened, document, effective_actions)
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
@@ -120,44 +121,6 @@ def apply_origin_visual_actions(
     snapshot["effective_actions"] = len(effective_actions)
     snapshot["fresh_reopen"] = True
     return snapshot
-
-
-def _effective_state_actions(
-    actions: tuple[PlotEngineAction, ...],
-) -> tuple[PlotEngineAction, ...]:
-    """Collapse cumulative state edits before final-state verification.
-
-    Plot documents retain their full action history.  Applying that history is
-    correct, but verifying every historical value against the final object is
-    not: a second title edit intentionally replaces the first title.  Merge
-    stateful edits property-by-property while keeping annotations independent.
-    """
-
-    stateful = (
-        SetTitle,
-        SetAxis,
-        SetSeriesStyle,
-        SetLegend,
-        SetColorMap,
-        SetErrorStyle,
-        SetDataLabels,
-    )
-    result: list[PlotEngineAction] = []
-    positions: dict[tuple[type[PlotEngineAction], str], int] = {}
-    for action in actions:
-        if not isinstance(action, stateful):
-            result.append(action)
-            continue
-        key = (type(action), action.target)
-        existing_position = positions.get(key)
-        if existing_position is None:
-            positions[key] = len(result)
-            result.append(action)
-            continue
-        previous = result[existing_position]
-        updates = action.model_dump(exclude_none=True)
-        result[existing_position] = previous.model_copy(update=updates)
-    return tuple(result)
 
 
 def _graph(op: Any) -> Any:
@@ -776,7 +739,7 @@ def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
     commands.append("layer.cmap.updateScale()")
     if not op.lt_exec("; ".join(commands) + ";"):
         raise RuntimeError("Origin could not update the T1 colormap")
-    spectrum = layer.label("SPECTRUM1")
+    spectrum = _color_scale_for_action(op, layer, action)
     if spectrum is not None:
         if action.colorbar_visible is not None:
             spectrum.set_int("show", int(action.colorbar_visible))
@@ -801,6 +764,40 @@ def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
                 _layer_index(layer),
                 action.colorbar_tick_format,
             )
+
+
+def _color_scale_for_action(op: Any, layer: Any, action: SetColorMap) -> Any | None:
+    """Resolve or create the native color scale required by a public edit.
+
+    Origin templates such as heat maps normally contain ``SPECTRUM1`` while
+    the official K04 bubble template does not.  ``colorbar_visible=True`` is a
+    creation request in both public backends, so silently ignoring it when the
+    object is absent would make the same action backend-dependent.  Styling an
+    absent and non-requested scale is rejected explicitly instead of being a
+    false successful edit.
+    """
+
+    spectrum = layer.label("SPECTRUM1")
+    if spectrum is None and action.colorbar_visible is True:
+        layer.activate()
+        native = layer.obj.GraphObjects.Add(13)
+        if native is None or not native.IsValid():
+            raise RuntimeError("Origin could not create the requested native color scale")
+        spectrum = op.Label(native, layer.obj)
+        spectrum.name = "SPECTRUM1"
+    style_requested = any(
+        value is not None
+        for value in (
+            action.colorbar_title,
+            action.colorbar_anchor,
+            action.colorbar_tick_format,
+        )
+    )
+    if spectrum is None and style_requested and action.colorbar_visible is not False:
+        raise RuntimeError(
+            "Origin cannot style a color scale that is absent; set colorbar_visible=true"
+        )
+    return spectrum
 
 
 def _centered_levels(

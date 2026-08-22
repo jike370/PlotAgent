@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from plotagent.engine import PlotDocumentRepository, PlotEngineAction, SetTitle
@@ -9,7 +10,9 @@ from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
 from scripts.build_release_visual_signatures import build_visual_signatures
 from scripts.release_matrix_actions import (
+    action_parameter_names,
     document_for_actions,
+    isolated_edit_cases,
     representative_edit_actions,
 )
 from scripts.release_matrix_cases import RELEASE_CASES
@@ -151,7 +154,7 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
 
     backend = default_matplotlib_backend(tmp_path / "matplotlib-edits")
     cases = tuple(case for case in RELEASE_CASES if case.variant == "representative")
-    operation_counts: dict[str, int] = {}
+    operation_profiles: dict[str, set[str]] = {}
     for case in cases:
         default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
         default.publish()
@@ -168,7 +171,7 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
         )
         previous_artifact_hash = baseline_export.artifact_hash
         for action in actions:
-            operation_counts[action.operation] = operation_counts.get(action.operation, 0) + 1
+            operation_profiles.setdefault(action.operation, set()).add(case.profile_id)
         final_document = case.document
         for count in range(1, len(actions) + 1):
             history = actions[:count]
@@ -217,10 +220,141 @@ def test_all_representative_profiles_apply_common_edits_in_matplotlib(
             *(action.action_id for action in actions),
         )
 
-    assert operation_counts["set_title"] == 34
-    assert operation_counts["set_axis"] == 34
-    assert operation_counts["set_series_style"] == 34
-    assert operation_counts["set_legend"] == 29
+    for operation in ("set_title", "set_axis", "set_series_style", "set_legend"):
+        expected_profiles = {
+            str(profile.profile_id)
+            for profile in ENGINE_PROFILES
+            if any(capability.operation == operation for capability in profile.capabilities)
+        }
+        assert operation_profiles[operation] == expected_profiles
+
+
+def test_all_34_profiles_enumerate_every_public_edit_parameter_in_isolation(
+    tmp_path: Path,
+) -> None:
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    backend = default_matplotlib_backend(tmp_path / "isolated-contract-readbacks")
+    focal_count = 0
+    case_ids: set[str] = set()
+    for case in (item for item in RELEASE_CASES if item.variant == "representative"):
+        default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+        isolated = isolated_edit_cases(case, default.readback)
+        default.discard()
+        expected = {
+            capability.operation: set(capability.parameters)
+            for profile in ENGINE_PROFILES
+            if str(profile.profile_id) == case.profile_id
+            for capability in profile.capabilities
+            if capability.operation not in {"create_plot", "bind_fields", "export_plot"}
+        }
+        observed: dict[str, set[str]] = {}
+        for item in isolated:
+            assert item.case_id not in case_ids
+            case_ids.add(item.case_id)
+            assert set(item.focal_parameters).isdisjoint(item.dependency_parameters)
+            assert action_parameter_names(item.action) == frozenset(
+                (*item.focal_parameters, *item.dependency_parameters)
+            )
+            observed.setdefault(item.operation, set()).update(item.focal_parameters)
+            focal_count += len(item.focal_parameters)
+        assert observed == expected
+
+    assert focal_count == sum(
+        len(capability.parameters)
+        for profile in ENGINE_PROFILES
+        for capability in profile.capabilities
+        if capability.operation not in {"create_plot", "bind_fields", "export_plot"}
+    )
+
+
+def test_every_profile_parameter_pair_has_an_isolated_matplotlib_execution(
+    tmp_path: Path,
+) -> None:
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    artifact_root = tmp_path / "isolated-parameter-execution"
+    backend = default_matplotlib_backend(artifact_root)
+    covered: set[tuple[str, str, str]] = set()
+    unchanged: list[str] = []
+    shared_property_cases: set[str] = set()
+    execution_count = 0
+    for case in (item for item in RELEASE_CASES if item.variant == "representative"):
+        default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+        isolated_cases = isolated_edit_cases(case, default.readback)
+        default.discard()
+        plot_token = case.document.plot_id.removeprefix("plot:")
+        for isolated in isolated_cases:
+            for parameter in isolated.focal_parameters:
+                covered.add((case.profile_id, isolated.operation, parameter))
+            action_a = isolated.action
+            document_a = document_for_actions(case, (action_a,))
+            change_a = backend.stage(
+                document_a,
+                (action_a,),
+                EngineRenderSource(data=case.view),
+            )
+            change_a.publish()
+            edited_png = artifact_root / plot_token / "v2" / "preview.png"
+            hash_a = sha256(edited_png.read_bytes()).hexdigest()
+            change_a.revert()
+
+            action_b = isolated.comparison_action
+            document_b = document_for_actions(case, (action_b,))
+            change_b = backend.stage(
+                document_b,
+                (action_b,),
+                EngineRenderSource(data=case.view),
+            )
+            change_b.publish()
+            hash_b = sha256(edited_png.read_bytes()).hexdigest()
+            if isolated.comparison_mode == "shared_property":
+                assert isolated.evidence_reason
+                shared_property_cases.add(isolated.case_id)
+            elif hash_a == hash_b:
+                unchanged.append(isolated.case_id)
+            change_b.revert()
+            execution_count += 1
+
+    expected = {
+        (str(profile.profile_id), capability.operation, parameter)
+        for profile in ENGINE_PROFILES
+        for capability in profile.capabilities
+        if capability.operation not in {"create_plot", "bind_fields", "export_plot"}
+        for parameter in capability.parameters
+    }
+    assert covered == expected
+    (tmp_path / "unchanged-rendered-parameters.json").write_text(
+        json.dumps(unchanged, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    assert unchanged == [], f"public edits did not change rendered PNG: {unchanged}"
+    assert shared_property_cases == {
+        "K01:set_legend:columns",
+        "K04:set_legend:columns",
+        "K04:set_colormap:missing_color",
+        "K06:set_legend:columns",
+        "K07:set_legend:columns",
+        "K08:set_legend:columns",
+        "K15:set_legend:columns",
+        "K20:set_colormap:missing_color",
+        "K21:set_colormap:missing_color",
+        "K22:set_colormap:missing_color",
+        "S34:set_legend:columns",
+        "S61:set_colormap:missing_color",
+        "X02:set_legend:columns",
+        "X09:set_legend:columns",
+    }
+    paired_colormap_bounds = sum(
+        1
+        for profile in ENGINE_PROFILES
+        for capability in profile.capabilities
+        if capability.operation == "set_colormap"
+        and {"minimum", "maximum"} <= set(capability.parameters)
+    )
+    assert execution_count == len(expected) - paired_colormap_bounds
 
 
 def test_release_edit_origin_request_preserves_linear_action_history(

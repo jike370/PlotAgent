@@ -46,6 +46,7 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
+from plotagent.engine.visual_t1 import effective_visual_actions
 
 _LINE_STYLES: dict[str, Any] = {
     "solid": "-",
@@ -123,7 +124,7 @@ def apply_visual_actions(
     document: PlotDocument,
     actions: tuple[PlotEngineAction, ...],
 ) -> None:
-    for action in actions:
+    for action in effective_visual_actions(actions):
         if isinstance(action, SetTitle):
             _apply_title(figure, action)
         elif isinstance(action, SetAxis):
@@ -307,27 +308,26 @@ def _apply_axis(figure: Figure, action: SetAxis) -> None:
         spine.set_color(action.axis_line_color)
     if action.axis_line_width_pt is not None:
         spine.set_linewidth(action.axis_line_width_pt)
+    grid_style: dict[str, object] = {}
+    if action.grid_color is not None:
+        grid_style["color"] = action.grid_color
+    if action.grid_line_width_pt is not None:
+        grid_style["linewidth"] = action.grid_line_width_pt
+    if action.grid_line_style is not None:
+        grid_style["linestyle"] = _LINE_STYLES[action.grid_line_style]
     if action.major_grid_visible is not None:
         axis.grid(
             action.major_grid_visible,
             which="major",
             axis=name,
-            color=action.grid_color,
-            linewidth=action.grid_line_width_pt,
-            linestyle=(
-                None if action.grid_line_style is None else _LINE_STYLES[action.grid_line_style]
-            ),
+            **grid_style,
         )
     if action.minor_grid_visible is not None:
         axis.grid(
             action.minor_grid_visible,
             which="minor",
             axis=name,
-            color=action.grid_color,
-            linewidth=action.grid_line_width_pt,
-            linestyle=(
-                None if action.grid_line_style is None else _LINE_STYLES[action.grid_line_style]
-            ),
+            **grid_style,
         )
 
 
@@ -344,9 +344,12 @@ def _axis_artists(axis: Axes) -> list[Any]:
     result: list[Any] = []
     result.extend(axis.lines)
     result.extend(axis.collections)
+    container_patches: set[int] = set()
     for container in axis.containers:
         if isinstance(container, BarContainer):
             result.append(container)
+            container_patches.update(id(patch) for patch in container.patches)
+    result.extend(patch for patch in axis.patches if id(patch) not in container_patches)
     if axis.images:
         result.extend(axis.images)
     return result
@@ -379,6 +382,110 @@ def _series_artists(figure: Figure, target: str) -> list[Any]:
     return [candidates[ordinal]]
 
 
+def _visible_label(artist: Any) -> bool:
+    label = artist.get_label() if hasattr(artist, "get_label") else None
+    return isinstance(label, str) and bool(label) and not label.startswith("_")
+
+
+def _ordinal_artist(candidates: list[Any], ordinal: int, target: str) -> Any:
+    preferred = [artist for artist in candidates if _visible_label(artist)]
+    materialized = preferred or candidates
+    if ordinal >= len(materialized):
+        raise ValueError(f"Matplotlib target {target} is outside the materialized series")
+    return materialized[ordinal]
+
+
+def _series_style_artists(
+    figure: Figure,
+    target: str,
+    action: SetSeriesStyle,
+) -> list[Any]:
+    """Resolve every native artist that implements one semantic series.
+
+    Several public profiles are compound: a drop-line series is a point
+    collection plus a line collection, an area is a boundary plus a fill, and
+    box/violin series include auxiliary artists.  Positional lookup over the
+    unfiltered axes artist list silently targeted the wrong primitive.  Select
+    one compatible artist per requested style family, using visible labels
+    when the renderer exposes them, and retain the old resolver only for pure
+    visibility edits.
+    """
+
+    key = _target_key(target)
+    axes = _data_axes(figure)
+    axis = axes[-1] if key in {"right", "cumulative"} and len(axes) > 1 else axes[0]
+    candidates = _axis_artists(axis)
+    ordinal = (
+        0
+        if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
+        else _series_ordinal(key)
+    )
+    requested_line = any(
+        value is not None
+        for value in (
+            action.line_stroke_color,
+            action.line_width_pt,
+            action.line_style,
+            action.line_opacity,
+        )
+    )
+    requested_marker = any(
+        value is not None
+        for value in (
+            action.marker_shape,
+            action.marker_size_pt,
+            action.marker_interior,
+            action.marker_fill_color,
+            action.marker_stroke_color,
+            action.marker_stroke_width_pt,
+            action.marker_opacity,
+        )
+    )
+    requested_fill = any(
+        value is not None
+        for value in (
+            action.fill_color,
+            action.fill_opacity,
+            action.fill_stroke_color,
+            action.fill_stroke_width_pt,
+            action.fill_stroke_style,
+        )
+    )
+    selected: list[Any] = []
+    if requested_line:
+        line_candidates = [
+            artist
+            for artist in candidates
+            if isinstance(artist, (Line2D, LineCollection))
+            or (isinstance(artist, PolyCollection) and _visible_label(artist))
+        ]
+        selected.append(_ordinal_artist(line_candidates, ordinal, target))
+    if requested_marker:
+        marker_candidates = [
+            artist
+            for artist in candidates
+            if isinstance(artist, PathCollection)
+            or (
+                isinstance(artist, Line2D)
+                and (
+                    action.marker_shape is not None
+                    or artist.get_marker() not in {None, "", "None", "none"}
+                )
+            )
+        ]
+        selected.append(_ordinal_artist(marker_candidates, ordinal, target))
+    if requested_fill:
+        fill_candidates = [
+            artist
+            for artist in candidates
+            if isinstance(artist, (BarContainer, Patch, PolyCollection))
+        ]
+        selected.append(_ordinal_artist(fill_candidates, ordinal, target))
+    if not selected:
+        return _series_artists(figure, target)
+    return list(dict.fromkeys(selected))
+
+
 def _iter_primitives(artist: Any) -> Iterable[Any]:
     if isinstance(artist, BarContainer):
         return artist.patches
@@ -408,6 +515,15 @@ def _set_marker(artist: Any, action: SetSeriesStyle) -> None:
         if action.marker_size_pt is not None:
             artist.set_sizes([action.marker_size_pt**2])
         if action.marker_fill_color is not None:
+            # A scalar-mapped collection recomputes its face colours during
+            # draw and silently overwrites an explicit Agent edit.  Preserve
+            # the source values so a later SetColorMap can deliberately
+            # restore data-driven colouring; until then the latest explicit
+            # marker colour owns the visual state.
+            values = artist.get_array()
+            if values is not None:
+                cast(Any, artist)._plotagent_color_values = np.asarray(values).copy()
+                artist.set_array(None)
             artist.set_facecolor(action.marker_fill_color)
         if action.marker_stroke_color is not None:
             artist.set_edgecolor(action.marker_stroke_color)
@@ -426,27 +542,63 @@ def _set_marker(artist: Any, action: SetSeriesStyle) -> None:
             artist.set_paths([marker.get_path().transformed(marker.get_transform())])
 
 
-def _set_line(artist: Any, action: SetSeriesStyle) -> None:
-    if not isinstance(artist, (Line2D, LineCollection)):
+def _materialize_shape_alpha(artist: Patch | PolyCollection) -> None:
+    """Split a global artist alpha into independently editable edge/face RGBA."""
+
+    alpha = artist.get_alpha()
+    if alpha is None:
         return
-    if action.line_stroke_color is not None:
-        artist.set_color(action.line_stroke_color)
+    faces = mcolors.to_rgba_array(artist.get_facecolor())
+    if len(faces):
+        faces[:, 3] = alpha
+        cast(Any, artist).set_facecolor(faces[0] if isinstance(artist, Patch) else faces)
+    edges = mcolors.to_rgba_array(artist.get_edgecolor())
+    if len(edges):
+        edges[:, 3] = alpha
+        cast(Any, artist).set_edgecolor(edges[0] if isinstance(artist, Patch) else edges)
+    artist.set_alpha(None)
+
+
+def _set_line(artist: Any, action: SetSeriesStyle) -> None:
+    if isinstance(artist, (Line2D, LineCollection)):
+        if action.line_stroke_color is not None:
+            artist.set_color(action.line_stroke_color)
+    elif isinstance(artist, (Patch, PolyCollection)):
+        _materialize_shape_alpha(artist)
+        if action.line_stroke_color is not None:
+            artist.set_edgecolor(action.line_stroke_color)
+    else:
+        return
     if action.line_width_pt is not None:
         artist.set_linewidth(action.line_width_pt)
     if action.line_style is not None:
         artist.set_linestyle(_LINE_STYLES[action.line_style])
     if action.line_opacity is not None:
-        artist.set_alpha(action.line_opacity)
+        if isinstance(artist, (Patch, PolyCollection)):
+            edges = mcolors.to_rgba_array(artist.get_edgecolor())
+            if len(edges):
+                edges[:, 3] = action.line_opacity
+                cast(Any, artist).set_edgecolor(
+                    edges[0] if isinstance(artist, Patch) else edges
+                )
+        else:
+            artist.set_alpha(action.line_opacity)
 
 
 def _set_fill(artist: Any, action: SetSeriesStyle) -> None:
     for primitive in _iter_primitives(artist):
         if not isinstance(primitive, (Patch, PolyCollection)):
             continue
+        _materialize_shape_alpha(primitive)
         if action.fill_color is not None:
             primitive.set_facecolor(action.fill_color)
         if action.fill_opacity is not None:
-            primitive.set_alpha(action.fill_opacity)
+            faces = mcolors.to_rgba_array(primitive.get_facecolor())
+            if len(faces):
+                faces[:, 3] = action.fill_opacity
+                cast(Any, primitive).set_facecolor(
+                    faces[0] if isinstance(primitive, Patch) else faces
+                )
         if action.fill_stroke_color is not None:
             primitive.set_edgecolor(action.fill_stroke_color)
         if action.fill_stroke_width_pt is not None:
@@ -456,7 +608,7 @@ def _set_fill(artist: Any, action: SetSeriesStyle) -> None:
 
 
 def _apply_series(figure: Figure, action: SetSeriesStyle) -> None:
-    artists = _series_artists(figure, action.target)
+    artists = _series_style_artists(figure, action.target, action)
     key = _target_key(action.target)
     if action.visible is not None and key in {"primary", "left", "right", "cumulative"}:
         axes = _data_axes(figure)
@@ -473,66 +625,89 @@ def _apply_series(figure: Figure, action: SetSeriesStyle) -> None:
 
 def _apply_legend(figure: Figure, action: SetLegend) -> None:
     axes = _data_axes(figure)
+    existing_legends = tuple(
+        legend for axis in axes if (legend := axis.get_legend()) is not None
+    )
+    visible = bool(existing_legends) if action.visible is None else action.visible
+    if not visible or action.anchor == "none":
+        for legend in existing_legends:
+            legend.remove()
+        return
+
+    # A semantic legend is figure-wide even when a dual-axis renderer stores
+    # its series on separate native Axes.  Building one legend per axis made
+    # public properties such as `columns` impossible to observe and split the
+    # series identity across two unrelated boxes.
+    handles: list[Any] = []
+    labels: list[str] = []
     for axis in axes:
+        axis_handles, axis_labels = axis.get_legend_handles_labels()
         existing = axis.get_legend()
-        visible = existing is not None if action.visible is None else action.visible
-        if not visible or action.anchor == "none":
-            if existing is not None:
-                existing.remove()
-            continue
-        handles, labels = axis.get_legend_handles_labels()
-        if not handles and existing is not None:
-            handles = [handle for handle in existing.legend_handles if handle is not None]
-            labels = [text.get_text() for text in existing.get_texts()]
-        if not handles:
-            continue
-        placements: dict[str, dict[str, object]] = {
-            "inside": {"loc": "best"},
-            "inside_top_left": {"loc": "upper left"},
-            "inside_top_right": {"loc": "upper right"},
-            "inside_bottom_left": {"loc": "lower left"},
-            "inside_bottom_right": {"loc": "lower right"},
-            "right": {"loc": "center left", "bbox_to_anchor": (1.02, 0.5)},
-            "bottom": {"loc": "upper center", "bbox_to_anchor": (0.5, -0.15)},
-        }
-        anchor = cast(
-            Literal[
-                "inside",
-                "inside_top_left",
-                "inside_top_right",
-                "inside_bottom_left",
-                "inside_bottom_right",
-                "right",
-                "bottom",
-            ],
-            "inside" if action.anchor in {None, "none"} else action.anchor,
-        )
-        legend = axis.legend(  # type: ignore[call-overload]
-            handles,
-            labels,
-            ncols=action.columns or 1,
-            title=action.title,
-            frameon=True if action.frame_visible is None else action.frame_visible,
-            **placements[anchor],
-        )
-        for text in [*legend.get_texts(), legend.get_title()]:
-            if action.font_family not in {None, "auto"}:
-                text.set_fontfamily(action.font_family)
-            if action.font_size_pt is not None:
-                text.set_fontsize(action.font_size_pt)
-            if action.font_color is not None:
-                text.set_color(action.font_color)
-        frame = legend.get_frame()
-        if action.frame_color is not None:
-            frame.set_edgecolor(action.frame_color)
-        if action.frame_width_pt is not None:
-            frame.set_linewidth(action.frame_width_pt)
+        if not axis_handles and existing is not None:
+            axis_handles = [
+                handle for handle in existing.legend_handles if handle is not None
+            ]
+            axis_labels = [text.get_text() for text in existing.get_texts()]
+        for handle, label in zip(axis_handles, axis_labels, strict=True):
+            if label not in labels:
+                handles.append(handle)
+                labels.append(label)
+    for legend in existing_legends:
+        legend.remove()
+    if not handles:
+        return
+
+    placements: dict[str, dict[str, object]] = {
+        "inside": {"loc": "best"},
+        "inside_top_left": {"loc": "upper left"},
+        "inside_top_right": {"loc": "upper right"},
+        "inside_bottom_left": {"loc": "lower left"},
+        "inside_bottom_right": {"loc": "lower right"},
+        "right": {"loc": "center left", "bbox_to_anchor": (1.02, 0.5)},
+        "bottom": {"loc": "upper center", "bbox_to_anchor": (0.5, -0.15)},
+    }
+    anchor = cast(
+        Literal[
+            "inside",
+            "inside_top_left",
+            "inside_top_right",
+            "inside_bottom_left",
+            "inside_bottom_right",
+            "right",
+            "bottom",
+        ],
+        "inside" if action.anchor in {None, "none"} else action.anchor,
+    )
+    legend = axes[0].legend(  # type: ignore[call-overload]
+        handles,
+        labels,
+        ncols=action.columns or 1,
+        title=action.title,
+        frameon=True if action.frame_visible is None else action.frame_visible,
+        **placements[anchor],
+    )
+    for text in [*legend.get_texts(), legend.get_title()]:
+        if action.font_family not in {None, "auto"}:
+            text.set_fontfamily(action.font_family)
+        if action.font_size_pt is not None:
+            text.set_fontsize(action.font_size_pt)
+        if action.font_color is not None:
+            text.set_color(action.font_color)
+    frame = legend.get_frame()
+    if action.frame_color is not None:
+        frame.set_edgecolor(action.frame_color)
+    if action.frame_width_pt is not None:
+        frame.set_linewidth(action.frame_width_pt)
 
 
 def _apply_colormap(figure: Figure, action: SetColorMap) -> None:
     artist = _series_artists(figure, action.target)[0]
     if not hasattr(artist, "set_cmap"):
         raise ValueError(f"Matplotlib target {action.target} does not expose a colormap")
+    if isinstance(artist, PathCollection) and artist.get_array() is None:
+        values = getattr(artist, "_plotagent_color_values", None)
+        if values is not None:
+            artist.set_array(values)
     palette = _PALETTES[action.palette or "viridis"]
     if action.reverse:
         palette = palette[:-2] if palette.endswith("_r") else f"{palette}_r"
@@ -562,6 +737,23 @@ def _apply_colormap(figure: Figure, action: SetColorMap) -> None:
         if axis.get_label() == "<colorbar>"
         and (colorbar := getattr(axis, "_colorbar", None)) is not None
     ]
+    colorbar_style_requested = any(
+        value is not None
+        for value in (
+            action.colorbar_title,
+            action.colorbar_anchor,
+            action.colorbar_tick_format,
+        )
+    )
+    if (
+        not colorbars
+        and action.colorbar_visible is not True
+        and action.colorbar_visible is not False
+        and colorbar_style_requested
+    ):
+        raise RuntimeError(
+            "Matplotlib cannot style a colorbar that is absent; set colorbar_visible=true"
+        )
     if action.colorbar_visible is False:
         for colorbar in colorbars:
             colorbar.remove()

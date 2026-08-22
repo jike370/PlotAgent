@@ -28,6 +28,7 @@ from plotagent.engine.ports import EngineReadback, EngineRenderSource  # noqa: E
 from scripts.release_matrix_actions import (  # noqa: E402
     action_parameter_names,
     document_for_actions,
+    isolated_edit_cases,
     representative_edit_actions,
 )
 from scripts.release_matrix_cases import RELEASE_CASES, ReleaseCase  # noqa: E402
@@ -127,6 +128,8 @@ def execute_edit_matrix(
         )
     results: list[EditResult] = []
     failures: dict[str, str] = {}
+    isolated_contracts: list[dict[str, object]] = []
+    isolated_focal_parameter_count = 0
 
     for index, case in enumerate(cases, start=1):
         print(f"[{index:02d}/{len(cases):02d}] {case.profile_id}", flush=True)
@@ -141,6 +144,21 @@ def execute_edit_matrix(
             ).read_text(encoding="utf-8")
         )
         actions = representative_edit_actions(case, baseline_readback)
+        for isolated in isolated_edit_cases(case, baseline_readback):
+            isolated_focal_parameter_count += len(isolated.focal_parameters)
+            isolated_contracts.append(
+                {
+                    "case_id": isolated.case_id,
+                    "profile_id": isolated.profile_id,
+                    "operation": isolated.operation,
+                    "focal_parameters": isolated.focal_parameters,
+                    "dependency_parameters": isolated.dependency_parameters,
+                    "comparison_mode": isolated.comparison_mode,
+                    "evidence_reason": isolated.evidence_reason,
+                    "action_a": isolated.action.model_dump(mode="json"),
+                    "action_b": isolated.comparison_action.model_dump(mode="json"),
+                }
+            )
 
         final_document = document_for_actions(case, actions)
         try:
@@ -246,6 +264,10 @@ def execute_edit_matrix(
         json.dumps([asdict(row) for row in results], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    (output / "isolated-edit-contracts.json").write_text(
+        json.dumps(isolated_contracts, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     counts = {
         status: sum(row.status == status for row in results)
         for status in ("PASS", "FAIL")
@@ -260,6 +282,8 @@ def execute_edit_matrix(
         "profile_count": len(cases),
         "result_count": len(results),
         "parameter_result_count": sum(len(row.parameters) for row in results),
+        "isolated_contract_case_count": len(isolated_contracts),
+        "isolated_focal_parameter_count": isolated_focal_parameter_count,
         "failures": failures,
     }
     (output / "run-metadata.json").write_text(
@@ -271,6 +295,7 @@ def execute_edit_matrix(
         f"- PASS: {counts['PASS']}\n"
         f"- FAIL: {counts['FAIL']}\n"
         "- 每图按能力声明覆盖标题、轴、系列、图例、色图、误差、数据标签和图形参数。\n"
+        f"- 单参数合同: {len(isolated_contracts)} 个原子用例。\n"
         "- Origin 每个动作形成独立线性版本，最终由另一进程 fresh 复核。\n"
         f"- 资格结论: {'GO' if counts['FAIL'] == 0 else 'NO-GO'}\n"
     )

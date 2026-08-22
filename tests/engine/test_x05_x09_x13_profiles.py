@@ -78,11 +78,17 @@ def _case(
     )
     actions: list[PlotEngineAction] = [create]
     for index, (target, color) in enumerate(styles, start=1):
-        arguments: dict[str, object] = {"line_stroke_color": color}
+        arguments: dict[str, object]
         if profile_id == "X05":
-            arguments.update(marker_shape="diamond", marker_size_pt=6.0)
+            arguments = {
+                "marker_shape": "diamond",
+                "marker_size_pt": 6.0,
+                "marker_stroke_color": color,
+            }
+        elif profile_id == "X13":
+            arguments = {"fill_color": color}
         else:
-            arguments.update(line_width_pt=1.2)
+            arguments = {"line_stroke_color": color, "line_width_pt": 1.2}
         actions.append(
             SetSeriesStyle(
                 action_id=f"action:style-{profile_id.lower()}-{index}",

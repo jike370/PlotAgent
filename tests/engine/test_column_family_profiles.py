@@ -98,8 +98,8 @@ def _case(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-columns.{series_role}_{series_count}",
         expected_plot_version=1,
-        line_stroke_color="#AA3300",
-        line_width_pt=None if profile_id == "K09" else 1.2,
+        fill_stroke_color="#AA3300",
+        fill_stroke_width_pt=1.2,
     )
     legend = SetLegend(
         action_id=f"action:legend-{profile_id.lower()}",
@@ -741,9 +741,17 @@ def _distribution_case(
         data=data,
         bindings=bindings,
     )
-    style_arguments: dict[str, object] = {"line_stroke_color": "#AA3300"}
+    style_arguments: dict[str, object]
     if profile_id == "K12":
-        style_arguments.update(marker_shape="diamond", marker_size_pt=7.0)
+        style_arguments = {
+            "marker_shape": "diamond",
+            "marker_size_pt": 7.0,
+            "marker_stroke_color": "#AA3300",
+        }
+    elif profile_id == "K13":
+        style_arguments = {"fill_stroke_color": "#AA3300"}
+    else:
+        style_arguments = {"line_stroke_color": "#AA3300"}
     style = SetSeriesStyle(
         action_id=f"action:style-{profile_id.lower()}",
         target=f"series:{profile_id.lower()}-distribution.group_{group_count}",

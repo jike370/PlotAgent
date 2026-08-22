@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from plotagent.engine import (
     PlotEngineAction,
     SetAxis,
     SetChartParameter,
+    SetColorMap,
     SetLegend,
     SetSeriesStyle,
     SetTitle,
@@ -163,6 +165,97 @@ def test_k04_scales_are_explicit_shared_parameters(tmp_path: Path) -> None:
 
     kinds = {item.object_kind for item in backend.readback(document).objects}
     assert {"color_scale", "size_key"} <= kinds
+
+
+def _append_actions(
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+    *edits: PlotEngineAction,
+) -> tuple[PlotDocument, tuple[PlotEngineAction, ...]]:
+    history = (*actions, *edits)
+    version = len(history)
+    return (
+        document.model_copy(
+            update={
+                "plot_version": version,
+                "parent_version": version - 1,
+                "applied_action_ids": tuple(action.action_id for action in history),
+            }
+        ),
+        history,
+    )
+
+
+def test_k04_color_scale_visibility_honors_cross_operation_action_order(
+    tmp_path: Path,
+) -> None:
+    base_document, base_actions, view = _case()
+    visual_show = SetColorMap(
+        action_id="action:k04-visual-show",
+        target="series:k04-bubble.primary",
+        expected_plot_version=1,
+        colorbar_visible=True,
+    )
+    structural_hide = SetChartParameter(
+        action_id="action:k04-structural-hide",
+        target=base_document.plot_id,
+        expected_plot_version=2,
+        parameter="color_scale_visible",
+        value=False,
+    )
+    hidden_document, hidden_actions = _append_actions(
+        base_document,
+        base_actions,
+        visual_show,
+        structural_hide,
+    )
+    hidden_backend = MatplotlibBackend(
+        tmp_path / "hidden-artifacts", (K04BubbleRenderer(),)
+    )
+    hidden_change = hidden_backend.stage(
+        hidden_document, hidden_actions, EngineRenderSource(data=view)
+    )
+    hidden_change.publish()
+
+    assert "color_scale" not in {
+        item.object_kind for item in hidden_backend.readback(hidden_document).objects
+    }
+
+    structural_hide_first = structural_hide.model_copy(
+        update={
+            "action_id": "action:k04-structural-hide-first",
+            "expected_plot_version": 1,
+        }
+    )
+    visual_show_last = visual_show.model_copy(
+        update={
+            "action_id": "action:k04-visual-show-last",
+            "expected_plot_version": 2,
+        }
+    )
+    visible_document, visible_actions = _append_actions(
+        base_document,
+        base_actions,
+        structural_hide_first,
+        visual_show_last,
+    )
+    visible_backend = MatplotlibBackend(
+        tmp_path / "visible-artifacts", (K04BubbleRenderer(),)
+    )
+    visible_change = visible_backend.stage(
+        visible_document, visible_actions, EngineRenderSource(data=view)
+    )
+    visible_change.publish()
+
+    hidden_png = (
+        tmp_path / "hidden-artifacts" / "k04-bubble" / "v3" / "preview.png"
+    )
+    visible_png = (
+        tmp_path / "visible-artifacts" / "k04-bubble" / "v3" / "preview.png"
+    )
+    assert sha256(hidden_png.read_bytes()).digest() != sha256(
+        visible_png.read_bytes()
+    ).digest()
 
 
 def test_k04_rejects_negative_sizes() -> None:
