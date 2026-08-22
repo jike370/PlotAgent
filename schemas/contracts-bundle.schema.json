@@ -2918,6 +2918,14 @@
     "CompiledTaskItem": {
       "additionalProperties": false,
       "properties": {
+        "binding_evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceFieldBindingEvidence"
+          },
+          "title": "Binding Evidence",
+          "type": "array"
+        },
         "bindings": {
           "default": [],
           "items": {
@@ -10967,6 +10975,77 @@
           "title": "Bindings",
           "type": "array"
         },
+        "data_operations": {
+          "default": [],
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "align_sources_on_x": "#/$defs/AlignSourcesOnX",
+                "bucketize_numeric": "#/$defs/BucketizeNumeric",
+                "concatenate_sources": "#/$defs/ConcatenateSources",
+                "convert_type": "#/$defs/ConvertType",
+                "convert_unit": "#/$defs/ConvertUnit",
+                "derive_column": "#/$defs/DeriveColumn",
+                "drop_empty_fields": "#/$defs/DropEmptyFields",
+                "exclude_rows": "#/$defs/ExcludeRows",
+                "filter_rows": "#/$defs/FilterRows",
+                "rename_field": "#/$defs/RenameField",
+                "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
+                "reshape_wide_to_long": "#/$defs/ReshapeWideToLong",
+                "select_fields": "#/$defs/SelectFields",
+                "sort_rows": "#/$defs/SortRows"
+              },
+              "propertyName": "operation"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SelectFields"
+              },
+              {
+                "$ref": "#/$defs/FilterRows"
+              },
+              {
+                "$ref": "#/$defs/SortRows"
+              },
+              {
+                "$ref": "#/$defs/ExcludeRows"
+              },
+              {
+                "$ref": "#/$defs/DropEmptyFields"
+              },
+              {
+                "$ref": "#/$defs/ConvertType"
+              },
+              {
+                "$ref": "#/$defs/ReshapeLongToWide"
+              },
+              {
+                "$ref": "#/$defs/ReshapeWideToLong"
+              },
+              {
+                "$ref": "#/$defs/ConcatenateSources"
+              },
+              {
+                "$ref": "#/$defs/AlignSourcesOnX"
+              },
+              {
+                "$ref": "#/$defs/RenameField"
+              },
+              {
+                "$ref": "#/$defs/DeriveColumn"
+              },
+              {
+                "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/BucketizeNumeric"
+              }
+            ]
+          },
+          "maxItems": 32,
+          "title": "Data Operations",
+          "type": "array"
+        },
         "plot_alias": {
           "pattern": "^[a-z][a-z0-9_]{0,63}$",
           "title": "Plot Alias",
@@ -13091,6 +13170,34 @@
         "source_column_index"
       ],
       "title": "SourceField",
+      "type": "object"
+    },
+    "SourceFieldBindingEvidence": {
+      "additionalProperties": false,
+      "description": "Raw source field that contributes to one final renderer role.\n\nCompiled bindings may point at workflow-derived fields.  This evidence keeps\nthe user-facing provenance explicit without asking the renderer to reverse\nengineer a data program.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "source_alias",
+        "field_id"
+      ],
+      "title": "SourceFieldBindingEvidence",
       "type": "object"
     },
     "SummaryErrorResult": {

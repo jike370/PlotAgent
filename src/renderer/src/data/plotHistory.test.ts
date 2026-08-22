@@ -9,6 +9,13 @@ const plot = {
   plotId: 'plot:one',
   plotVersion: 3,
   chartId: 'K01',
+  engineData: {
+    kind: 'source', dataset_id: 'source:old', version: 1, content_hash: 'a'.repeat(64),
+  },
+  engineBindings: [
+    { role: 'x', field_id: 'field:old.x' },
+    { role: 'y', field_id: 'field:old.y' },
+  ],
   plotTitle: '旧标题',
   fontSizePt: 9,
   projectVersion: 4,
@@ -39,6 +46,52 @@ describe('plot history', () => {
       undoActions: [
         { operation: 'set_axis', target: 'axis:y', scale: 'linear' },
         { operation: 'set_title', target: 'plot:one', text: '旧标题' },
+      ],
+    })
+  })
+
+  it('restores the complete previous data reference and bindings before redoing a data update', () => {
+    expect(plotHistoryEntry(plot, [{
+      operation: 'bind_fields',
+      target: 'plot:one',
+      data: {
+        kind: 'prepared', dataset_id: 'workflow:new', version: 1, content_hash: 'b'.repeat(64),
+      },
+      bindings: [
+        { role: 'x', field_id: 'field:new.x' },
+        { role: 'y', field_id: 'field:new.y' },
+      ],
+    }, {
+      operation: 'set_title', target: 'plot:one', text: '新标题',
+    }])).toMatchObject({
+      label: '数据与图形修改',
+      undoActions: [
+        { operation: 'set_title', target: 'plot:one', text: '旧标题' },
+        {
+          operation: 'bind_fields',
+          target: 'plot:one',
+          data: {
+            kind: 'source', dataset_id: 'source:old', version: 1,
+          },
+          bindings: [
+            { role: 'x', field_id: 'field:old.x' },
+            { role: 'y', field_id: 'field:old.y' },
+          ],
+        },
+      ],
+      redoActions: [
+        {
+          operation: 'bind_fields',
+          target: 'plot:one',
+          data: {
+            kind: 'prepared', dataset_id: 'workflow:new', version: 1,
+          },
+          bindings: [
+            { role: 'x', field_id: 'field:new.x' },
+            { role: 'y', field_id: 'field:new.y' },
+          ],
+        },
+        { operation: 'set_title', target: 'plot:one', text: '新标题' },
       ],
     })
   })

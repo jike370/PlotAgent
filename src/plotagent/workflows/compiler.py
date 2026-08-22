@@ -12,7 +12,9 @@ from plotagent.contracts.workflows import (
     DraftVisualAction,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
+    SourceFieldBindingEvidence,
     TaskDraft,
+    TaskDraftItem,
     TaskPlan,
     WorkflowContext,
     WorkflowField,
@@ -393,6 +395,7 @@ class DraftCompiler:
                     resolved_fields=tuple(resolved_fields.values()),
                     data_operations=item.data_operations,
                     bindings=tuple(bound),
+                    binding_evidence=self._binding_evidence(item, fields),
                     visual_actions=item.visual_actions,
                     idempotency_key=f"workflow.{token}.{position}",
                 )
@@ -404,6 +407,92 @@ class DraftCompiler:
             expected_project_revision=context.project_revision,
             items=tuple(compiled),
         )
+
+    @staticmethod
+    def _binding_evidence(
+        item: TaskDraftItem,
+        fields: dict[str, WorkflowField],
+    ) -> tuple[SourceFieldBindingEvidence, ...]:
+        """Resolve final roles back to the raw fields that produced them."""
+
+        lineage: dict[str, tuple[tuple[str, str], ...]] = {
+            alias: ((field.source_alias, field.field_id),) for alias, field in fields.items()
+        }
+
+        def merged(*aliases: str) -> tuple[tuple[str, str], ...]:
+            return tuple(
+                dict.fromkeys(
+                    origin
+                    for alias in aliases
+                    for origin in lineage.get(alias, ())
+                )
+            )
+
+        for operation in item.data_operations:
+            if operation.operation == "align_sources_on_x":
+                lineage[operation.output_x_field_alias] = merged(*operation.x_field_aliases)
+                for output, value_alias in zip(
+                    operation.output_series_fields,
+                    operation.value_field_aliases,
+                    strict=True,
+                ):
+                    lineage[output.field_alias] = merged(value_alias)
+            elif operation.operation == "reshape_wide_to_long":
+                combined = merged(*operation.value_field_aliases)
+                lineage[operation.output_name] = combined
+                lineage[operation.output_value] = combined
+            elif operation.operation == "reshape_long_to_wide":
+                combined = merged(operation.name_field_alias, operation.value_field_alias)
+                for output in operation.output_fields:
+                    lineage[output.field_alias] = combined
+            elif operation.operation == "concatenate_sources":
+                lineage[operation.source_label_field] = ()
+                head = operation.source_aliases[0]
+                head_fields = tuple(
+                    field for field in fields.values() if field.source_alias == head
+                )
+                for head_field in head_fields:
+                    signature = (
+                        head_field.name,
+                        head_field.logical_type,
+                        head_field.unit_label or "",
+                    )
+                    equivalents = tuple(
+                        field.field_alias
+                        for field in fields.values()
+                        if field.source_alias in operation.source_aliases
+                        and (
+                            field.name,
+                            field.logical_type,
+                            field.unit_label or "",
+                        )
+                        == signature
+                    )
+                    if equivalents:
+                        lineage[head_field.field_alias] = merged(*equivalents)
+            elif operation.operation in {
+                "rename_field",
+                "convert_type",
+                "convert_unit",
+                "bucketize_numeric",
+            }:
+                derived_operation = cast(Any, operation)
+                lineage[derived_operation.output_field_alias] = merged(
+                    derived_operation.field_alias
+                )
+            elif operation.operation == "derive_column":
+                lineage[operation.output_field_alias] = merged(*operation.input_field_aliases)
+
+        evidence = tuple(
+            SourceFieldBindingEvidence(
+                role=binding.role,
+                source_alias=source_alias,
+                field_id=field_id,
+            )
+            for binding in item.bindings
+            for source_alias, field_id in lineage.get(binding.field_alias, ())
+        )
+        return tuple(dict.fromkeys(evidence))
 
     @staticmethod
     def _validate_operation_flow(

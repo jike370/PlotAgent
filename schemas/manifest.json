@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "9f8766fee412179f441e91f6a1a59917209adeca645a2e4b49571895d671ebc7"
+      "sha256": "fe806fc72f49e94b48f15cd2d53fb29da03b62e34e9701deb30f358f3716a229"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "ff2d9f835e6ba94b620a92787572ae490aa63cd73aaec9e894ea43743d3b07b9"
+      "sha256": "3f5e1ae37dfe6d155110fc6fe7225d8ea1e9873783e135e830e8b26401b51406"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -166,11 +166,11 @@
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "bc34a7170fe5b1e7dd1a761d175103a02bb77017a1c9ac03ec66f1d9005685dd"
+      "sha256": "8bc743d0bdd29f518afe9f2b3d17860a44ac9656f72fcc451358782266b8654b"
     },
     {
       "path": "schemas/task-plan.schema.json",
-      "sha256": "27a4079cd968a872a281d24e10fa8b5d611b2d1cd250be2b910c28381664b68f"
+      "sha256": "204ed0180039378c08cf462211992c908d3be52343720df35edf2fc6fe4cc72f"
     },
     {
       "path": "schemas/tool-contract-v2.schema.json",
@@ -210,7 +210,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "5e6052bf1ac873f8b04ceaa5c1e45ee88ccdda06a28b6184454b186c1a7482ff"
+      "sha256": "745d1a26de77739c40362ea9dc21c8c81658d5c82f8a0cc887bc9f2071394bc7"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

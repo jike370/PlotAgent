@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Literal, TypedDict, cast
 
+from pydantic import TypeAdapter
+
 from plotagent.contracts.agent_tasks import (
     AGENT_YIELD_ADAPTER,
     TERMINAL_TASK_STATES,
@@ -22,7 +24,7 @@ from plotagent.contracts.agent_tasks import (
     TaskState,
 )
 from plotagent.contracts.agent_tools import AgentToolResult, ToolInvocation
-from plotagent.contracts.base import ChartTypeId
+from plotagent.contracts.base import ChartTypeId, SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
@@ -31,7 +33,10 @@ from plotagent.contracts.domain_knowledge import (
     UntrustedSourceContext,
 )
 from plotagent.contracts.workflows import (
+    CompiledTaskItem,
+    DataOperation,
     TaskDraft,
+    TaskDraftItem,
     TaskPlan,
     WorkflowBudget,
     WorkflowContext,
@@ -66,6 +71,8 @@ _INVESTIGATION_TOOLS = (
     "compare_schemas",
     "inspect_instrument_metadata",
 )
+
+_DATA_OPERATION_ADAPTER: TypeAdapter[DataOperation] = TypeAdapter(DataOperation)
 
 type WaitReason = Literal[
     "idle",
@@ -152,6 +159,7 @@ class DurableAgentCoreHost:
                 "ACTIVATION_NOT_ACTIVE", "The Agent activation is no longer active."
             )
         envelope = self.ledger.get_effective_envelope(activation.task_id)
+        context_envelope = self._envelope_with_plot_sources(envelope)
         checkpoint = self.ledger.get_task(activation.task_id)
         self.domain.require_revision(checkpoint.project_revision)
         if checkpoint.active_activation_id != activation.activation_id:
@@ -160,7 +168,7 @@ class DurableAgentCoreHost:
             )
 
         workflow_context, source_contexts, provider, plot_contexts = self._source_context(
-            envelope,
+            context_envelope,
             project_revision=checkpoint.project_revision,
         )
         inspection = DataInspectionService(workflow_context, provider)
@@ -177,7 +185,7 @@ class DurableAgentCoreHost:
         context = ContextBuilder().build(
             context_snapshot_id=f"context:{activation.activation_id.removeprefix('activation:')}",
             context_version=1,
-            envelope=envelope,
+            envelope=context_envelope,
             checkpoint=checkpoint,
             activation=activation,
             source_contexts=source_contexts,
@@ -661,6 +669,40 @@ class DurableAgentCoreHost:
         aliases = (profile_id, card.display_name_zh, card.official_name)
         return any(alias.casefold() in normalized for alias in aliases)
 
+    def _envelope_with_plot_sources(self, envelope: TaskEnvelope) -> TaskEnvelope:
+        """Authorize the immutable inputs of a user-selected plot for this activation.
+
+        The renderer is not required to keep the original upload selection alive.
+        Selecting a plot authorizes the data program that already belongs to that
+        plot, while explicit source selections retain precedence for the same
+        dataset identity.
+        """
+
+        if self.plot_lookup is None or not envelope.selected_plots:
+            return envelope
+        references = list(envelope.selected_sources)
+        known_dataset_ids = {reference.source_dataset_id for reference in references}
+        for plot_reference in envelope.selected_plots:
+            document = self.plot_lookup(plot_reference.plot_id)
+            lineage = self._latest_plot_program(document)
+            if lineage is None:
+                continue
+            _draft_item, compiled_item = lineage
+            for source in compiled_item.sources:
+                if source.source_dataset_id in known_dataset_ids:
+                    continue
+                references.append(
+                    SourceDatasetRef(
+                        source_dataset_id=source.source_dataset_id,
+                        source_version=source.source_version,
+                        content_hash=source.content_hash,
+                    )
+                )
+                known_dataset_ids.add(source.source_dataset_id)
+        if tuple(references) == envelope.selected_sources:
+            return envelope
+        return envelope.model_copy(update={"selected_sources": tuple(references)})
+
     def _source_context(
         self,
         envelope: TaskEnvelope,
@@ -786,12 +828,26 @@ class DurableAgentCoreHost:
                 )
             )
             plot_source_aliases: tuple[str, ...] = ()
+            plot_data_operations: tuple[DataOperation, ...] = ()
             plot_bindings: tuple[SelectedPlotBindingContext, ...] = ()
             if document is not None:
-                plot_source_alias = source_alias_by_identity.get(
-                    (document.data.dataset_id, document.data.version, document.data.content_hash)
+                plot_source_alias: str | None = None
+                recovered = self._recover_plot_data_program(
+                    document=document,
+                    sources=tuple(sources),
+                    fields=tuple(fields),
                 )
-                if plot_source_alias is not None:
+                if recovered is not None:
+                    plot_source_aliases, plot_data_operations, plot_bindings = recovered
+                else:
+                    plot_source_alias = source_alias_by_identity.get(
+                        (
+                            document.data.dataset_id,
+                            document.data.version,
+                            document.data.content_hash,
+                        )
+                    )
+                if recovered is None and plot_source_alias is not None:
                     mapped_bindings = tuple(
                         SelectedPlotBindingContext(
                             role=binding.role,
@@ -813,6 +869,7 @@ class DurableAgentCoreHost:
                     plot_version=plot_reference.plot_version,
                     profile_id=plot_reference.profile_id,
                     source_aliases=plot_source_aliases,
+                    data_operations=plot_data_operations,
                     bindings=plot_bindings,
                 )
             )
@@ -860,6 +917,152 @@ class DurableAgentCoreHost:
             _InspectionRows(rows_by_alias=rows, metadata_by_alias=metadata),
             tuple(plot_contexts),
         )
+
+    def _recover_plot_data_program(
+        self,
+        *,
+        document: PlotDocument,
+        sources: tuple[WorkflowSource, ...],
+        fields: tuple[WorkflowField, ...],
+    ) -> tuple[
+        tuple[str, ...],
+        tuple[DataOperation, ...],
+        tuple[SelectedPlotBindingContext, ...],
+    ] | None:
+        """Rebind the latest durable workflow program to this activation's aliases.
+
+        A prepared plot does not share the identity of any raw source.  Its latest
+        create/bind action still points to the immutable task item that produced
+        it, so recover that program instead of presenting an empty plot context.
+        """
+
+        lineage = self._latest_plot_program(document)
+        if lineage is None:
+            return None
+        draft_item, compiled_item = lineage
+        current_sources = {
+            (source.source_dataset_id, source.source_version, source.content_hash): source
+            for source in sources
+        }
+        source_alias_map: dict[str, str] = {}
+        for source in compiled_item.sources:
+            current = current_sources.get(
+                (source.source_dataset_id, source.source_version, source.content_hash)
+            )
+            if current is None:
+                return None
+            source_alias_map[source.source_alias] = current.source_alias
+
+        current_field_aliases = {
+            (field.source_alias, field.field_id): field.field_alias for field in fields
+        }
+        alias_map = dict(source_alias_map)
+        for old_field in compiled_item.resolved_fields:
+            current_source_alias = source_alias_map.get(old_field.source_alias)
+            if current_source_alias is None:
+                continue
+            current_field_alias = current_field_aliases.get(
+                (current_source_alias, old_field.field_id)
+            )
+            if current_field_alias is not None:
+                alias_map[old_field.field_alias] = current_field_alias
+
+        translated_operations = tuple(
+            _DATA_OPERATION_ADAPTER.validate_python(
+                self._translate_alias_payload(operation.model_dump(mode="python"), alias_map)
+            )
+            for operation in draft_item.data_operations
+        )
+        translated_bindings = tuple(
+            SelectedPlotBindingContext(
+                role=binding.role,
+                source_alias=source_alias_map[binding.source_alias],
+                field_alias=alias_map.get(binding.field_alias, binding.field_alias),
+            )
+            for binding in draft_item.bindings
+            if binding.source_alias in source_alias_map
+        )
+        if len(translated_bindings) != len(draft_item.bindings):
+            return None
+        return (
+            tuple(source_alias_map[alias] for alias in draft_item.source_aliases),
+            translated_operations,
+            translated_bindings,
+        )
+
+    def _latest_plot_program(
+        self, document: PlotDocument
+    ) -> tuple[TaskDraftItem, CompiledTaskItem] | None:
+        for action_id in reversed(document.applied_action_ids):
+            action_token = action_id.removeprefix("action:")
+            suffix = next(
+                (
+                    candidate
+                    for candidate in (".bind", ".create")
+                    if action_token.endswith(candidate)
+                ),
+                None,
+            )
+            if suffix is None:
+                continue
+            item_token = action_token.removesuffix(suffix)
+            task_token, separator, ordinal = item_token.rpartition(".")
+            if not separator or not ordinal.isdigit():
+                continue
+            task_id = f"task:{task_token}"
+            item_id = f"item:{item_token}"
+            try:
+                intent = self.ledger.get_intent(task_id)
+                plan = self.ledger.get_plan(task_id)
+            except StorageProblem as error:
+                if error.code == StorageErrorCode.OBJECT_NOT_FOUND:
+                    continue
+                raise
+            draft_item = next((item for item in intent.items if item.item_id == item_id), None)
+            compiled_item = next((item for item in plan.items if item.item_id == item_id), None)
+            if draft_item is None or compiled_item is None:
+                continue
+            if compiled_item.plot_id != document.plot_id:
+                continue
+            expected_bindings = tuple(
+                (binding.role, binding.field_id) for binding in compiled_item.bindings
+            )
+            current_bindings = tuple(
+                (binding.role, binding.field_id) for binding in document.bindings
+            )
+            if expected_bindings != current_bindings:
+                continue
+            return draft_item, compiled_item
+        return None
+
+    @classmethod
+    def _translate_alias_payload(
+        cls,
+        value: object,
+        alias_map: dict[str, str],
+        *,
+        key: str | None = None,
+    ) -> object:
+        if isinstance(value, dict):
+            return {
+                child_key: cls._translate_alias_payload(
+                    child_value,
+                    alias_map,
+                    key=str(child_key),
+                )
+                for child_key, child_value in value.items()
+            }
+        if isinstance(value, tuple):
+            return tuple(
+                cls._translate_alias_payload(item, alias_map, key=key) for item in value
+            )
+        if isinstance(value, list):
+            return [cls._translate_alias_payload(item, alias_map, key=key) for item in value]
+        if isinstance(value, str) and key is not None and (
+            key.endswith("_alias") or key.endswith("_aliases")
+        ):
+            return alias_map.get(value, value)
+        return value
 
     @staticmethod
     def _display_name(
@@ -915,8 +1118,9 @@ class DurableAgentCoreHost:
             "selected plot. A task_kind=edit item is visual-only and therefore has no sources, "
             "bindings, or data_operations. If the user asks to filter, sort, reshape, convert, or "
             "otherwise change the data used by an existing plot, emit task_kind=update_data, copy "
-            "that plot context's target plot alias, profile, source aliases, and complete bindings "
-            "exactly, then add the requested data_operations. update_data may also contain "
+            "that plot context's target plot alias, profile, source aliases, existing "
+            "data_operations, and complete bindings exactly, then place the requested data "
+            "operation where its input aliases are available. update_data may also contain "
             "requested "
             "visual actions such as set_title. If the plot context has no complete bindings, ask "
             "only for the missing binding rather than guessing. "

@@ -144,6 +144,14 @@
     "CompiledTaskItem": {
       "additionalProperties": false,
       "properties": {
+        "binding_evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceFieldBindingEvidence"
+          },
+          "title": "Binding Evidence",
+          "type": "array"
+        },
         "bindings": {
           "default": [],
           "items": {
@@ -2853,6 +2861,34 @@
         "keys"
       ],
       "title": "SortRows",
+      "type": "object"
+    },
+    "SourceFieldBindingEvidence": {
+      "additionalProperties": false,
+      "description": "Raw source field that contributes to one final renderer role.\n\nCompiled bindings may point at workflow-derived fields.  This evidence keeps\nthe user-facing provenance explicit without asking the renderer to reverse\nengineer a data program.",
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "source_alias",
+        "field_id"
+      ],
+      "title": "SourceFieldBindingEvidence",
       "type": "object"
     },
     "WorkflowOutputField": {

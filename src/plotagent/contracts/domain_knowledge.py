@@ -7,7 +7,7 @@ paths and native object identifiers.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import Field, StringConstraints, model_validator
 
@@ -41,7 +41,13 @@ from plotagent.contracts.base import (
     VersionId,
 )
 from plotagent.contracts.canonical import canonical_hash
-from plotagent.contracts.workflows import RowPage, WorkflowAlias, WorkflowField, WorkflowSource
+from plotagent.contracts.workflows import (
+    DataOperation,
+    RowPage,
+    WorkflowAlias,
+    WorkflowField,
+    WorkflowSource,
+)
 from plotagent.engine.contracts import EngineProfile
 
 KnowledgeId = Annotated[
@@ -312,6 +318,7 @@ class SelectedPlotContext(StrictModel):
     plot_version: VersionId
     profile_id: Token
     source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
+    data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[SelectedPlotBindingContext, ...], Field(max_length=128)] = ()
 
     @model_validator(mode="after")
@@ -416,8 +423,32 @@ class AgentContextSnapshot(StrictModel):
         for plot in self.selected_plot_contexts:
             if not set(plot.source_aliases) <= set(source_fields):
                 raise ValueError("selected plot context references an unauthorized source alias")
+            operation_outputs: set[str] = set()
+            for operation in plot.data_operations:
+                if operation.operation == "concatenate_sources":
+                    operation_outputs.add(operation.source_label_field)
+                elif operation.operation == "align_sources_on_x":
+                    operation_outputs.add(operation.output_x_field_alias)
+                    operation_outputs.update(
+                        field.field_alias for field in operation.output_series_fields
+                    )
+                elif operation.operation == "reshape_wide_to_long":
+                    operation_outputs.update((operation.output_name, operation.output_value))
+                elif operation.operation == "reshape_long_to_wide":
+                    operation_outputs.update(
+                        field.field_alias for field in operation.output_fields
+                    )
+                elif operation.operation in {
+                    "rename_field",
+                    "derive_column",
+                    "convert_type",
+                    "convert_unit",
+                    "bucketize_numeric",
+                }:
+                    operation_outputs.add(cast(Any, operation).output_field_alias)
             if any(
                 binding.field_alias not in source_fields[binding.source_alias]
+                and binding.field_alias not in operation_outputs
                 for binding in plot.bindings
             ):
                 raise ValueError("selected plot context references an unauthorized field alias")

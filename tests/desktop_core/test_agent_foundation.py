@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
@@ -21,8 +22,9 @@ from plotagent.contracts.agent_tasks import (
 )
 from plotagent.contracts.agent_tools import ToolInvocation
 from plotagent.contracts.base import SourceDatasetRef
-from plotagent.contracts.canonical import JsonValue, canonical_hash
+from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.workflows import (
+    AlignSourcesOnX,
     DraftFieldBinding,
     DraftSetTitle,
     FilterPredicate,
@@ -31,6 +33,7 @@ from plotagent.contracts.workflows import (
     SortKey,
     SortRows,
     TaskDraftItem,
+    WorkflowOutputField,
 )
 from plotagent.desktop_core.agent_foundation import (
     AgentFoundationError,
@@ -1504,6 +1507,7 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
                 "plot_version": 3,
                 "profile_id": "K01",
                 "source_aliases": [],
+                "data_operations": [],
                 "bindings": [],
             }
         ]
@@ -1631,6 +1635,7 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
                 "plot_version": 1,
                 "profile_id": "K01",
                 "source_aliases": ["data_1"],
+                "data_operations": [],
                 "bindings": [
                     {
                         "role": "x",
@@ -1719,3 +1724,223 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
             "sort_rows",
         ]
         assert plan.items[0].visual_actions[0].operation == "set_title"
+
+
+def test_current_prepared_plot_context_recovers_multi_source_data_program(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(
+                resource_id="resource:two-sheets",
+                path=FILES / "excel_two_sheets.xlsx",
+            )
+        )
+        assert isinstance(imported, ImportCommitResult)
+        first, second = (item.source_dataset for item in imported.datasets)
+        first_x, first_y, *_ = first.field_schema
+        second_x, second_y, *_ = second.field_schema
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+
+        create_envelope = TaskEnvelope(
+            task_id="task:derived-create",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Align both tables and create X38.",
+            selected_sources=tuple(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                )
+                for source in (first, second)
+            ),
+            selected_profile_ids=("X38",),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(create_envelope)
+        create_directive = DurableTaskCoordinator(ledger).next_action(
+            create_envelope.task_id
+        )
+        create_activation_id = str(create_directive["activation"]["activation_id"])
+        ledger.mark_activation_running(create_activation_id)
+        create_host = DurableAgentCoreHost(project, domain, ledger)
+        create_context = cast(
+            dict[str, object], create_host.prepare(create_activation_id)["context"]
+        )
+        create_item = TaskDraftItem(
+            task_kind="create",
+            item_id="item:derived-create.1",
+            plot_alias="plot_result",
+            profile_id="X38",
+            source_aliases=("data_1", "data_2"),
+            data_operations=(
+                AlignSourcesOnX(
+                    source_aliases=("data_1", "data_2"),
+                    x_field_aliases=("data_1_field_1", "data_2_field_1"),
+                    value_field_aliases=("data_1_field_2", "data_2_field_2"),
+                    output_x_field_alias="aligned_x",
+                    output_x_name="Time",
+                    output_series_fields=(
+                        WorkflowOutputField(field_alias="aligned_a", name="Sheet1"),
+                        WorkflowOutputField(field_alias="aligned_b", name="Sheet2"),
+                    ),
+                ),
+            ),
+            bindings=(
+                DraftFieldBinding(
+                    role="x", source_alias="data_1", field_alias="aligned_x"
+                ),
+                DraftFieldBinding(
+                    role="series_1", source_alias="data_1", field_alias="aligned_a"
+                ),
+                DraftFieldBinding(
+                    role="series_2", source_alias="data_1", field_alias="aligned_b"
+                ),
+            ),
+        )
+        create_intent = TaskIntent(
+            intent_id="intent:derived-create",
+            intent_version=1,
+            task_id=create_envelope.task_id,
+            task_version=1,
+            created_by_activation_id=create_activation_id,
+            summary="Create an aligned multi-source plot.",
+            items=(create_item,),
+            context_hash=cast(str, create_context["content_hash"]),
+            content_hash="0" * 64,
+        )
+        create_intent = create_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    create_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        create_host.accept_yield(
+            create_host.validate_yield(
+                create_activation_id,
+                cast(
+                    JsonValue,
+                    AgentIntentReady(
+                        activation_id=create_activation_id,
+                        task_id=create_envelope.task_id,
+                        task_version=1,
+                        intent=create_intent,
+                    ).model_dump(mode="json"),
+                ),
+            )
+        )
+        compiled = ledger.get_plan(create_envelope.task_id).items[0]
+        plot_document = PlotDocument(
+            plot_id=compiled.plot_id,
+            plot_version=1,
+            profile_id="X38",
+            data=EngineDataRef(
+                kind="prepared",
+                dataset_id="workflow:derived-context",
+                version=1,
+                content_hash="d" * 64,
+            ),
+            bindings=tuple(
+                FieldBinding(role=binding.role, field_id=binding.field_id)
+                for binding in compiled.bindings
+            ),
+            applied_action_ids=("action:derived-create.1.create",),
+        )
+
+        # Simulate a plan persisted before ``binding_evidence`` existed.  Its
+        # original JSON remains authenticated and must stay readable after the
+        # current contract supplies the new field's default value.
+        connection = project._assert_writer()  # noqa: SLF001
+        stored_plan = connection.execute(
+            "SELECT plan_json FROM agent_task_plans_v2 WHERE task_id = ?",
+            (create_envelope.task_id,),
+        ).fetchone()
+        assert stored_plan is not None
+        legacy_plan = json.loads(str(stored_plan[0]))
+        for item in legacy_plan["items"]:
+            item.pop("binding_evidence")
+        legacy_payload = canonical_json(cast(JsonValue, legacy_plan))
+        legacy_hash = canonical_hash(cast(JsonValue, legacy_plan))
+        connection.execute(
+            """UPDATE agent_task_plans_v2 SET plan_json = ?, plan_hash = ?
+            WHERE task_id = ?""",
+            (legacy_payload, legacy_hash, create_envelope.task_id),
+        )
+        restored_plan, restored_hash = ledger.get_plan_with_hash(
+            create_envelope.task_id
+        )
+        assert restored_hash == legacy_hash
+        assert restored_plan.items[0].binding_evidence == ()
+
+        update_envelope = TaskEnvelope(
+            task_id="task:derived-update",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Filter the selected plot without changing its bindings.",
+            # Only one source remains selected in the UI; selecting the existing
+            # plot must authorize its other immutable input automatically.
+            selected_sources=tuple(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                )
+                for source in (second,)
+            ),
+            selected_plots=(
+                SelectedPlotRef(
+                    plot_id=compiled.plot_id,
+                    plot_version=1,
+                    profile_id="X38",
+                ),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(update_envelope)
+        update_directive = DurableTaskCoordinator(ledger).next_action(
+            update_envelope.task_id
+        )
+        update_activation_id = str(update_directive["activation"]["activation_id"])
+        ledger.mark_activation_running(update_activation_id)
+        update_host = DurableAgentCoreHost(
+            project,
+            domain,
+            ledger,
+            plot_lookup=lambda _plot_id: plot_document,
+        )
+
+        update_context = cast(
+            dict[str, object], update_host.prepare(update_activation_id)["context"]
+        )
+        plot_context = cast(list[dict[str, object]], update_context["selected_plot_contexts"])[0]
+        assert len(cast(list[object], update_context["selected_sources"])) == 2
+        assert plot_context["source_aliases"] == ["data_2", "data_1"]
+        operation = cast(list[dict[str, object]], plot_context["data_operations"])[0]
+        assert operation["source_aliases"] == ["data_2", "data_1"]
+        assert operation["x_field_aliases"] == ["data_2_field_1", "data_1_field_1"]
+        assert operation["value_field_aliases"] == [
+            "data_2_field_2",
+            "data_1_field_2",
+        ]
+        assert plot_context["bindings"] == [
+            {"role": "x", "source_alias": "data_2", "field_alias": "aligned_x"},
+            {
+                "role": "series_1",
+                "source_alias": "data_2",
+                "field_alias": "aligned_a",
+            },
+            {
+                "role": "series_2",
+                "source_alias": "data_2",
+                "field_alias": "aligned_b",
+            },
+        ]
+        assert first_x.field_id == second_x.field_id
+        assert first_y.field_id == second_y.field_id

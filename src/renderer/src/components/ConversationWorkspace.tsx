@@ -857,11 +857,10 @@ function WorkflowPlanObject({
       const dataset = datasets.find((candidate) => candidate.datasetId === sourceDatasetId)
       if (!dataset) continue
       const roles = existing?.roles ?? new Map<string, string>()
-      for (const binding of step.bindings) {
-        if (
-          binding.sourceDatasetId === sourceDatasetId
-          || (binding.sourceDatasetId === undefined && step.sourceDatasetIds.length === 1)
-        ) roles.set(binding.fieldId, binding.role)
+      for (const evidence of step.sourceFieldRoles ?? []) {
+        if (evidence.sourceDatasetId === sourceDatasetId) {
+          roles.set(evidence.fieldId, evidence.role)
+        }
       }
       if (!existing) sources.push({ dataset, roles })
     }

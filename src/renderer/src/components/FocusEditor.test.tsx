@@ -15,6 +15,14 @@ function plot(
     plotId: 'plot:test',
     plotVersion: 3,
     chartId,
+    engineData: {
+      kind: 'source', dataset_id: 'source:test', version: 1,
+      content_hash: 'a'.repeat(64),
+    },
+    engineBindings: [
+      { role: 'x', field_id: 'field:x' },
+      { role: 'y', field_id: 'field:y' },
+    ],
     plotTitle: '已保存标题',
     fontSizePt: 10,
     projectVersion: 4,

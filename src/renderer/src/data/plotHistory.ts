@@ -9,6 +9,7 @@ export interface PlotHistoryEntry {
 }
 
 const actionLabels: Record<string, string> = {
+  bind_fields: '数据更新',
   set_title: '标题修改',
   set_axis: '坐标轴修改',
   set_series_style: '系列样式修改',
@@ -51,6 +52,7 @@ const historyMetadataKeys = new Set([
 ])
 
 const preciselyReversibleParameters: Readonly<Record<string, ReadonlySet<string>>> = {
+  bind_fields: new Set(['data', 'bindings']),
   set_title: new Set(['text']),
   set_axis: new Set([
     'label',
@@ -146,6 +148,23 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
       !['action_id', 'expected_plot_version', 'target_alias'].includes(key) && fieldValue !== null
     ))),
     target,
+  }
+  if (
+    value.operation === 'bind_fields'
+    && isJsonRecord(value.data)
+    && Array.isArray(value.bindings)
+    && value.bindings.length > 0
+    && value.bindings.every(isJsonRecord)
+  ) {
+    return {
+      undo: {
+        operation: 'bind_fields',
+        target,
+        data: plot.engineData,
+        bindings: plot.engineBindings,
+      },
+      redo,
+    }
   }
   if (value.operation === 'set_title' && typeof value.text === 'string') {
     return { undo: { operation: 'set_title', target, text: plot.plotTitle }, redo }
@@ -319,7 +338,11 @@ export function plotHistoryEntry(
   const operations = actions.flatMap((action) => isJsonRecord(action) && typeof action.operation === 'string' ? [action.operation] : [])
   return {
     plotId: plot.plotId,
-    label: operations.length === 1 ? actionLabels[operations[0]] ?? '图形修改' : `${operations.length} 项图形修改`,
+    label: operations.length === 1
+      ? actionLabels[operations[0]] ?? '图形修改'
+      : operations.includes('bind_fields')
+        ? '数据与图形修改'
+        : `${operations.length} 项图形修改`,
     undoActions: reversible.flatMap((item) => item ? [item.undo] : []).reverse(),
     redoActions: reversible.flatMap((item) => item ? [item.redo] : []),
   }

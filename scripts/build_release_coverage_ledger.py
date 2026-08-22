@@ -199,6 +199,8 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "取消",
                 "恢复",
                 "重启",
+                "data updates undo and redo complete immutable data/binding snapshots",
+                "older persisted plans remain readable after additive contract upgrades",
             ],
             "deterministic_sources": [
                 "tests/contracts/test_agent_tasks.py",
@@ -209,15 +211,24 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "src/main/agent/agent-foundation-runtime.test.ts",
                 "src/renderer/src/data/productState.test.ts",
                 "src/renderer/src/components/TaskDrawer.test.tsx",
+                "src/renderer/src/data/plotHistory.test.ts",
             ],
             "release_runner": "scripts/run_release_operational_matrix.py",
-            "case_ids": [f"TASK-BATCH-{index:02d}" for index in range(1, len(BATCH_NODEIDS) + 1)],
+            "case_ids": [
+                *[
+                    f"TASK-BATCH-{index:02d}"
+                    for index in range(1, len(BATCH_NODEIDS) + 1)
+                ],
+                "TASK-LEGACY-PLAN-SCHEMA-COMPAT",
+                "TASK-DATA-UPDATE-UNDO-REDO",
+            ],
             "contract": "docs/PLOTAGENT-AGENT-TASK-STATE-MATRIX.md",
             "windows_ui_cases": [
                 "BB-TASK-QUESTION-CONFIRM",
                 "BB-TASK-PARTIAL-REPAIR-RECONFIRM",
                 "BB-TASK-SKIP-CANCEL",
                 "BB-TASK-RESTART-RESUME",
+                "BB-TASK-DATA-UPDATE-UNDO-REDO",
             ],
             "candidate_evidence_status": "UNVERIFIED",
         },
@@ -268,6 +279,9 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "explicit concatenate_sources or align_sources_on_x",
                 "source-specific chart types",
                 "partial success retains completed items",
+                "a selected derived plot restores every immutable input and its data program",
+                "confirmation cards identify raw source fields for every renderer role",
+                "confirmation cards hydrate real sample rows for every referenced source",
             ],
             "deterministic_sources": [
                 "tests/workflows/test_workflow_contracts.py",
@@ -281,6 +295,9 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "MULTI-ALIGN-ON-X",
                 "MULTI-CONCATENATE",
                 "MULTI-PARTIAL-REPAIR",
+                "MULTI-DERIVED-PLOT-CONTEXT-RECOVERY",
+                "MULTI-CONFIRMATION-PROVENANCE",
+                "MULTI-CONFIRMATION-SAMPLES-ALL-SOURCES",
             ],
             "windows_ui_cases": [
                 "BB-MULTI-BATCH",
@@ -299,6 +316,7 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "editor preserves tab and exact plot target",
                 "task progress, errors and terminal states are readable",
                 "undo, redo and restart project the durable state",
+                "data-update undo restores the complete prior data reference and bindings",
             ],
             "deterministic_sources": [
                 "src/renderer/src/App.test.tsx",

@@ -307,35 +307,58 @@ export function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (!api || !project || !activeDataset || activeDataset.sampleRows !== undefined || activeDataset.samplePreviewUnavailable) return
+    if (!api || !project) return
+    const requiredDatasetIds = new Set([
+      ...(activeDataset === undefined ? [] : [activeDataset.datasetId]),
+      ...(workflowPlan?.steps.flatMap((step) => step.sourceDatasetIds) ?? []),
+    ])
+    const pending = datasets.filter((dataset) => (
+      requiredDatasetIds.has(dataset.datasetId)
+      && dataset.sampleRows === undefined
+      && !dataset.samplePreviewUnavailable
+    ))
+    if (pending.length === 0) return
     let active = true
-    const markUnavailable = (): void => {
+    const markUnavailable = (datasetId: string, sourceVersion: number): void => {
       if (!active) return
       setDatasets((current) => current.map((dataset) => (
-        dataset.datasetId === activeDataset.datasetId && dataset.sourceVersion === activeDataset.sourceVersion
+        dataset.datasetId === datasetId && dataset.sourceVersion === sourceVersion
           ? { ...dataset, samplePreviewUnavailable: true }
           : dataset
       )))
     }
-    void api.describeDataset({
-      projectId: project.projectId,
-      datasetId: activeDataset.datasetId,
-      sourceVersion: activeDataset.sourceVersion,
-    }).then((result) => {
-      if (!active || !result.ok) { markUnavailable(); return }
-      const described = readDatasets(result.value).find((dataset) => (
-        dataset.datasetId === activeDataset.datasetId
-        && dataset.sourceVersion === activeDataset.sourceVersion
-      ))
-      if (!described || described.sampleRows === undefined) { markUnavailable(); return }
-      setDatasets((current) => current.map((dataset) => (
-        dataset.datasetId === described.datasetId && dataset.sourceVersion === described.sourceVersion
-          ? { ...dataset, ...described }
-          : dataset
-      )))
-    }).catch(markUnavailable)
+    void Promise.all(pending.map(async (candidate) => {
+      try {
+        const result = await api.describeDataset({
+          projectId: project.projectId,
+          datasetId: candidate.datasetId,
+          sourceVersion: candidate.sourceVersion,
+        })
+        if (!active) return
+        if (!result.ok) {
+          markUnavailable(candidate.datasetId, candidate.sourceVersion)
+          return
+        }
+        const described = readDatasets(result.value).find((dataset) => (
+          dataset.datasetId === candidate.datasetId
+          && dataset.sourceVersion === candidate.sourceVersion
+        ))
+        if (!described || described.sampleRows === undefined) {
+          markUnavailable(candidate.datasetId, candidate.sourceVersion)
+          return
+        }
+        setDatasets((current) => current.map((dataset) => (
+          dataset.datasetId === described.datasetId
+          && dataset.sourceVersion === described.sourceVersion
+            ? { ...dataset, ...described }
+            : dataset
+        )))
+      } catch {
+        markUnavailable(candidate.datasetId, candidate.sourceVersion)
+      }
+    }))
     return () => { active = false }
-  }, [activeDataset, api, project])
+  }, [activeDataset, api, datasets, project, workflowPlan])
 
   const rememberWorkspace = useCallback((selection: {
     datasetId?: string
@@ -1031,8 +1054,7 @@ export function App(): React.JSX.Element {
 
   const executeWorkflowPlan = async (planId: string, resume = false): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
-    const historyEntry = plot && workflowPlan?.planId === planId
-      ? plotHistoryEntry(plot, workflowPlan.boundActions) : undefined
+    const historySourcePlot = plot && workflowPlan?.planId === planId ? plot : undefined
     setBusyAction('agent-plan')
     setNotice(undefined)
     setWorkflowPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
@@ -1055,7 +1077,24 @@ export function App(): React.JSX.Element {
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       setWorkflowPlan(plan)
-      await syncPlanOutput(plan)
+      const nextPlot = await syncPlanOutput(plan)
+      const historyActions = historySourcePlot && nextPlot?.plotId === historySourcePlot.plotId
+        ? [
+            ...(plan.steps.some((step) => (
+              step.taskKind === 'update_data'
+              && step.outputPlot?.plotId === historySourcePlot.plotId
+            )) ? [{
+                operation: 'bind_fields',
+                target: historySourcePlot.plotId,
+                data: nextPlot.engineData,
+                bindings: nextPlot.engineBindings,
+              } satisfies JsonValue] : []),
+            ...plan.boundActions,
+          ]
+        : []
+      const historyEntry = historySourcePlot
+        ? plotHistoryEntry(historySourcePlot, historyActions)
+        : undefined
       if ((plan.state === 'succeeded' || plan.state === 'completed_with_skips') && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
         setRedoStack([])

@@ -218,6 +218,8 @@ export interface ProductPlot {
   plotVersion: number
   contentHash?: string
   chartId: string
+  engineData: JsonValue
+  engineBindings: JsonValue[]
   plotTitle: string
   fontSizePt: number
   projectVersion: number
@@ -259,6 +261,7 @@ export interface WorkflowPlanStep {
   sourceDatasetIds: string[]
   dataOperations: string[]
   bindings: WorkflowBindingView[]
+  sourceFieldRoles: WorkflowSourceFieldRoleView[]
   changes: string[]
   state: string
   attemptCount: number
@@ -279,6 +282,12 @@ export interface WorkflowBindingView {
   fieldId: string
   sourceDatasetId?: string
   fieldName?: string
+}
+
+export interface WorkflowSourceFieldRoleView {
+  role: string
+  fieldId: string
+  sourceDatasetId: string
 }
 
 export interface WorkflowPlanView {
@@ -677,7 +686,17 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   const plotId = stringValue(document, 'plot_id')
   const plotVersion = numberValue(document, 'plot_version')
   const profileId = stringValue(document, 'profile_id')
-  if (plotId === undefined || plotVersion === undefined || profileId === undefined) return undefined
+  const engineData = document.data
+  const engineBindings = Array.isArray(document.bindings)
+    ? document.bindings.filter(isJsonRecord)
+    : []
+  if (
+    plotId === undefined
+    || plotVersion === undefined
+    || profileId === undefined
+    || !isJsonRecord(engineData)
+    || engineBindings.length === 0
+  ) return undefined
   const actions = Array.isArray(root.actions) ? root.actions.filter(isJsonRecord) : []
   const profile = isJsonRecord(root.profile) ? root.profile : {}
   const objects = Array.isArray(profile.objects) ? profile.objects.filter(isJsonRecord) : []
@@ -758,6 +777,8 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
     ...(plotRef && typeof plotRef.content_hash === 'string'
       ? { contentHash: plotRef.content_hash } : {}),
     chartId: profileId,
+    engineData,
+    engineBindings,
     plotTitle: title && typeof title.text === 'string' ? title.text : '',
     fontSizePt: 9,
     projectVersion: projectVersionFrom(value, 0),
@@ -972,6 +993,30 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
         }
       }
     }
+    const sourceFieldRoles: WorkflowSourceFieldRoleView[] = []
+    if (Array.isArray(item.binding_evidence)) {
+      for (const evidence of item.binding_evidence) {
+        if (!isJsonRecord(evidence)) continue
+        const role = stringValue(evidence, 'role')
+        const fieldId = stringValue(evidence, 'field_id')
+        const sourceAlias = stringValue(evidence, 'source_alias')
+        const sourceDatasetId = sourceAlias === undefined ? undefined : sourceIds.get(sourceAlias)
+        if (role !== undefined && fieldId !== undefined && sourceDatasetId !== undefined) {
+          sourceFieldRoles.push({ role, fieldId, sourceDatasetId })
+        }
+      }
+    }
+    if (sourceFieldRoles.length === 0) {
+      for (const binding of stepBindings) {
+        if (binding.sourceDatasetId !== undefined) {
+          sourceFieldRoles.push({
+            role: binding.role,
+            fieldId: binding.fieldId,
+            sourceDatasetId: binding.sourceDatasetId,
+          })
+        }
+      }
+    }
     const dataOperations = Array.isArray(item.data_operations)
       ? item.data_operations.flatMap((operation) => workflowDataOperationSummary(operation, fieldNamesByAlias))
       : []
@@ -1023,6 +1068,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       sourceDatasetIds: [...sourceIds.values()],
       dataOperations,
       bindings: stepBindings,
+      sourceFieldRoles,
       changes,
       state,
       attemptCount: numberValue(itemProgress, 'attempt_count') ?? 0,

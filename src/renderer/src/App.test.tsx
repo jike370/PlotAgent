@@ -68,6 +68,14 @@ function enginePlotFixture(
   profileId = 'K01',
   projectVersion = plotVersion + 1,
   actions: JsonValue[] = [],
+  data: JsonValue = {
+    kind: 'source', dataset_id: 'source:temperature', version: 1,
+    content_hash: 'a'.repeat(64),
+  },
+  bindings: JsonValue[] = [
+    { role: 'x', field_id: 'field:time' },
+    { role: 'y', field_id: 'field:signal' },
+  ],
 ): JsonValue {
   const token = plotId.replace(/^plot:/, '')
   return {
@@ -85,8 +93,8 @@ function enginePlotFixture(
       schema_version: '2.0', plot_id: plotId, plot_version: plotVersion,
       parent_version: plotVersion === 1 ? null : plotVersion - 1,
       profile_id: profileId,
-      data: { kind: 'source', dataset_id: 'source:temperature', version: 1, content_hash: 'a'.repeat(64) },
-      bindings: [{ role: 'x', field_id: 'field:time' }, { role: 'y', field_id: 'field:signal' }],
+      data,
+      bindings,
       applied_action_ids: actions.map((_, index) => `action:test.${index + 1}`),
     },
     actions,
@@ -243,6 +251,39 @@ function batchPlanFixture(state = 'awaiting_confirmation'): JsonValue {
   }
 }
 
+function updateDataPlanFixture(
+  state = 'awaiting_confirmation',
+  plotVersion?: number,
+): JsonValue {
+  const payload = structuredClone(workflowPlanFixture(
+    state,
+    state === 'succeeded' ? 'succeeded' : state === 'ready' ? 'ready' : 'pending',
+    { ...(plotVersion === undefined ? {} : { plotVersion }) },
+  )) as Record<string, JsonValue>
+  const plan = payload.plan as Record<string, JsonValue>
+  const item = (plan.items as Array<Record<string, JsonValue>>)[0]
+  item.task_kind = 'update_data'
+  item.sources = [{
+    source_alias: 'data_1',
+    source_dataset_id: 'source:temperature',
+    source_version: 1,
+    content_hash: 'a'.repeat(64),
+    display_name: 'temperature.csv',
+    row_count: 12,
+  }]
+  item.resolved_fields = [
+    { field_alias: 'prepared_x', source_alias: 'data_1', field_id: 'field:prepared.x', name: 'time_s' },
+    { field_alias: 'prepared_y', source_alias: 'data_1', field_id: 'field:prepared.y', name: 'signal' },
+  ]
+  item.data_operations = [{ operation: 'convert_unit' }]
+  item.bindings = [
+    { role: 'x', source_alias: 'data_1', field_id: 'field:prepared.x' },
+    { role: 'y', source_alias: 'data_1', field_id: 'field:prepared.y' },
+  ]
+  item.visual_actions = []
+  return payload
+}
+
 function multiSourceBatchPlanFixture(): JsonValue {
   const payload = structuredClone(batchPlanFixture()) as Record<string, JsonValue>
   const plan = payload.plan as Record<string, JsonValue>
@@ -273,6 +314,54 @@ function multiSourceBatchPlanFixture(): JsonValue {
   payload.item_progress = [
     { item_id: 'item:batch', state: 'pending', attempt_count: 0 },
     { item_id: 'item:batch.second', state: 'pending', attempt_count: 0 },
+  ]
+  return payload
+}
+
+function alignedMultiSourcePlanFixture(): JsonValue {
+  const payload = structuredClone(batchPlanFixture()) as Record<string, JsonValue>
+  const plan = payload.plan as Record<string, JsonValue>
+  const items = plan.items as Array<Record<string, JsonValue>>
+  const item = items[0]
+  item.profile_id = 'X38'
+  item.sources = [
+    {
+      source_alias: 'data_1',
+      source_dataset_id: 'source:temperature',
+      source_version: 1,
+      content_hash: 'a'.repeat(64),
+      display_name: 'temperature.csv',
+      row_count: 12,
+    },
+    {
+      source_alias: 'data_2',
+      source_dataset_id: 'source:pressure',
+      source_version: 1,
+      content_hash: 'c'.repeat(64),
+      display_name: 'pressure.csv',
+      row_count: 12,
+    },
+  ]
+  item.resolved_fields = [
+    { field_alias: 'x_1', source_alias: 'data_1', field_id: 'field:time', name: 'time_min' },
+    { field_alias: 'y_1', source_alias: 'data_1', field_id: 'field:signal', name: 'fluorescence_au' },
+    { field_alias: 'x_2', source_alias: 'data_2', field_id: 'field:pressure.time', name: 'time_min' },
+    { field_alias: 'y_2', source_alias: 'data_2', field_id: 'field:pressure.signal', name: 'fluorescence_au' },
+    { field_alias: 'aligned_x', source_alias: 'data_1', field_id: 'field:workflow.x', name: 'time_min' },
+    { field_alias: 'series_a', source_alias: 'data_1', field_id: 'field:workflow.a', name: 'temperature' },
+    { field_alias: 'series_b', source_alias: 'data_1', field_id: 'field:workflow.b', name: 'pressure' },
+  ]
+  item.data_operations = [{ operation: 'align_sources_on_x' }]
+  item.bindings = [
+    { role: 'x', source_alias: 'data_1', field_id: 'field:workflow.x' },
+    { role: 'series_1', source_alias: 'data_1', field_id: 'field:workflow.a' },
+    { role: 'series_2', source_alias: 'data_1', field_id: 'field:workflow.b' },
+  ]
+  item.binding_evidence = [
+    { role: 'x', source_alias: 'data_1', field_id: 'field:time' },
+    { role: 'x', source_alias: 'data_2', field_id: 'field:pressure.time' },
+    { role: 'series_1', source_alias: 'data_1', field_id: 'field:signal' },
+    { role: 'series_2', source_alias: 'data_2', field_id: 'field:pressure.signal' },
   ]
   return payload
 }
@@ -1909,6 +1998,93 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByText('已撤销本轮修改')).toBeInTheDocument()
   })
 
+  it('undoes and redoes an Agent data update with complete bind_fields snapshots', async () => {
+    const user = userEvent.setup()
+    const preparedData = {
+      kind: 'prepared', dataset_id: 'workflow:updated', version: 1,
+      content_hash: 'c'.repeat(64),
+    }
+    const preparedBindings = [
+      { role: 'x', field_id: 'field:prepared.x' },
+      { role: 'y', field_id: 'field:prepared.y' },
+    ]
+    let version = 1
+    const executePlotAction = vi.fn(async (input) => {
+      const action = input.action as Record<string, JsonValue>
+      if (action.operation === 'create_plot') {
+        return ok(enginePlotFixture(
+          'plot:one',
+          1,
+          'K01',
+          2,
+          [input.action],
+          action.data,
+          Array.isArray(action.bindings) ? action.bindings : [],
+        ))
+      }
+      version += 1
+      return ok(enginePlotFixture(
+        'plot:one',
+        version,
+        'K01',
+        version + 1,
+        [input.action],
+        action.data,
+        Array.isArray(action.bindings) ? action.bindings : [],
+      ))
+    })
+    const api = fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(updateDataPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(updateDataPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => ok({
+        task_plan: updateDataPlanFixture('succeeded', 2),
+      })),
+      getPlot: vi.fn(async (input) => {
+        version = input.plotVersion
+        return ok(enginePlotFixture(
+          input.plotId,
+          input.plotVersion,
+          'K01',
+          3,
+          [],
+          preparedData,
+          preparedBindings,
+        ))
+      }),
+      executePlotAction,
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把时间列换算成秒')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+    await user.click(await screen.findByRole('button', { name: '撤销本轮' }))
+
+    expect(executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
+      action: expect.objectContaining({
+        operation: 'bind_fields',
+        target: 'plot:one',
+        data: expect.objectContaining({ dataset_id: 'source:temperature' }),
+        bindings: [
+          { role: 'x', field_id: 'field:time' },
+          { role: 'y', field_id: 'field:signal' },
+          { role: 'group', field_id: 'field:condition' },
+        ],
+      }),
+    }))
+    await user.click(screen.getByRole('button', { name: '重做本轮修改' }))
+    expect(executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
+      action: expect.objectContaining({
+        operation: 'bind_fields',
+        target: 'plot:one',
+        data: preparedData,
+        bindings: preparedBindings,
+      }),
+    }))
+  })
+
   it('keeps one exact version through editor change, undo, redo, and all export formats', async () => {
     const user = userEvent.setup()
     let version = 0
@@ -2192,6 +2368,53 @@ describe('PlotAgent real desktop workflow', () => {
     expect(within(previews[1]).getByText('101.2')).toBeInTheDocument()
     expect(within(previews[1]).getByText('Y')).toBeInTheDocument()
     expect(screen.queryByText('首项示例')).not.toBeInTheDocument()
+  })
+
+  it('shows raw file columns for bindings produced by multi-source alignment', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 2, status: 'open' },
+        imported: { kind: 'committed', project_version: 2, datasets: [dataset, secondDataset] },
+      })),
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [alignedMultiSourcePlanFixture()] })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const previews = await screen.findAllByRole('region', { name: '计划字段绑定与数据样本' })
+    expect(previews).toHaveLength(2)
+    expect(within(previews[0]).getByText('X')).toBeInTheDocument()
+    expect(within(previews[0]).getByText('系列 1')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('X')).toBeInTheDocument()
+    expect(within(previews[1]).getByText('系列 2')).toBeInTheDocument()
+  })
+
+  it('loads sample rows for every source referenced by the confirmation plan', async () => {
+    const user = userEvent.setup()
+    const summaries = [dataset, secondDataset].map((source) => Object.fromEntries(
+      Object.entries(source).filter(([key]) => key !== 'sample_rows'),
+    )) as JsonValue[]
+    const describeDataset = vi.fn(async ({ datasetId }: { datasetId: string }) => ok({
+      dataset: datasetId === 'source:pressure' ? secondDataset : dataset,
+    }))
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 2, status: 'open' },
+        imported: { kind: 'committed', project_version: 2, datasets: summaries },
+      })),
+      describeDataset,
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [alignedMultiSourcePlanFixture()] })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const previews = await screen.findAllByRole('region', { name: '计划字段绑定与数据样本' })
+    expect(await within(previews[0]).findByText('3.2')).toBeInTheDocument()
+    expect(await within(previews[1]).findByText('101.2')).toBeInTheDocument()
+    expect(describeDataset).toHaveBeenCalledTimes(2)
   })
 
   it('passes a retry request verbatim without rebuilding hidden task context', async () => {

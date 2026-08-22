@@ -113,11 +113,11 @@ class DurableTaskExecutionService:
 
     def plan_view(self, task_id: str) -> dict[str, object]:
         checkpoint = self.ledger.get_task(task_id)
-        plan = self.ledger.get_plan(task_id)
+        plan, plan_hash = self.ledger.get_plan_with_hash(task_id)
         return {
             "task": checkpoint.model_dump(mode="json"),
             "plan": plan.model_dump(mode="json"),
-            "plan_hash": canonical_hash(plan),
+            "plan_hash": plan_hash,
             "confirmation_state": (
                 "pending"
                 if checkpoint.state
@@ -142,8 +142,7 @@ class DurableTaskExecutionService:
         checkpoint = self.ledger.get_task(task_id)
         if checkpoint.task_version != expected_task_version:
             raise DurableExecutionError("TASK_VERSION_CONFLICT", "Task version is stale.")
-        plan = self.ledger.get_plan(task_id)
-        actual_plan_hash = canonical_hash(plan)
+        plan, actual_plan_hash = self.ledger.get_plan_with_hash(task_id)
         if plan_hash != actual_plan_hash:
             raise DurableExecutionError(
                 "PLAN_CONFIRMATION_STALE", "The confirmation card is no longer current."
@@ -184,7 +183,8 @@ class DurableTaskExecutionService:
         user_event_id: str,
         plan_hash: str,
     ) -> dict[str, object]:
-        if canonical_hash(self.ledger.get_plan(task_id)) != plan_hash:
+        _plan, actual_plan_hash = self.ledger.get_plan_with_hash(task_id)
+        if actual_plan_hash != plan_hash:
             raise DurableExecutionError(
                 "PLAN_CONFIRMATION_STALE", "The confirmation card is no longer current."
             )

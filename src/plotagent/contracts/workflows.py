@@ -935,6 +935,19 @@ class ResolvedFieldBinding(StrictModel):
     field_id: FieldId
 
 
+class SourceFieldBindingEvidence(StrictModel):
+    """Raw source field that contributes to one final renderer role.
+
+    Compiled bindings may point at workflow-derived fields.  This evidence keeps
+    the user-facing provenance explicit without asking the renderer to reverse
+    engineer a data program.
+    """
+
+    role: Token
+    source_alias: WorkflowAlias
+    field_id: FieldId
+
+
 class ResolvedWorkflowField(StrictModel):
     field_alias: WorkflowAlias
     source_alias: WorkflowAlias
@@ -956,6 +969,7 @@ class CompiledTaskItem(StrictModel):
     resolved_fields: tuple[ResolvedWorkflowField, ...] = ()
     data_operations: tuple[DataOperation, ...]
     bindings: tuple[ResolvedFieldBinding, ...] = ()
+    binding_evidence: tuple[SourceFieldBindingEvidence, ...] = ()
     visual_actions: tuple[DraftVisualAction, ...]
     depends_on: tuple[TaskItemId, ...] = ()
     idempotency_key: Token
@@ -982,6 +996,14 @@ class CompiledTaskItem(StrictModel):
             or not self.bindings
         ):
             raise ValueError("compiled update_data task is incomplete")
+        source_aliases = {source.source_alias for source in self.sources}
+        if any(item.source_alias not in source_aliases for item in self.binding_evidence):
+            raise ValueError("binding evidence must reference a compiled source")
+        evidence_keys = tuple(
+            (item.role, item.source_alias, item.field_id) for item in self.binding_evidence
+        )
+        if len(evidence_keys) != len(set(evidence_keys)):
+            raise ValueError("binding evidence must be unique")
         return self
 
 

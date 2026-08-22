@@ -699,7 +699,9 @@ export class PiRuntimeAdapterV2 {
         error instanceof PiRuntimeV2ProtocolError ? error.code : 'PI_V2_RUNTIME_FAILED',
         error instanceof PiRuntimeV2ProtocolError
           ? error.message
-          : 'The Pi runtime failed before a typed terminal result was accepted.',
+          : error instanceof Error
+            ? error.message
+            : 'The Pi runtime failed before a typed terminal result was accepted.',
       )
     } finally {
       controller.abort()

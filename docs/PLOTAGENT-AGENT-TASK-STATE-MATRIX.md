@@ -1,6 +1,6 @@
 # PlotAgent Agent 任务状态与确定性测试矩阵
 
-> 状态：2026-08-20 冻结基线。本文是《Agent 任务状态合同》的可执行测试索引。
+> 状态：2026-08-22 冻结基线。本文是《Agent 任务状态合同》的可执行测试索引。
 >
 > 适用顺序：先通过本文全部确定性测试且不调用真实模型，再冻结源码进行 Windows UI 黑盒，最后运行一次 SEQ-70。UI 黑盒与 SEQ-70 不能替代本矩阵。
 >
@@ -133,6 +133,7 @@
 | SM-62 | 计划结构失败自动返修 | `partial` + plan-revision error → `repairing` → 下一版 `intent_staged` → `awaiting_reconfirmation` | 不按原计划盲重试；Agent 只修订未完成项，保留成功项，修订必须由用户重新确认 | `tests/desktop_core/test_application.py::test_multi_source_plan_structure_failure_requires_agent_revision`、`tests/desktop_core/test_agent_foundation.py::test_repair_host_requires_the_next_intent_version_and_preserves_item_scope`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `returns an Agent-revised plan for reconfirmation...` |
 | SM-63 | 追问后补充结构化上下文 | `awaiting_input` → 用户选择 source/profile/精确 plot version → `answered` → `investigating` | 同一 task 的 durable context 被更新；原始 envelope 不变；重启后继续使用新选择，不能只记录聊天文本 | `tests/tasking/test_task_ledger.py::test_user_answer_durably_replaces_effective_context_without_mutating_envelope`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `continues the same durable task after the reply`、`src/renderer/src/App.test.tsx` 中 `continues a pending question with the exact plot selected by an @ mention` 与 `keeps a pending task when chart selection answers the Agent question` |
 | SM-64 | 多来源多问题单轮续答 | `awaiting_input` + 多个字段问题 → 一段自然语言同时回答 → `answered` → `investigating` | JSON 中的 source/profile/plot 数组必须按严格合同持久化；沿用同一 task；合法数组不能在模型运行前被参数层拒绝 | `tests/desktop_core/test_application.py::test_agent_task_answer_accepts_json_selection_arrays_in_context_update`、`src/renderer/src/App.test.tsx` 中 `continues a multi-source task after one reply answers several binding questions` |
+| SM-65 | 数据更新完整撤销与重做 | 已有图版本 N → `update_data` 生成 N+1 → 撤销生成 N+2 → 重做生成 N+3 | 历史项保存更新前后完整不可变 `data` 与 `bindings`；撤销先逆转同轮视觉动作再恢复旧绑定，重做先恢复新绑定再重放视觉动作；禁止只恢复部分字段 | `src/renderer/src/data/plotHistory.test.ts::restores the complete previous data reference and bindings before redoing a data update`、`src/renderer/src/App.test.tsx::undoes and redoes an Agent data update with complete bind_fields snapshots` |
 
 ## 4. 一次性缺口审计结论
 

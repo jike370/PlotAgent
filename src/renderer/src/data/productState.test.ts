@@ -183,6 +183,14 @@ describe('product plot state', () => {
         plot_id: 'plot:test',
         plot_version: 3,
         profile_id: 'K02',
+        data: {
+          kind: 'source', dataset_id: 'source:test', version: 1,
+          content_hash: 'a'.repeat(64),
+        },
+        bindings: [
+          { role: 'x', field_id: 'field:x' },
+          { role: 'y', field_id: 'field:y' },
+        ],
       },
       profile: {
         profile_id: 'K02',
@@ -219,6 +227,14 @@ describe('product plot state', () => {
       plotId: 'plot:test',
       plotVersion: 3,
       chartId: 'K02',
+      engineData: {
+        kind: 'source', dataset_id: 'source:test', version: 1,
+        content_hash: 'a'.repeat(64),
+      },
+      engineBindings: [
+        { role: 'x', field_id: 'field:x' },
+        { role: 'y', field_id: 'field:y' },
+      ],
       plotTitle: 'Persisted title',
       fontSizePt: 9,
       projectVersion: 7,
@@ -249,12 +265,20 @@ describe('product plot state', () => {
       project_version: 9,
       plots: [
         {
-          document: { plot_id: 'plot:zeta', plot_version: 4, profile_id: 'K01' },
+          document: {
+            plot_id: 'plot:zeta', plot_version: 4, profile_id: 'K01',
+            data: { kind: 'source', dataset_id: 'source:zeta', version: 1, content_hash: 'b'.repeat(64) },
+            bindings: [{ role: 'x', field_id: 'field:zeta.x' }, { role: 'y', field_id: 'field:zeta.y' }],
+          },
           profile: { profile_id: 'K01', objects: [], capabilities: [] },
           actions: [],
         },
         {
-          document: { plot_id: 'plot:alpha', plot_version: 2, profile_id: 'K02' },
+          document: {
+            plot_id: 'plot:alpha', plot_version: 2, profile_id: 'K02',
+            data: { kind: 'source', dataset_id: 'source:alpha', version: 1, content_hash: 'c'.repeat(64) },
+            bindings: [{ role: 'x', field_id: 'field:alpha.x' }, { role: 'y', field_id: 'field:alpha.y' }],
+          },
           profile: { profile_id: 'K02', objects: [], capabilities: [] },
           actions: [],
         },
@@ -381,6 +405,58 @@ describe('product plot state', () => {
       sourceDatasetId: 'dataset:sensor',
       fieldName: 'Signal (V)',
     }])
+  })
+
+  it('reads compiler-owned raw-field evidence for aligned multi-source bindings', () => {
+    const plan = readWorkflowPlan({
+      plan: {
+        plan_id: 'plan:aligned-evidence',
+        items: [{
+          item_id: 'item:aligned-evidence',
+          task_kind: 'create',
+          profile_id: 'X38',
+          sources: [
+            { source_alias: 'data_1', source_dataset_id: 'source:first' },
+            { source_alias: 'data_2', source_dataset_id: 'source:second' },
+          ],
+          resolved_fields: [
+            { field_alias: 'x_1', field_id: 'field:first.x', name: 'Angle' },
+            { field_alias: 'y_1', field_id: 'field:first.y', name: 'PSD' },
+            { field_alias: 'x_2', field_id: 'field:second.x', name: 'Angle' },
+            { field_alias: 'y_2', field_id: 'field:second.y', name: 'PSD' },
+            { field_alias: 'aligned_x', field_id: 'field:workflow.x', name: 'Angle' },
+            { field_alias: 'series_a', field_id: 'field:workflow.a', name: 'A' },
+            { field_alias: 'series_b', field_id: 'field:workflow.b', name: 'B' },
+          ],
+          data_operations: [{ operation: 'align_sources_on_x' }],
+          bindings: [
+            { role: 'x', source_alias: 'data_1', field_id: 'field:workflow.x' },
+            { role: 'series_1', source_alias: 'data_1', field_id: 'field:workflow.a' },
+            { role: 'series_2', source_alias: 'data_1', field_id: 'field:workflow.b' },
+          ],
+          binding_evidence: [
+            { role: 'x', source_alias: 'data_1', field_id: 'field:first.x' },
+            { role: 'x', source_alias: 'data_2', field_id: 'field:second.x' },
+            { role: 'series_1', source_alias: 'data_1', field_id: 'field:first.y' },
+            { role: 'series_2', source_alias: 'data_2', field_id: 'field:second.y' },
+          ],
+          visual_actions: [],
+        }],
+      },
+      state: 'awaiting_confirmation',
+      item_progress: [{
+        item_id: 'item:aligned-evidence',
+        state: 'pending',
+        attempt_count: 0,
+      }],
+    })
+
+    expect(plan?.steps[0]?.sourceFieldRoles).toEqual([
+      { role: 'x', fieldId: 'field:first.x', sourceDatasetId: 'source:first' },
+      { role: 'x', fieldId: 'field:second.x', sourceDatasetId: 'source:second' },
+      { role: 'series_1', fieldId: 'field:first.y', sourceDatasetId: 'source:first' },
+      { role: 'series_2', fieldId: 'field:second.y', sourceDatasetId: 'source:second' },
+    ])
   })
 
   it('uses per-item progress for isolated batch failures and retry attempts', () => {

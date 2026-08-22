@@ -378,6 +378,7 @@ export type CompiledTaskItem = {
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
   readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
+  readonly binding_evidence?: ReadonlyArray<SourceFieldBindingEvidence>;
   readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
   readonly depends_on?: ReadonlyArray<string>;
   readonly idempotency_key: string;
@@ -1486,6 +1487,7 @@ export type SelectedPlotContext = {
   readonly plot_version: number;
   readonly profile_id: string;
   readonly source_aliases?: ReadonlyArray<string>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<SelectedPlotBindingContext>;
 }
 
@@ -1709,6 +1711,12 @@ export type SourceField = {
   readonly unit: UnitSpec;
   readonly source_column_index: number;
   readonly precision_digits?: number | null;
+}
+
+export type SourceFieldBindingEvidence = {
+  readonly role: string;
+  readonly source_alias: string;
+  readonly field_id: string;
 }
 
 export type SummaryErrorResult = {

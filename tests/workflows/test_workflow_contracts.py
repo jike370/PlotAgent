@@ -304,6 +304,15 @@ def test_compiler_accepts_agent_declared_concatenate_identity_field() -> None:
     plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
     assert plan.items[0].data_operations[0].operation == "concatenate_sources"
     assert plan.items[0].bindings[-1].field_id.startswith("field:workflow_")
+    assert {
+        (item.role, item.source_alias, item.field_id)
+        for item in plan.items[0].binding_evidence
+    } >= {
+        ("x", "data_1", "field:data_1_time"),
+        ("x", "data_2", "field:data_2_time"),
+        ("y", "data_1", "field:data_1_response"),
+        ("y", "data_2", "field:data_2_response"),
+    }
 
 
 def test_compiler_rejects_uncombined_multi_source_item_before_confirmation() -> None:
@@ -473,6 +482,15 @@ def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series(
         "series_2",
     ]
     assert all(binding.field_id.startswith("field:workflow_") for binding in plan.items[0].bindings)
+    assert [
+        (item.role, item.source_alias, item.field_id)
+        for item in plan.items[0].binding_evidence
+    ] == [
+        ("x", "data_1", "field:data_1_time"),
+        ("x", "data_2", "field:data_2_time"),
+        ("series_1", "data_1", "field:data_1_response"),
+        ("series_2", "data_2", "field:data_2_response"),
+    ]
 
 
 def test_compiler_can_convert_legacy_text_sources_before_strict_x_alignment() -> None:

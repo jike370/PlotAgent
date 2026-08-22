@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from collections.abc import Iterator
@@ -57,6 +58,38 @@ def _checkpoint_hash(checkpoint: TaskCheckpoint) -> str:
     payload = checkpoint.model_dump(mode="json")
     payload.pop("content_hash", None)
     return canonical_hash(payload)
+
+
+def _verified_json_object(
+    payload: str,
+    expected_hash: str,
+    *,
+    error_message: str,
+    embedded_hash_field: str | None = None,
+) -> dict[str, JsonValue]:
+    """Verify persisted bytes before current contracts add defaulted fields.
+
+    Durable hashes authenticate the JSON that was written at the time, not a
+    later Pydantic serialization.  Re-serializing an older record with a newer
+    contract can add default-valued fields and must not make an untampered
+    project unreadable.
+    """
+
+    try:
+        value = json.loads(payload)
+    except (TypeError, ValueError) as error:
+        raise sqlite3.DatabaseError(error_message) from error
+    if not isinstance(value, dict):
+        raise sqlite3.DatabaseError(error_message)
+    authenticated = dict(value)
+    if (
+        embedded_hash_field is not None
+        and authenticated.pop(embedded_hash_field, None) != expected_hash
+    ):
+        raise sqlite3.DatabaseError(error_message)
+    if canonical_hash(cast(JsonValue, authenticated)) != expected_hash:
+        raise sqlite3.DatabaseError(error_message)
+    return cast(dict[str, JsonValue], value)
 
 
 def _event_json(event: TaskEvent) -> str:
@@ -242,10 +275,12 @@ class TaskLedgerRepository:
         ).fetchone()
         if row is None:
             raise self._not_found("Agent task was not found.")
-        envelope = TaskEnvelope.model_validate_json(str(row[0]))
-        if str(row[1]) != canonical_hash(envelope):
-            raise sqlite3.DatabaseError("Agent task envelope hash does not match its content")
-        return envelope
+        _verified_json_object(
+            str(row[0]),
+            str(row[1]),
+            error_message="Agent task envelope hash does not match its content",
+        )
+        return TaskEnvelope.model_validate_json(str(row[0]))
 
     def get_effective_envelope(self, task_id: str) -> TaskEnvelope:
         """Fold durable user-authorized context updates over the immutable envelope."""
@@ -259,11 +294,12 @@ class TaskLedgerRepository:
 
     def get_task(self, task_id: str) -> TaskCheckpoint:
         row = self._connection.execute(
-            "SELECT checkpoint_json FROM agent_tasks_v2 WHERE task_id = ?", (task_id,)
+            "SELECT checkpoint_json, checkpoint_hash FROM agent_tasks_v2 WHERE task_id = ?",
+            (task_id,),
         ).fetchone()
         if row is None:
             raise self._not_found("Agent task was not found.")
-        return self._decode_checkpoint(str(row[0]))
+        return self._decode_checkpoint(str(row[0]), expected_hash=str(row[1]))
 
     def get_intent(self, task_id: str) -> TaskIntent:
         checkpoint = self.get_task(task_id)
@@ -282,12 +318,13 @@ class TaskLedgerRepository:
         ).fetchone()
         if row is None:
             raise self._not_found("Agent task intent was not found.")
-        intent = TaskIntent.model_validate_json(str(row[0]))
-        if str(row[1]) != intent.content_hash or str(row[1]) != canonical_hash(
-            intent.model_dump(mode="json", exclude={"content_hash"})
-        ):
-            raise sqlite3.DatabaseError("Agent task intent hash does not match its content")
-        return intent
+        _verified_json_object(
+            str(row[0]),
+            str(row[1]),
+            error_message="Agent task intent hash does not match its content",
+            embedded_hash_field="content_hash",
+        )
+        return TaskIntent.model_validate_json(str(row[0]))
 
     def stage_plan(self, task_id: str, plan: TaskPlan) -> TaskPlan:
         """Persist one pure plan projection for the task's current immutable intent."""
@@ -353,7 +390,9 @@ class TaskLedgerRepository:
             )
         return plan
 
-    def get_plan(self, task_id: str) -> TaskPlan:
+    def get_plan_with_hash(self, task_id: str) -> tuple[TaskPlan, str]:
+        """Return the validated plan and its original persisted authority hash."""
+
         current = self.get_task(task_id)
         if current.intent is None:
             raise self._not_found("Agent task plan was not found.")
@@ -366,10 +405,18 @@ class TaskLedgerRepository:
         ).fetchone()
         if row is None:
             raise self._not_found("Agent task plan was not found.")
-        plan = TaskPlan.model_validate_json(str(row[0]))
-        if str(row[1]) != canonical_hash(plan) or str(row[2]) != current.intent.content_hash:
+        plan_hash = str(row[1])
+        _verified_json_object(
+            str(row[0]),
+            plan_hash,
+            error_message="Agent task plan authority does not match its content",
+        )
+        if str(row[2]) != current.intent.content_hash:
             raise sqlite3.DatabaseError("Agent task plan authority does not match its content")
-        return plan
+        return TaskPlan.model_validate_json(str(row[0])), plan_hash
+
+    def get_plan(self, task_id: str) -> TaskPlan:
+        return self.get_plan_with_hash(task_id)[0]
 
     def get_execution_grant(self, task_id: str) -> ExecutionGrant:
         plan = self.get_plan(task_id)
@@ -382,13 +429,13 @@ class TaskLedgerRepository:
         ).fetchone()
         if row is None:
             raise self._not_found("Execution grant was not found.")
-        grant = ExecutionGrant.model_validate_json(str(row[0]))
-        expected_hash = canonical_hash(
-            grant.model_dump(mode="json", exclude={"content_hash"})
+        _verified_json_object(
+            str(row[0]),
+            str(row[1]),
+            error_message="Execution grant hash does not match its content",
+            embedded_hash_field="content_hash",
         )
-        if str(row[1]) != grant.content_hash or grant.content_hash != expected_hash:
-            raise sqlite3.DatabaseError("Execution grant hash does not match its content")
-        return grant
+        return ExecutionGrant.model_validate_json(str(row[0]))
 
     def get_activation(self, activation_id: str) -> tuple[AgentActivation, str]:
         """Return one immutable activation and its runtime status."""
@@ -417,7 +464,7 @@ class TaskLedgerRepository:
         if state is None:
             rows = self._connection.execute(
                 """
-                SELECT checkpoint_json FROM agent_tasks_v2
+                SELECT checkpoint_json, checkpoint_hash FROM agent_tasks_v2
                 ORDER BY updated_at DESC, task_id LIMIT ?
                 """,
                 (limit,),
@@ -425,12 +472,15 @@ class TaskLedgerRepository:
         else:
             rows = self._connection.execute(
                 """
-                SELECT checkpoint_json FROM agent_tasks_v2
+                SELECT checkpoint_json, checkpoint_hash FROM agent_tasks_v2
                 WHERE state = ? ORDER BY updated_at DESC, task_id LIMIT ?
                 """,
                 (state, limit),
             ).fetchall()
-        return tuple(self._decode_checkpoint(str(row[0])) for row in rows)
+        return tuple(
+            self._decode_checkpoint(str(row[0]), expected_hash=str(row[1]))
+            for row in rows
+        )
 
     def latest_yield(self, task_id: str) -> AgentYield | None:
         """Return the newest durable Agent yield without reactivating the task."""
@@ -455,12 +505,16 @@ class TaskLedgerRepository:
         """
 
         rows = self._connection.execute(
-            "SELECT checkpoint_json FROM agent_tasks_v2 ORDER BY task_id"
+            "SELECT checkpoint_json, checkpoint_hash FROM agent_tasks_v2 ORDER BY task_id"
         ).fetchall()
         task_ids = tuple(
             checkpoint.task_id
             for row in rows
-            if (checkpoint := self._decode_checkpoint(str(row[0]))).active_activation_id
+            if (
+                checkpoint := self._decode_checkpoint(
+                    str(row[0]), expected_hash=str(row[1])
+                )
+            ).active_activation_id
             is not None
         )
         recovered: list[str] = []
@@ -1419,20 +1473,19 @@ class TaskLedgerRepository:
 
     def get_verification_report(self, report_id: str) -> VerificationReport:
         row = self._connection.execute(
-            "SELECT report_json FROM agent_verification_reports_v2 WHERE report_id = ?",
+            """SELECT report_json, content_hash FROM agent_verification_reports_v2
+            WHERE report_id = ?""",
             (report_id,),
         ).fetchone()
         if row is None:
             raise self._not_found("Agent verification report was not found.")
-        report = VerificationReport.model_validate_json(str(row[0]))
-        expected_hash = canonical_hash(
-            report.model_dump(mode="json", exclude={"content_hash"})
+        _verified_json_object(
+            str(row[0]),
+            str(row[1]),
+            error_message="Agent verification report hash does not match its content",
+            embedded_hash_field="content_hash",
         )
-        if report.content_hash != expected_hash:
-            raise sqlite3.DatabaseError(
-                "Agent verification report hash does not match its content"
-            )
-        return report
+        return VerificationReport.model_validate_json(str(row[0]))
 
     def acquire_lease(
         self,
@@ -1614,19 +1667,43 @@ class TaskLedgerRepository:
         self, connection: sqlite3.Connection, task_id: str
     ) -> TaskCheckpoint:
         row = connection.execute(
-            "SELECT checkpoint_json FROM agent_tasks_v2 WHERE task_id = ?",
+            "SELECT checkpoint_json, checkpoint_hash FROM agent_tasks_v2 WHERE task_id = ?",
             (task_id,),
         ).fetchone()
         if row is None:
             raise self._not_found("Agent task was not found.")
-        return self._decode_checkpoint(str(row[0]))
+        return self._decode_checkpoint(str(row[0]), expected_hash=str(row[1]))
 
     @staticmethod
-    def _decode_checkpoint(payload: str) -> TaskCheckpoint:
-        checkpoint = TaskCheckpoint.model_validate_json(payload)
-        if checkpoint.content_hash != _checkpoint_hash(checkpoint):
-            raise sqlite3.DatabaseError("Agent task checkpoint hash does not match its content")
-        return checkpoint
+    def _decode_checkpoint(
+        payload: str, *, expected_hash: str | None = None
+    ) -> TaskCheckpoint:
+        try:
+            decoded = json.loads(payload)
+        except (TypeError, ValueError) as error:
+            raise sqlite3.DatabaseError(
+                "Agent task checkpoint hash does not match its content"
+            ) from error
+        if not isinstance(decoded, dict):
+            raise sqlite3.DatabaseError(
+                "Agent task checkpoint hash does not match its content"
+            )
+        embedded = decoded.get("content_hash")
+        if not isinstance(embedded, str):
+            raise sqlite3.DatabaseError(
+                "Agent task checkpoint hash does not match its content"
+            )
+        _verified_json_object(
+            payload,
+            embedded,
+            error_message="Agent task checkpoint hash does not match its content",
+            embedded_hash_field="content_hash",
+        )
+        if expected_hash is not None and embedded != expected_hash:
+            raise sqlite3.DatabaseError(
+                "Agent task checkpoint hash does not match its content"
+            )
+        return TaskCheckpoint.model_validate_json(payload)
 
     def _activation_context(
         self,

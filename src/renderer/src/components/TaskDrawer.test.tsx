@@ -77,8 +77,8 @@ describe('TaskDrawer', () => {
         bindings: [],
         boundActions: [],
         steps: [
-          { taskItemId: 'item:kept', actionType: 'workflow_item', taskKind: 'create', profileId: 'K01', title: '创建 K01', detail: '', sourceDatasetIds: [], dataOperations: [], bindings: [], changes: [], state: 'succeeded', attemptCount: 1 },
-          { taskItemId: 'item:failed', actionType: 'workflow_item', taskKind: 'create', profileId: 'K03', title: '创建 K03', detail: '', sourceDatasetIds: [], dataOperations: [], bindings: [], changes: [], state: 'failed', attemptCount: 2, failure: { code: 'ORIGIN_BUSY', message: 'Origin 暂时忙碌。', retryable: true } },
+          { taskItemId: 'item:kept', actionType: 'workflow_item', taskKind: 'create', profileId: 'K01', title: '创建 K01', detail: '', sourceDatasetIds: [], dataOperations: [], bindings: [], sourceFieldRoles: [], changes: [], state: 'succeeded', attemptCount: 1 },
+          { taskItemId: 'item:failed', actionType: 'workflow_item', taskKind: 'create', profileId: 'K03', title: '创建 K03', detail: '', sourceDatasetIds: [], dataOperations: [], bindings: [], sourceFieldRoles: [], changes: [], state: 'failed', attemptCount: 2, failure: { code: 'ORIGIN_BUSY', message: 'Origin 暂时忙碌。', retryable: true } },
         ],
       }]}
       onCancel={onCancel}
