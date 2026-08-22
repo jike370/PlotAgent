@@ -110,7 +110,7 @@ def _case(
                 action_id=f"action:rereview-style-{profile_id.lower()}-{len(actions)}",
                 target=f"series:rereview-{profile_id.lower()}.{object_key}",
                 expected_plot_version=len(actions),
-                color=arguments.get("color") if isinstance(arguments.get("color"), str) else None,
+                line_stroke_color=cast(Any, arguments.get("line_stroke_color")),
                 line_width_pt=(
                     float(cast(float, arguments["line_width_pt"]))
                     if arguments.get("line_width_pt") is not None
@@ -122,13 +122,23 @@ def _case(
                     if arguments.get("line_style") in {"solid", "dash", "dot", "dash_dot", "none"}
                     else None,
                 ),
-                symbol=cast(
+                marker_shape=cast(
                     Any,
-                    str(arguments["symbol"]) if arguments.get("symbol") is not None else None,
+                    str(arguments["marker_shape"])
+                    if arguments.get("marker_shape") is not None
+                    else None,
                 ),
-                symbol_size_pt=(
-                    float(cast(float, arguments["symbol_size_pt"]))
-                    if arguments.get("symbol_size_pt") is not None
+                marker_size_pt=(
+                    float(cast(float, arguments["marker_size_pt"]))
+                    if arguments.get("marker_size_pt") is not None
+                    else None
+                ),
+                marker_fill_color=cast(Any, arguments.get("marker_fill_color")),
+                marker_stroke_color=cast(Any, arguments.get("marker_stroke_color")),
+                fill_color=cast(Any, arguments.get("fill_color")),
+                fill_stroke_width_pt=(
+                    float(cast(float, arguments["fill_stroke_width_pt"]))
+                    if arguments.get("fill_stroke_width_pt") is not None
                     else None
                 ),
             )
@@ -189,10 +199,12 @@ def _cases() -> tuple[ReviewCase, ...]:
                     (
                         "primary",
                         {
-                            "color": "#AA3300",
+                            "line_stroke_color": "#AA3300",
                             "line_width_pt": 2.0,
-                            "symbol": "diamond",
-                            "symbol_size_pt": 7.0,
+                            "marker_shape": "diamond",
+                            "marker_size_pt": 7.0,
+                            "marker_fill_color": "#AA3300",
+                            "marker_stroke_color": "#AA3300",
                         },
                     ),
                 ),
@@ -217,8 +229,8 @@ def _cases() -> tuple[ReviewCase, ...]:
                     _column("field:right", "Female", "numeric", (11.0, 13.0, 10.0, 9.0, 7.0)),
                 ),
                 (
-                    ("left", {"color": "#2255AA", "line_width_pt": 1.2}),
-                    ("right", {"color": "#CC6600", "line_width_pt": 1.2}),
+                    ("left", {"fill_color": "#2255AA", "fill_stroke_width_pt": 1.2}),
+                    ("right", {"fill_color": "#CC6600", "fill_stroke_width_pt": 1.2}),
                 ),
             ),
         ),
@@ -273,7 +285,11 @@ def _cases() -> tuple[ReviewCase, ...]:
                 (
                     (
                         "connector",
-                        {"color": "#7A1F5C", "line_width_pt": 2.0, "line_style": "dash"},
+                        {
+                            "line_stroke_color": "#7A1F5C",
+                            "line_width_pt": 2.0,
+                            "line_style": "dash",
+                        },
                     ),
                 ),
             ),

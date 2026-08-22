@@ -153,7 +153,7 @@ def _case(profile_id: ProfileId, case_name: CaseName) -> tuple[
                     action_id=f"action:connector-{token}",
                     expected_plot_version=1,
                     target=f"series:{token}.connector",
-                    color="#303030",
+                    line_stroke_color="#303030",
                     line_width_pt=2.0,
                     line_style="dash",
                 ),
@@ -161,9 +161,10 @@ def _case(profile_id: ProfileId, case_name: CaseName) -> tuple[
                     action_id=f"action:column-2-{token}",
                     expected_plot_version=1,
                     target=f"series:{token}.column_2",
-                    color="#B2182B",
-                    symbol="square",
-                    symbol_size_pt=8.0,
+                    marker_shape="square",
+                    marker_size_pt=8.0,
+                    marker_fill_color="#B2182B",
+                    marker_stroke_color="#B2182B",
                 ),
             )
         )
