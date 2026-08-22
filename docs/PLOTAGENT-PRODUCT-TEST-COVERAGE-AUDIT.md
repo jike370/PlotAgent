@@ -197,7 +197,7 @@
     在会话历史项中；撤销先逆转同轮视觉动作再恢复旧绑定，重做先恢复新绑定再重放视觉动作，
     每一步仍通过公开 `bind_fields` 动作产生单调新版本，禁止部分回滚或覆盖旧版本。
 
-确定性门禁：Python `839 passed`；Vitest `29 files / 265 tests`；Ruff、mypy（184 个源文件）、contracts codegen `--check`、TypeScript typecheck、ESLint 和 production build 全部通过。
+候选 `c14619b668cd8745820383b0691f4be03d70a71d` 的确定性门禁：Python `839 passed`；Vitest `29 files / 265 tests`；Ruff、mypy（192 个源文件）、contracts codegen `--check`、TypeScript typecheck、ESLint 和 production build 全部通过。
 
 ## 10. 发布覆盖账本
 
@@ -220,16 +220,18 @@ Origin fresh-reopen 或真实模型证据。
 | 证据编号 | 产品风险 | 当前候选必须覆盖的实际链路 | 当前状态 | 发布证据 |
 |---|---|---|---|---|
 | RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | Python 839；Vitest 265；其余门禁全绿 |
-| RC-UI-01 | 数据卡不能解释 Agent 实际看到什么 | 正式 Electron 中核对来源身份、整理后字段、类型、单位、真实样本与分页 | IN_PROGRESS | 待本轮定向 UI 目录 |
-| RC-UI-02 | 确认卡无法核对绑定和多来源 | 正式 Electron 中核对每个来源、文件/工作表/列、字段角色、数据操作和确认前无副作用 | IN_PROGRESS | 待本轮定向 UI 目录 |
-| RC-UI-03 | 任务状态和错误不可读 | 正式 Electron 中核对计划、运行阶段、部分失败、技术详情、取消与结果投影 | IN_PROGRESS | 待本轮定向 UI 目录 |
-| RC-UI-04 | 编辑器与时间线状态漂移 | 正式 Electron 中核对聚焦编辑、tab 保持、结果顺序、基础编辑及数据更新的完整撤销/重做、重启恢复 | IN_PROGRESS | 待本轮定向 UI 目录 |
-| RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | IN_PROGRESS | 待本轮定向 UI 与 OPJU 产物 |
-| RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | UNVERIFIED | 待 `run_release_matrix.py` 当前候选报告 |
-| RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | UNVERIFIED | 待 Origin live/fresh 报告 |
-| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | IN_PROGRESS | 首轮全目录编辑矩阵为 `316 PASS / 64 FAIL`；64 条动作级联失败收敛为 12 个混合图类共用一个 Origin 透明度值。能力目录已按双后端真实公共语义修正，原 12 图定向重跑为 `128 PASS / 0 FAIL`；须在新候选上重跑完整 34 图矩阵后才能升级 PASS。 |
-| RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | UNVERIFIED | 待数据与性能矩阵报告 |
-| RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | UNVERIFIED | 待故障矩阵与正式 UI 证据 |
+| RC-UI-01 | 数据卡不能解释 Agent 实际看到什么 | 正式 Electron 中核对来源身份、整理后字段、类型、单位、真实样本与分页 | PASS | `build/pre-release-exploration/a1a202e/`；正式 Electron 定向链路属于后续透明度能力收缩未影响的 UI 路径 |
+| RC-UI-02 | 确认卡无法核对绑定和多来源 | 正式 Electron 中核对每个来源、文件/工作表/列、字段角色、数据操作和确认前无副作用 | PASS | 同上；项目 131 `align_sources_on_x` 与项目 132 `concatenate_sources` 原始证据 |
+| RC-UI-03 | 任务状态和错误不可读 | 正式 Electron 中核对计划、运行阶段、部分失败、技术详情、取消与结果投影 | PASS | 同上；定向 6 项合计 `6 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED` |
+| RC-UI-04 | 编辑器与时间线状态漂移 | 正式 Electron 中核对聚焦编辑、tab 保持、结果顺序、基础编辑及数据更新的完整撤销/重做、重启恢复 | PASS | 同上；项目 131 更新后撤销/重做，项目 126 重启恢复 |
+| RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | PASS | `build/pre-release-exploration/a1a202e/`；project v9，plot v5，PNG/SVG/OPJU 及 OriginPro 2024 原生重开 |
+| RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | PASS | `build/release-matrix/offline-c14619b-20260823-030325/` 为 `272 PASS / 34 Origin 待验证`；由同候选 Origin 阶段关闭为 306/306 |
+| RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | PASS | `build/release-matrix/origin-c14619b-20260823-030421/`：`306 PASS / 0 FAIL / 0 UNVERIFIED` |
+| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | PASS | `build/release-matrix/edits-c14619b-20260823-032813/`：34 profiles，380 汇总项、1889 原子用例，`0 FAIL` |
+| RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | PASS | `operational-c14619b-20260823-041519` 10/10；`data-stress-c14619b-20260823-041603` 8/8 |
+| RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | PASS | `build/release-matrix/fault-c14619b-20260823-041620/`：13/13 PASS |
+| RC-PACK | 源码可运行但发布包损坏或环境门禁失真 | manifest/installer 哈希、打包 Core、Origin 缺失/错误/支持版本、隔离 profile Electron 启停 | PASS | `build/release-matrix/packaged-c14619b-20260823-044158/`：5/5 PASS；未冒充不同 Windows SID |
+| RC-VIS | 机械正确但默认视觉退化 | 当前候选 34 图视觉签名由人工逐图审查 | IN_PROGRESS | `build/visual-audit/release-signatures-c14619b-20260823-030405/` 已生成，等待人工结论 |
 | RC-BB | 组件分别正确但真实长链路失败 | 同一冻结候选的完整 Windows Electron 黑盒；覆盖 34 图代表路径、Agent、多数据任务、编辑、导出和恢复 | UNVERIFIED | 待黑盒报告、CSV、截图与产物 |
 | RC-SEQ70 | 真实模型语义与对象绑定不稳定 | 同一冻结候选的一次完整 SEQ-70；不得用重复运行挑选最好结果 | UNVERIFIED | 待 REPORT.md/report.json |
 | RC-REL | 用局部全绿代替发布结论 | 汇总以上证据和 known issues；关键范围零 FAIL、零 BLOCKED、零应测 UNVERIFIED | UNVERIFIED | 待最终发布判定 |
