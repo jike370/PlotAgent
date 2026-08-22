@@ -188,6 +188,13 @@
 
 ## 10. 发布覆盖账本
 
+机器事实源为 [《PlotAgent 发布覆盖账本》](./PLOTAGENT-RELEASE-COVERAGE-LEDGER.md) 及其
+同名 JSON。生成器 `scripts/build_release_coverage_ledger.py` 从当前 34 图 profile、Origin
+recipe 和冻结 release fixture 构建逐图归属，并在门禁中检查：每图必须具备数据合同、
+9 个离线 MatrixKey、Origin fresh-reopen、公共编辑、撤销/重做/重启、三格式导出和正式
+Windows UI case；任务状态、数据、多来源、UI、故障、导出、性能、打包、黑盒与 SEQ-70
+也必须各有可执行归属。本节保留候选运行状态，不再充当手工维护的逐图事实源。
+
 本节把“需求是否真的被测过”与测试总数分开记账。状态只允许
 `PASS`、`FAIL`、`BLOCKED`、`UNVERIFIED` 和 `IN_PROGRESS`；只有实际观察到当前候选的
 预期结果才能写 `PASS`。单元测试、历史截图、旧提交产物和源码推断不能替代正式 UI、
@@ -216,20 +223,10 @@ Origin fresh-reopen 或真实模型证据。
 
 ### 10.1 34 图逐项索引
 
-以下每行最终都必须同时关联 `RC-34-OFFLINE`、`RC-34-ORIGIN` 和 `RC-34-EDIT` 的
-MatrixKey 或 case ID。未产生三类证据中的任一类时，该图不能记为发布通过。
-
-| 图类 | 图类 | 图类 | 图类 |
-|---|---|---|---|
-| K01 折线图 | K02 线点图 | K03 散点图 | K04 气泡与颜色映射散点图 |
-| K06 双向误差棒图 | K07 误差带图 | K08 柱状图 | K09 分组柱状图 |
-| K10 堆积柱状图 | K11 100% 堆积柱状图 | K12 列散点图 | K13 Tukey 箱线图 |
-| K14 小提琴图 | K15 直方图 | K18 面积图 | K19 日期时间折线图 |
-| K20 热图 | K21 相关矩阵图 | K22 填色等高线图 | K24 Trellis 分面图 |
-| S34 Nyquist 图 | S61 混淆矩阵 | X02 垂线图 | X03 棒棒糖图 |
-| X05 蜂群图 | X09 浮动柱状图 | X13 人口金字塔 | X23 双 Y 轴 Y-Y 图 |
-| X24 帕累托图 | X35 双 Y 轴柱状图 | X36 双 Y 轴柱线图 | X38 Y 偏移堆叠线图 |
-| X39 线条序列图 | X40 前后对比图 |  |  |
+34 图的唯一逐项索引由生成账本维护。每行同时给出 9 个离线 MatrixKey、Origin
+fresh-reopen case、公共编辑 case 前缀、撤销/重做/重启 case、三格式导出 case 和正式
+Windows UI case。未产生任一必要证据时，该图不能记为发布通过。手写图名表已删除，避免
+与 profile、Origin recipe 或 release fixture 漂移。
 
 ### 10.2 防遗漏规则
 
