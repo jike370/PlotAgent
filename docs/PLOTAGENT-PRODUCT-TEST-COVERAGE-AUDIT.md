@@ -219,7 +219,7 @@ Origin fresh-reopen 或真实模型证据。
 
 | 证据编号 | 产品风险 | 当前候选必须覆盖的实际链路 | 当前状态 | 发布证据 |
 |---|---|---|---|---|
-| RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | 候选 `8903c54`：Python 839、Vitest 278；contracts codegen、coverage ledger、Ruff、mypy、typecheck、ESLint、production build 全绿；Windows 发布脚本内再次完整通过 |
+| RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | 候选 `e434e41`：Windows 发布脚本内 Python 841、Vitest 279；contracts codegen、coverage ledger、Ruff、mypy、typecheck、ESLint、production build 与发布哈希校验全绿 |
 | RC-UI-01 | 数据卡不能解释 Agent 实际看到什么 | 正式 Electron 中核对来源身份、整理后字段、类型、单位、真实样本与分页 | PASS | `build/pre-release-exploration/a1a202e/`；正式 Electron 定向链路属于后续透明度能力收缩未影响的 UI 路径 |
 | RC-UI-02 | 确认卡无法核对绑定和多来源 | 正式 Electron 中核对每个来源、文件/工作表/列、字段角色、数据操作和确认前无副作用 | PASS | 同上；项目 131 `align_sources_on_x` 与项目 132 `concatenate_sources` 原始证据 |
 | RC-UI-03 | 任务状态和错误不可读 | 正式 Electron 中核对计划、运行阶段、部分失败、技术详情、取消与结果投影 | PASS | 同上；定向 6 项合计 `6 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED` |
@@ -227,13 +227,13 @@ Origin fresh-reopen 或真实模型证据。
 | RC-UI-05 | 图形库默认与自然语言图类冲突时错误追问或使用旧图类 | UI 预选只作默认；最新明确自然语言图类直接进入同一闭集计划，并回投 Composer | PASS | 正式打包 Electron 项目 134：Composer/UI 默认 K03，明确请求 K01 后直接生成 K01 计划并回投 K01；证据见 `build/release-ui-targeted-8903c54-20260823-1050/REPORT.md` |
 | RC-UI-06 | 批量任务被错误投影成单图，或多来源单图被错误投影成多图 | 同图类批量显示单一图类；异构批量显示“多图任务”；多来源同图显示最终单图类 | PASS | 正式打包 Electron：Events_A/K03 + Events_B/K03 显示 K03；Events_A/K01 + Events_B/K03 显示“多图任务”；项目 109 六来源单图恢复为 X38 |
 | RC-UI-07 | 修订、拒绝、执行、重启或迟到响应使 Composer 图类漂移 | 投影跟随最新耐久计划/结果；唯一图类成为续轮默认，异构任务不泄漏隐藏单图；拒绝未执行覆盖时恢复原默认；旧响应不得回写 | IN_PROGRESS | 正式 Electron 已通过拒绝恢复和强制退出后的项目/Composer 恢复；“修改绑定”曾错误拒绝计划，现改为保留待确认计划并引导自然语言修订，App 89/89 PASS，待新包定向复测 |
-| RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | FAIL | 旧候选证据曾通过；当前 `8903c54` 正式打包 UI 导出项目 126 v12 / S34 v8 超过 60 秒、无文件且 Core 超时。根因是冻结 Core 用 `sys.executable -m` 递归启动 Core 而非 Origin worker；已做族级修复，待新包复测 |
-| RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | PASS | `build/release-matrix/offline-8903c54-20260823-091600/` 为 `272 PASS / 34 Origin 待验证`；由同候选 Origin 阶段关闭为 306/306 |
-| RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | PASS | `build/release-matrix/origin-8903c54-20260823-091600/`：`306 PASS / 0 FAIL / 0 UNVERIFIED` |
-| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | PASS | `build/release-matrix/edits-8903c54-20260823-091600/`：34 profiles、380 汇总项、1889 原子用例，`0 FAIL` |
-| RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | PASS | `operational-8903c54-20260823-091600` 10/10；`data-stress-8903c54-20260823-091600` 8/8 |
-| RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | PASS | `build/release-matrix/fault-8903c54-20260823-091600/`：13/13 PASS |
-| RC-PACK | 源码可运行但发布包损坏或环境门禁失真 | manifest/installer 哈希、打包 Core、真实 K01 渲染与 PNG/SVG、冻结 Origin worker 入口、Origin 缺失/错误/支持版本、隔离 profile Electron 启停 | FAIL | 原 5 项矩阵未执行真实绘图，漏掉 `backend_svg` 和冻结 worker 递归问题；已补为 7 项并修复 spec/入口，待新候选重建后必须 7/7 PASS |
+| RC-EXP-126 | 界面显示最新图但导出旧版本 | 项目 126 连续编辑后的当前 plot ID/version，经正式 UI 导出 OPJU；回执版本一致，Origin 新会话重开并可编辑 | IN_PROGRESS | 旧候选 `8903c54` 暴露冻结 Core 递归启动而超时；`e434e41` 已通过冻结 worker 入口门禁与 34 图 Origin fresh-reopen，但项目 126 的正式打包 UI 导出、成功回执及 Origin 新会话编辑仍待复测 |
+| RC-34-OFFLINE | 图类合同或后端结构遗漏 | 34 图 × minimal/representative/edge × PNG/SVG/OPJU，共 306 个唯一 MatrixKey | PASS | `build/release-matrix/offline-e434e41-20260823-1250/` 为 `272 PASS / 34 Origin 待验证`；由同候选 Origin 阶段关闭为 306/306 |
+| RC-34-ORIGIN | OPJU 只是可保存，非原生可编辑 | 34 个 representative 由声明版本 Origin 创建，独立进程重开、机械读回并做可逆编辑 | PASS | `build/release-matrix/origin-e434e41-20260823-1250/`：OriginPro 2024 `10.1.0`，`306 PASS / 0 FAIL / 0 UNVERIFIED` |
+| RC-34-EDIT | 公共能力声明与真实图类脱节 | 34 图逐项执行标题、适用轴、系列、适用图例、撤销、重做、重启和三格式同版本导出 | PASS | `build/release-matrix/edits-e434e41-20260823-1250/`：34 profiles、380 汇总项、1889 原子用例，`0 FAIL` |
+| RC-DATA | 真实输入不能进入 renderer 合同 | CSV、多 Sheet Excel、仪器 TXT、缺失/极值/长文本、多来源对齐、动态系列增删和大数据导入 | PASS | `operational-e434e41-20260823-1250` 10/10；`data-stress-e434e41-20260823-1250` 8/8 |
+| RC-FAULT | 正常路径通过但异常状态失真 | 模型超时/限流/坏 JSON/取消，Core/Origin/磁盘/项目锁故障，部分成功修复、跳过与重启 | PASS | `build/release-matrix/fault-e434e41-20260823-1250/`：13/13 PASS |
+| RC-PACK | 源码可运行但发布包损坏或环境门禁失真 | manifest/installer 哈希、打包 Core、真实 K01 渲染与 PNG/SVG、冻结 Origin worker 入口、Origin 缺失/错误/支持版本、隔离 profile Electron 启停 | PASS | `build/release-matrix/packaged-e434e41-20260823-124515/`：扩展后 7/7 PASS；manifest、打包 Core PNG/SVG、冻结 worker 路由、Origin 三种环境状态与隔离 Electron 均通过 |
 | RC-PACK-ENV | npm/pnpm 包装环境使发布门禁与直接脚本结果不一致 | `pnpm test:release` 与直接 PowerShell 必须执行同一哈希校验并同为 PASS | PASS | 哈希实现改为显式 .NET SHA-256，不依赖 `Get-FileHash` 模块自动加载；候选发布脚本中的 package 入口与独立直接 PowerShell 入口均 PASS |
 | RC-VIS | 机械正确但默认视觉退化 | 当前候选 34 图视觉签名由人工逐图审查 | IN_PROGRESS | `build/visual-audit/release-signatures-c14619b-20260823-030405/` 已生成，等待人工结论 |
 | RC-BB | 组件分别正确但真实长链路失败 | 同一冻结候选的完整 Windows Electron 黑盒；覆盖 34 图代表路径、Agent、多数据任务、编辑、导出和恢复 | UNVERIFIED | 待黑盒报告、CSV、截图与产物 |

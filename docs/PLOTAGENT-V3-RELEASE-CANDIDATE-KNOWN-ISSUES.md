@@ -15,14 +15,14 @@ RC-UI-PROFILE-PROJECTION 与 RC-PACKAGING-ENV 已完成能力族级修复并移�
 - `8903c54` 打包侧车执行 X38 轴范围编辑时缺少 `matplotlib.backends.backend_svg`。
 - 原因：Matplotlib 按格式动态解析 backend，而 PyInstaller spec 未声明产品公开的 PNG/SVG backend。
 - 修复：spec 显式包含 `backend_agg` 与 `backend_svg`；发布包矩阵新增真实 K01 渲染和 PNG/SVG 哈希验证。
-- 状态：源码定向测试 PASS，等待新包复测。
+- 状态：候选 `e434e41` 的扩展打包矩阵已用冻结 Core 真实生成并校验 PNG/SVG，`PACKAGED-CORE-RENDER-EXPORT` 为 PASS；X38 正式 UI 轴范围链路仍待定向复测。
 
 ### RC-PACK-FROZEN-ORIGIN-WORKER
 
 - `8903c54` 项目 126 OPJU 导出超过 60 秒、无文件，停止后 Core 超时，应用无法正常退出。
 - 原因：冻结 Core 中 `sys.executable -m plotagent...worker` 实际递归启动另一 Core，不会进入 Origin worker。
 - 修复：冻结入口新增唯一 `--origin-worker REQUEST RESPONSE` 模式，源运行时仍使用 Python `-m`；发布包矩阵新增冻结 worker 路由门禁。
-- 状态：命令选择单测与静态检查 PASS，等待新包真实 OPJU 复测。
+- 状态：候选 `e434e41` 的冻结 worker 入口门禁 PASS，34 图 Origin fresh-reopen 为 `306/306 PASS`；项目 126 正式打包 UI 的真实 OPJU 导出、成功回执和 Origin 新会话编辑仍待复测。
 
 ### RC-UI-PLAN-REVISION-ENTRY
 

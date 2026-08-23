@@ -459,6 +459,8 @@ def _domain_entries() -> list[dict[str, Any]]:
             "requirements": [
                 "installer identity matches frozen HEAD",
                 "packaged Core starts in an isolated profile",
+                "frozen Core routes the Origin worker entry without recursive Core startup",
+                "packaged Core performs a real render and verified PNG/SVG export",
                 "packaged Electron opens and closes cleanly",
                 "Origin missing, wrong-version and supported states are truthful",
             ],
@@ -469,9 +471,11 @@ def _domain_entries() -> list[dict[str, Any]]:
             "release_runner": "scripts/run_release_packaged_matrix.py",
             "case_ids": [
                 "PACKAGED-INTEGRITY",
+                "PACKAGED-FROZEN-ORIGIN-WORKER-ENTRY",
                 "PACKAGED-ORIGIN-MISSING",
                 "PACKAGED-ORIGIN-WRONG-VERSION",
                 "PACKAGED-ORIGIN-SUPPORTED",
+                "PACKAGED-CORE-RENDER-EXPORT",
                 "PACKAGED-ELECTRON-ISOLATED-PROFILE",
             ],
             "candidate_evidence_status": "UNVERIFIED",
