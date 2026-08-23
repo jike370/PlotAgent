@@ -219,7 +219,7 @@ Origin fresh-reopen 或真实模型证据。
 
 | 证据编号 | 产品风险 | 当前候选必须覆盖的实际链路 | 当前状态 | 发布证据 |
 |---|---|---|---|---|
-| RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | 候选 `e434e41`：Windows 发布脚本内 Python 841、Vitest 279；contracts codegen、coverage ledger、Ruff、mypy、typecheck、ESLint、production build 与发布哈希校验全绿 |
+| RC-DET | 实现内部回归 | Python、任务状态矩阵、能力矩阵、contracts、Ruff、mypy、typecheck、ESLint、Vitest、production build | PASS | 候选 `22e5b13`：Windows 发布脚本内 Python 846、Vitest 282；contracts codegen、Ruff、mypy、typecheck、ESLint、production build 与发布哈希校验全绿；manifest `source_dirty=false` |
 | RC-UI-01 | 数据卡不能解释 Agent 实际看到什么 | 正式 Electron 中核对来源身份、整理后字段、类型、单位、真实样本与分页 | PASS | `build/pre-release-exploration/a1a202e/`；正式 Electron 定向链路属于后续透明度能力收缩未影响的 UI 路径 |
 | RC-UI-02 | 确认卡无法核对绑定和多来源 | 正式 Electron 中核对每个来源、文件/工作表/列、字段角色、数据操作和确认前无副作用 | PASS | 同上；项目 131 `align_sources_on_x` 与项目 132 `concatenate_sources` 原始证据 |
 | RC-UI-03 | 任务状态和错误不可读 | 正式 Electron 中核对计划、运行阶段、部分失败、技术详情、取消与结果投影 | PASS | 同上；定向 6 项合计 `6 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED` |
@@ -261,13 +261,13 @@ Windows UI case。未产生任一必要证据时，该图不能记为发布通�
 
 | 风险族 | 产品不变量 | 确定性证据 | 正式 UI 状态 |
 |---|---|---|---|
-| 来源选择 | UI、Main、Core 与 workflow 合同均允许超过 8 个显式来源；当前公开上限 32 | 九来源 App 提交测试、九来源 workflow/concatenate 合同测试 | 待新包定向复测 |
-| 部分失败 | 语义失败停在 `partial` 等待用户选择；成功项不重跑；只有无副作用的确定性失败可直接安全重试 | Agent runtime 的稳定 partial、无自动 pump、用户修订与接受成功项测试 | 待新包定向复测 |
-| 非有限数值 | 缺失值和 NaN/±Inf 语义分离；`is_finite`/`is_not_finite` 可由 Agent 调用，诊断上下文保持 JSON 安全 | 数据操作语义、合同 codegen、Pi host JSON 边界与 Agent 提示测试 | 待新包定向复测 |
-| 图类专属参数 | profile 已公开的 `set_chart_parameter` 必须能从自然语言进入草稿；不得只在 renderer 存在 | K21 `triangle=lower/upper/full` profile、backend 与 Agent 提示回归 | 待新包定向复测 |
-| 编辑读回 | 同一图例对象的分次动作合并读回；版本变化必须重新挂载对应预览资源 | productState 合并读回、编辑→撤销→重做的 v2/v3/v4 预览断言 | 待新包定向复测 |
-| 规划停止 | 停止先 abort provider，再读取串行 Core 检查点 | planning pump 调用顺序测试 | 待新包定向复测 |
-| 时间线与 Composer | 计划位置不移动，结果在其下方追加；唯一确认图类或“多图任务”回投 Composer | App 时间线顺序、@图目标、单图/多图投影、拒绝与重启恢复测试 | 待新包冒烟，不重复实现 |
-| 发布宿主 | 发布入口无论由 Windows PowerShell 还是 `pwsh` 启动，都使用可验证存在的系统 Windows PowerShell 执行离线签名/哈希校验 | 两种宿主下的 release-tools 测试与 `release-windows.ps1 -DryRun` | 待重新打包 |
+| 来源选择 | UI、Main、Core 与 workflow 合同均允许超过 8 个显式来源；当前公开上限 32 | 九来源 App/Main/Core/workflow/inspection 合同测试；33 来源稳定拒绝 | PASS；`22e5b13` 正式 UI 9/32、九项计划、九项执行，项目 `v9 → v18` |
+| 部分失败 | 语义失败停在 `partial` 等待用户选择；成功项不重跑；只有无副作用的确定性失败可直接安全重试 | Agent runtime 的稳定 partial、无自动 pump、用户修订与接受成功项测试 | PASS；`4dcc23b` 正式故障夹具完成失败项定向重试且成功项未重跑 |
+| 非有限数值 | 缺失值和 NaN/±Inf 语义分离；`is_finite`/`is_not_finite` 可由 Agent 调用，诊断上下文保持 JSON 安全 | 数据操作语义、合同 codegen、Pi host JSON 边界与 Agent 提示测试 | PASS；正式 UI 计划显示 `y is finite` 并成功执行 |
+| 图类专属参数 | profile 已公开的 `set_chart_parameter` 必须能从自然语言进入草稿；不得只在 renderer 存在 | K21 `triangle=lower/upper/full` profile、backend 与 Agent 提示回归 | PASS；正式 UI “只保留下三角”计划及结果 |
+| 编辑读回 | 同一图例对象的分次动作合并读回；版本变化必须重新挂载对应预览资源 | productState 合并读回、编辑→撤销→重做的 v2/v3/v4 预览断言 | PASS；正式 UI 图例分次编辑、标题编辑及撤销/重做 `v8 → v13` |
+| 规划停止 | 停止先 abort provider，再读取串行 Core 检查点 | planning pump 调用顺序测试 | PASS；正式 UI 在规划中停止并显示项目未发生更改 |
+| 时间线与 Composer | 计划位置不移动，结果在其下方追加；唯一确认图类或“多图任务”回投 Composer | App 时间线顺序、@图目标、单图/多图投影、拒绝与重启恢复测试 | PASS；上述批量、部分失败和连续编辑正式链路冒烟 |
+| 发布宿主 | 发布入口无论由 Windows PowerShell 还是 `pwsh` 启动，都使用可验证存在的系统 Windows PowerShell 执行离线签名/哈希校验 | 两种宿主下的 release-tools 测试与 `release-windows.ps1 -DryRun` | PASS；`22e5b13` Windows 发布脚本生成 installer 并返回 `UNSIGNED_DEVELOPMENT_VERIFIED` |
 
 本节的发布顺序固定为：全量确定性门禁 → 形成干净候选提交 → 打包 Windows Electron → 只复测上表受影响链路 → 更新本账本与 known issues → 运行唯一一次 SEQ-70。任何定向 UI 产品 FAIL 都会使候选失效并返回能力族审计，不允许边测边逐点修补。
