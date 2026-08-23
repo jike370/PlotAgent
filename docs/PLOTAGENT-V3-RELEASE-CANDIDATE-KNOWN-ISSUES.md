@@ -4,10 +4,31 @@
 
 RC-UI-001 与 RC-UI-002 已在 `a99a416` 后通过正式 Windows Electron 定向复测关闭；关闭证据记录在《PlotAgent 产品测试覆盖审计》第 8 节。
 
-当前无仍待实现的已知产品问题。RC-UI-PROFILE-PROJECTION 与 RC-PACKAGING-ENV 已完成
-能力族级修复并移入发布覆盖账本：前者的完整 App 矩阵现为 `88 PASS / 0 FAIL`，后者的
-`pnpm test:release` 与直接 PowerShell 入口均通过。两项仍须在冻结候选上完成适用的正式
-Electron 或发布门禁复核，不能把工作树结果直接当作最终候选证据。
+RC-UI-PROFILE-PROJECTION 与 RC-PACKAGING-ENV 已完成能力族级修复并移入发布覆盖账本：
+前者已在正式打包 Electron 覆盖显式图类、同类批量、异构批量、拒绝恢复和重启恢复；后者已在
+候选 `8903c54` 发布脚本中完成 package 入口和直接 PowerShell 入口复核。
+
+## 当前开放问题（2026-08-23 候选定向 UI）
+
+### RC-PACK-FROZEN-BACKENDS
+
+- `8903c54` 打包侧车执行 X38 轴范围编辑时缺少 `matplotlib.backends.backend_svg`。
+- 原因：Matplotlib 按格式动态解析 backend，而 PyInstaller spec 未声明产品公开的 PNG/SVG backend。
+- 修复：spec 显式包含 `backend_agg` 与 `backend_svg`；发布包矩阵新增真实 K01 渲染和 PNG/SVG 哈希验证。
+- 状态：源码定向测试 PASS，等待新包复测。
+
+### RC-PACK-FROZEN-ORIGIN-WORKER
+
+- `8903c54` 项目 126 OPJU 导出超过 60 秒、无文件，停止后 Core 超时，应用无法正常退出。
+- 原因：冻结 Core 中 `sys.executable -m plotagent...worker` 实际递归启动另一 Core，不会进入 Origin worker。
+- 修复：冻结入口新增唯一 `--origin-worker REQUEST RESPONSE` 模式，源运行时仍使用 Python `-m`；发布包矩阵新增冻结 worker 路由门禁。
+- 状态：命令选择单测与静态检查 PASS，等待新包真实 OPJU 复测。
+
+### RC-UI-PLAN-REVISION-ENTRY
+
+- “修改绑定”曾先拒绝计划，再尝试打开只适用于“无现有图”的旧手动映射卡；有现有图时用户只看到计划被拒绝。
+- 修复：保持原计划处于待确认态，提示用户在 Composer 中描述绑定调整，由同一耐久任务生成修订计划并重新确认。
+- 状态：App 完整矩阵现为 `89 PASS / 0 FAIL`，等待新包正式 UI 复测。
 
 RC-AGENT-PLOT-CONTEXT 与 RC-UI-MULTISOURCE-PROVENANCE 已完成族级修复并移入发布覆盖账本：
 选中派生图时会恢复全部不可变来源、数据操作与字段绑定；确认卡按原始来源展示角色证据和
