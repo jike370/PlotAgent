@@ -58,6 +58,10 @@ import { resolveDesktopRuntime } from './preview/browserPreviewApi'
 
 type Screen = 'workspace' | 'focus'
 
+type ComposerProjection =
+  | { kind: 'single'; chartId: string }
+  | { kind: 'multi' }
+
 const initialCore: CoreStatus = { phase: 'starting', restartAttempt: 0 }
 
 function failureNotice(error: { code: string; message: string; retryable: boolean }): ProductNotice {
@@ -92,6 +96,15 @@ function readProviderConfigured(value: JsonValue): boolean {
   if (!isJsonRecord(value)) return false
   if (value.configured === true) return true
   return Object.values(value).some((item) => isJsonRecord(item) && item.configured === true)
+}
+
+function composerProjectionFromPlan(plan: WorkflowPlanView | undefined): ComposerProjection | undefined {
+  if (!plan || ['rejected', 'cancelled', 'failed', 'unsupported'].includes(plan.state)) return undefined
+  const profileIds = [...new Set(plan.steps.map((step) => step.profileId))]
+    .filter((profileId) => chartCatalog.some((chart) => chart.id === profileId))
+  if (profileIds.length === 1) return { kind: 'single', chartId: profileIds[0] }
+  if (profileIds.length > 1) return { kind: 'multi' }
+  return undefined
 }
 
 interface ProviderConfigurationView {
@@ -230,6 +243,7 @@ export function App(): React.JSX.Element {
   const [importNotice, setImportNotice] = useState<ProductNotice>()
   const [workflowOutcome, setWorkflowOutcome] = useState<WorkflowOutcome>()
   const [workflowPlan, setWorkflowPlan] = useState<WorkflowPlanView>()
+  const [composerProjection, setComposerProjection] = useState<ComposerProjection>()
   const [workflowPlans, setWorkflowPlans] = useState<WorkflowPlanView[]>([])
   const [durableTasks, setDurableTasks] = useState<DurableTaskView[]>([])
   const [agentConfigured, setAgentConfigured] = useState(false)
@@ -263,6 +277,13 @@ export function App(): React.JSX.Element {
   }, [notice])
 
   const activeDataset = datasets.find((dataset) => dataset.datasetId === activeDatasetId) ?? datasets[0]
+  const projectedChart = composerProjection?.kind === 'single'
+    ? chartCatalog.find((chart) => chart.id === composerProjection.chartId)
+    : undefined
+  const composerChart = composerProjection?.kind === 'multi'
+    ? undefined
+    : projectedChart ?? selectedChart
+  const composerIsMultiChart = composerProjection?.kind === 'multi'
   const durableTaskIds = new Set(durableTasks.map((task) => task.taskId))
   const agentRuntimeTaskCount = agentRuntimeEvent
     && agentRuntimeEvent.projectId === project?.projectId
@@ -304,6 +325,11 @@ export function App(): React.JSX.Element {
         : updated[existingIndex]
       return updated
     })
+  }, [])
+
+  const projectWorkflowPlan = useCallback((nextPlan: WorkflowPlanView | undefined): void => {
+    setWorkflowPlan(nextPlan)
+    setComposerProjection(composerProjectionFromPlan(nextPlan))
   }, [])
 
   useEffect(() => {
@@ -472,12 +498,12 @@ export function App(): React.JSX.Element {
       const latest = plans.at(-1)
       setWorkflowPlans(plans)
       setDurableTasks(tasks)
-      setWorkflowPlan(latest)
+      projectWorkflowPlan(latest)
       const restoredOutcome = readWorkflowOutcome(result.value)
       if (restoredOutcome.kind === 'needs_input') setWorkflowOutcome(restoredOutcome)
     })
     return () => { active = false }
-  }, [api, activeProjectId])
+  }, [api, activeProjectId, projectWorkflowPlan])
 
   useEffect(() => {
     if (!api || !activeProjectId || !agentRuntimeEvent) return
@@ -556,6 +582,7 @@ export function App(): React.JSX.Element {
     setImportNotice(undefined)
     setWorkflowOutcome(undefined)
     setWorkflowPlan(undefined)
+    setComposerProjection(undefined)
     setWorkflowPlans([])
     setDurableTasks([])
     setUndoStack([])
@@ -833,7 +860,7 @@ export function App(): React.JSX.Element {
       setProject(next); mergeProjects([next])
       setDatasets([]); setActiveDatasetId(undefined); setWorkflowSourceIds([])
       setPlot(undefined); setProjectPlots([]); setPreviousPlot(undefined); setSelectedChart(undefined); setConfirmedMapping(undefined)
-      setWorkflowPlan(undefined); setWorkflowOutcome(undefined); setExportRecord(undefined)
+      setWorkflowPlan(undefined); setWorkflowOutcome(undefined); setComposerProjection(undefined); setExportRecord(undefined)
 
       let datasetNotice: ProductNotice | undefined
       try {
@@ -875,11 +902,11 @@ export function App(): React.JSX.Element {
   }
 
   const confirmMapping = async (mapping: FieldMappingInput): Promise<void> => {
-    if (!api || !project || !activeDataset || !selectedChart) return
+    if (!api || !project || !activeDataset || !composerChart) return
     setConfirmedMapping(mapping)
     rememberWorkspace({
       datasetId: activeDataset.datasetId,
-      chartId: selectedChart.id,
+      chartId: composerChart.id,
       mapping,
     })
     setBusyAction('plot'); setNotice(undefined)
@@ -892,7 +919,7 @@ export function App(): React.JSX.Element {
           operation: 'create_plot',
           action_id: `action:ui.create.${crypto.randomUUID()}`,
           plot_id: `plot:ui.${crypto.randomUUID()}`,
-          profile_id: selectedChart.id,
+          profile_id: composerChart.id,
           data: {
             kind: 'source',
             dataset_id: activeDataset.datasetId,
@@ -914,14 +941,14 @@ export function App(): React.JSX.Element {
         kind: 'success',
         title: '绘图完成',
         message: previewMode
-          ? `${selectedChart.name} ${selectedChart.id} 已按确认映射生成界面预览。`
-          : `${selectedChart.name} ${selectedChart.id} 已按确认映射创建，预览来自本地 Core。`,
+          ? `${composerChart.name} ${composerChart.id} 已按确认映射生成界面预览。`
+          : `${composerChart.name} ${composerChart.id} 已按确认映射创建，预览来自本地 Core。`,
       })
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
 
   const confirmMultiSourceMapping = async (mapping: FieldMappingInput): Promise<void> => {
-    if (!api || !project || !activeDataset || !selectedChart) return
+    if (!api || !project || !activeDataset || !composerChart) return
     const selectedIds = [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)
     const multiSourceDatasets = selectedIds.flatMap((id) => {
       const dataset = datasets.find((candidate) => candidate.datasetId === id)
@@ -947,14 +974,14 @@ export function App(): React.JSX.Element {
           datasetId: dataset.datasetId,
           sourceVersion: dataset.sourceVersion,
         })),
-        selectedProfileIds: [selectedChart.id],
+        selectedProfileIds: [composerChart.id],
         expectedProjectVersion: project.projectVersion,
-        instruction: `将这些数据表合并绘制在同一张 ${selectedChart.id} ${selectedChart.name} 中；字段角色为 ${roleDescription.join('、')}；保留数据来源分组。`,
+        instruction: `将这些数据表合并绘制在同一张 ${composerChart.id} ${composerChart.name} 中；字段角色为 ${roleDescription.join('、')}；保留数据来源分组。`,
       }))
       mergeDurableResult(created)
       setConfirmedMapping(mapping)
       const outcome = readWorkflowOutcome(created)
-      setWorkflowPlan(outcome.plan)
+      projectWorkflowPlan(outcome.plan)
       setWorkflowOutcome(outcome)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
@@ -999,9 +1026,11 @@ export function App(): React.JSX.Element {
         projectId: project.projectId,
         selectedSources,
         expectedProjectVersion: project.projectVersion,
-        ...(selectedChart === undefined || selectedPlots.length > 0
+        ...(composerChart === undefined || selectedPlots.length > 0 || (
+          continuationWorkflowRunId !== undefined && workflowOutcome?.kind !== 'needs_input'
+        )
           ? {}
-          : { selectedProfileIds: [selectedChart.id] }),
+          : { selectedProfileIds: [composerChart.id] }),
         ...(selectedPlots.length === 0 ? {} : { selectedPlots }),
         ...(continuationWorkflowRunId === undefined ? {} : { continuationWorkflowRunId }),
         instruction,
@@ -1009,7 +1038,7 @@ export function App(): React.JSX.Element {
       if (agentRequestGeneration.current !== requestGeneration) return
       mergeDurableResult(value)
       const outcome = readWorkflowOutcome(value)
-      setWorkflowPlan(outcome.plan)
+      projectWorkflowPlan(outcome.plan)
       setWorkflowOutcome(outcome)
     } catch (error) {
       if (agentRequestGeneration.current === requestGeneration) {
@@ -1068,7 +1097,7 @@ export function App(): React.JSX.Element {
         const stored = await api.getTaskPlan({ projectId: project.projectId, planId })
         const pendingPlan = stored.ok ? readWorkflowPlan(stored.value) : undefined
         if (pendingPlan) {
-          setWorkflowPlan(pendingPlan)
+          projectWorkflowPlan(pendingPlan)
           await syncPlanOutput(pendingPlan)
         }
         setWorkflowOutcome(outcome)
@@ -1076,7 +1105,7 @@ export function App(): React.JSX.Element {
       }
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
-      setWorkflowPlan(plan)
+      projectWorkflowPlan(plan)
       const nextPlot = await syncPlanOutput(plan)
       const historyActions = historySourcePlot && nextPlot?.plotId === historySourcePlot.plotId
         ? [
@@ -1120,7 +1149,7 @@ export function App(): React.JSX.Element {
       if (plan.state === 'succeeded' || plan.state === 'completed_with_skips') setNotice(undefined)
     } catch (error) {
       const stored = await api.getTaskPlan({ projectId: project.projectId, planId })
-      if (stored.ok) setWorkflowPlan(readWorkflowPlan(stored.value))
+      if (stored.ok) projectWorkflowPlan(readWorkflowPlan(stored.value))
       setWorkflowOutcome({ kind: 'rejected', title: '计划未执行', message: errorNotice(error).message })
     } finally {
       setBusyAction(undefined)
@@ -1145,6 +1174,7 @@ export function App(): React.JSX.Element {
       const retainedCount = refreshedDurable
         .find((task) => task.taskId === taskId)
         ?.items.filter((item) => item.state === 'succeeded').length ?? 0
+      if (retainedCount === 0) setComposerProjection(undefined)
       setWorkflowOutcome({
         kind: 'no_change',
         title: '任务已取消',
@@ -1175,7 +1205,7 @@ export function App(): React.JSX.Element {
       setDurableTasks(durable)
       const completed = plans.find((plan) => plan.taskId === taskId)
       if (completed) {
-        setWorkflowPlan(completed)
+        projectWorkflowPlan(completed)
         setWorkflowOutcome({
           kind: 'task_plan',
           title: '任务已完成（含跳过项）',
@@ -1196,7 +1226,7 @@ export function App(): React.JSX.Element {
       const value = valueOrThrow(await api.resumeAgentTask(taskId))
       mergeDurableResult(value)
       const outcome = readWorkflowOutcome(value)
-      setWorkflowPlan(outcome.plan)
+      projectWorkflowPlan(outcome.plan)
       setWorkflowOutcome(outcome)
       const listed = await api.listTaskPlans({ projectId: project.projectId })
       if (listed.ok) {
@@ -1218,7 +1248,7 @@ export function App(): React.JSX.Element {
       const confirmed = valueOrThrow(await api.confirmTaskPlan({ projectId: project.projectId, planId, accept: true }))
       mergeDurableResult(confirmed)
       confirmedPlan = readWorkflowPlan(confirmed)
-      if (confirmedPlan) setWorkflowPlan(confirmedPlan)
+      if (confirmedPlan) projectWorkflowPlan(confirmedPlan)
       if (confirmedPlan?.state === 'succeeded') {
         setWorkflowOutcome(readWorkflowOutcome(confirmed))
       }
@@ -1244,6 +1274,7 @@ export function App(): React.JSX.Element {
       }
       if (rejectedPlan) setWorkflowPlan(rejectedPlan)
       else setWorkflowPlan(undefined)
+      setComposerProjection(undefined)
       const retainedCount = rejectedPlan?.completedCount ?? 0
       setWorkflowOutcome({
         kind: 'no_change',
@@ -1440,7 +1471,7 @@ export function App(): React.JSX.Element {
   }
 
   const createBatch = async (): Promise<void> => {
-    if (!api || !project || !selectedChart || datasets.length === 0 || !activeDataset) return
+    if (!api || !project || !composerChart || datasets.length === 0 || !activeDataset) return
     const selectedIds = [
       activeDataset.datasetId,
       ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId),
@@ -1457,13 +1488,13 @@ export function App(): React.JSX.Element {
           datasetId: dataset.datasetId,
           sourceVersion: dataset.sourceVersion,
         })),
-        selectedProfileIds: [selectedChart.id],
+        selectedProfileIds: [composerChart.id],
         expectedProjectVersion: project.projectVersion,
-        instruction: `分别为每个数据表创建 ${selectedChart.id} ${selectedChart.name}，保持原始数据不变。`,
+        instruction: `分别为每个数据表创建 ${composerChart.id} ${composerChart.name}，保持原始数据不变。`,
       }))
       mergeDurableResult(created)
       const outcome = readWorkflowOutcome(created)
-      setWorkflowPlan(outcome.plan)
+      projectWorkflowPlan(outcome.plan)
       setWorkflowOutcome(outcome)
     } catch (error) { setNotice(errorNotice(error)) } finally { setBusyAction(undefined) }
   }
@@ -1498,12 +1529,16 @@ export function App(): React.JSX.Element {
   const selectDataset = (datasetId: string): void => {
     invalidateAgentRequest()
     setActiveDatasetId(datasetId)
-    const nextWorkflowSourceIds = workflowSourceIds.filter((id) => id !== datasetId).slice(0, 7)
+    const nextWorkflowSourceIds = [...new Set([
+      ...(activeDataset && activeDataset.datasetId !== datasetId ? [activeDataset.datasetId] : []),
+      ...workflowSourceIds,
+    ])].filter((id) => id !== datasetId).slice(0, 7)
     setWorkflowSourceIds(nextWorkflowSourceIds)
     setConfirmedMapping(undefined)
     setPlot(undefined)
     setPreviousPlot(undefined)
     setWorkflowPlan(undefined)
+    setComposerProjection(undefined)
     setUndoStack([])
     setRedoStack([])
     rememberWorkspace({ datasetId, workflowSourceIds: nextWorkflowSourceIds, mapping: null })
@@ -1543,15 +1578,15 @@ export function App(): React.JSX.Element {
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={selectedChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, 8)} selectedChart={composerChart} multiChartTask={composerIsMultiChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
         {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel initialParameterTab={focusParameterTabs[plot.plotId]} onParameterTabChange={(tab) => setFocusParameterTabs((current) => ({ ...current, [plot.plotId]: tab }))} onClose={() => setScreen('workspace')} />}
       </div>
-      {libraryOpen && <ChartLibrary currentChartId={selectedChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
+      {libraryOpen && <ChartLibrary currentChartId={composerChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)
         invalidateAgentRequest()
         const answersPendingQuestion = workflowOutcome?.kind === 'needs_input'
-        setSelectedChart(chart); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined)
+        setSelectedChart(chart); setComposerProjection(undefined); setConfirmedMapping(undefined); setPlot(undefined); setPreviousPlot(undefined)
         if (!answersPendingQuestion) setWorkflowOutcome(undefined)
         rememberWorkspace({ chartId: chart.id, mapping: null })
         setUndoStack([]); setRedoStack([])

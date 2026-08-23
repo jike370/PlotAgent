@@ -4,6 +4,21 @@ $script:PublisherError = 'INSTALLER_PUBLISHER_SIGNATURE_INVALID'
 $script:HashError = 'INSTALLER_HASH_INVALID'
 $script:AuthenticodeError = 'INSTALLER_WINDOWS_CODE_SIGNATURE_INVALID'
 
+function Get-Sha256Hex {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $stream = [System.IO.File]::OpenRead($LiteralPath)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $algorithm.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $algorithm.Dispose()
+        $stream.Dispose()
+    }
+}
+
 function New-VerificationResult {
     param(
         [Parameter(Mandatory = $true)][bool]$Success,
@@ -165,7 +180,7 @@ function New-ReleaseManifest {
         $artifacts += [pscustomobject]@{
             path = $relativePath
             size_bytes = [int64]$file.Length
-            sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            sha256 = Get-Sha256Hex -LiteralPath $file.FullName
             authenticode_required = $file.Extension -ieq '.exe'
         }
     }
@@ -248,7 +263,7 @@ function Get-ReleaseArtifactIntegrityIssues {
             $issues.Add("size mismatch: $relativePath")
             continue
         }
-        $actualHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+        $actualHash = Get-Sha256Hex -LiteralPath $file.FullName
         if (-not [string]::Equals(
                 $actualHash,
                 [string]$artifact.sha256,

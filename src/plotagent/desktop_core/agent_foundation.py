@@ -24,7 +24,7 @@ from plotagent.contracts.agent_tasks import (
     TaskState,
 )
 from plotagent.contracts.agent_tools import AgentToolResult, ToolInvocation
-from plotagent.contracts.base import ChartTypeId, SourceDatasetRef
+from plotagent.contracts.base import SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
@@ -526,81 +526,15 @@ class DurableAgentCoreHost:
         workflow_context: WorkflowContext,
     ) -> TaskPlan:
         validated = intent
-        envelope = self.ledger.get_effective_envelope(intent.task_id)
-        latest_user_event = self.ledger.latest_user_event(intent.task_id)
-        grounding_instruction = envelope.original_instruction
-        if (
-            latest_user_event is not None
-            and latest_user_event.action in {"answered", "corrected"}
-            and latest_user_event.message
-        ):
-            grounding_instruction = (
-                f"{grounding_instruction}\n{latest_user_event.message}"
-            )
         selected_sources = set(workflow_context.selected_source_aliases)
-        selected_profiles = set(workflow_context.selected_profile_ids)
-        explicitly_named_profiles = {
-            profile_id
-            for profile_id in workflow_context.allowed_profile_ids
-            if self._instruction_explicitly_names_profile(
-                envelope.original_instruction,
-                cast(ChartTypeId, profile_id),
-            )
-        }
-        resolved_profiles = (
-            set()
-            if latest_user_event is None
-            or latest_user_event.action not in {"answered", "corrected"}
-            or latest_user_event.message is None
-            else {
-                profile_id
-                for profile_id in workflow_context.allowed_profile_ids
-                if self._instruction_explicitly_names_profile(
-                    latest_user_event.message or "",
-                    cast(ChartTypeId, profile_id),
-                )
-            }
-        )
-        if (
-            envelope.selected_profile_ids
-            and explicitly_named_profiles
-            and explicitly_named_profiles != set(envelope.selected_profile_ids)
-            and not resolved_profiles
-        ):
-            raise AgentFoundationError(
-                "CHART_SELECTION_CONFLICT",
-                "The UI-selected chart and the chart named in the instruction conflict. "
-                "Ask one question that shows both choices before producing an intent.",
-            )
+        allowed_profiles = set(workflow_context.allowed_profile_ids)
         selected_plots = {
             plot.plot_alias: plot
             for plot in workflow_context.plots
             if plot.plot_alias in workflow_context.selected_plot_aliases
         }
         for item in validated.items:
-            profile_authorized = item.profile_id in selected_profiles or (
-                latest_user_event is not None
-                and latest_user_event.action in {"answered", "corrected"}
-                and latest_user_event.message is not None
-                and self._instruction_explicitly_names_profile(
-                    latest_user_event.message,
-                    cast(ChartTypeId, item.profile_id),
-                )
-            )
-            if resolved_profiles:
-                profile_authorized = item.profile_id in resolved_profiles
-            if (
-                item.task_kind == "create"
-                and not envelope.selected_profile_ids
-                and not self._instruction_explicitly_names_profile(
-                    grounding_instruction, cast(ChartTypeId, item.profile_id)
-                )
-            ):
-                raise AgentFoundationError(
-                    "CHART_PROFILE_UNGROUNDED",
-                    "No chart was selected and the instruction did not explicitly name this "
-                    "chart profile. Ask the user which chart to create.",
-                )
+            profile_authorized = item.profile_id in allowed_profiles
             if item.task_kind == "create" and (
                 not item.source_aliases
                 or not set(item.source_aliases) <= selected_sources
@@ -653,21 +587,6 @@ class DurableAgentCoreHost:
         return plan.model_copy(
             update={"plan_id": f"{plan.plan_id}.v{validated.intent_version}"}
         )
-
-    @staticmethod
-    def _instruction_explicitly_names_profile(
-        instruction: str, profile_id: ChartTypeId
-    ) -> bool:
-        """Ground an unselected create in the closed, reviewed chart vocabulary.
-
-        This is a validation boundary, not a semantic router: the Agent still chooses and
-        explains the chart, while Core only rejects a choice that has no literal user anchor.
-        """
-
-        card = DOMAIN_KNOWLEDGE.get_chart_knowledge(profile_id)
-        normalized = instruction.casefold()
-        aliases = (profile_id, card.display_name_zh, card.official_name)
-        return any(alias.casefold() in normalized for alias in aliases)
 
     def _envelope_with_plot_sources(self, envelope: TaskEnvelope) -> TaskEnvelope:
         """Authorize the immutable inputs of a user-selected plot for this activation.
@@ -1103,11 +1022,12 @@ class DurableAgentCoreHost:
             "and their types are already present in the context snapshot, bind them directly "
             "without calling inspection tools. Inspect rows only when unresolved data shape or "
             "field semantics blocks a safe plan; do not infer unseen values. A selected plot "
-            "target is authoritative. A UI-selected chart profile is the default only when the "
-            "instruction does not explicitly name a different chart. If both are present and "
-            "conflict, show both choices in one needs_input question; never silently prefer or "
-            "overwrite either choice. After the user answers that conflict, the answer is "
-            "authoritative. For a selected-plot-only task, "
+            "target is authoritative. A UI-selected chart profile is a default, never a "
+            "permission boundary. Use it when the instruction does not explicitly name a "
+            "different chart. When the user explicitly names a different supported chart, use "
+            "the user's latest wording directly; do not ask them to update the UI or repeat that "
+            "choice. The product confirmation will show the final chart profile or profiles "
+            "before execution. For a selected-plot-only task, "
             "map selected_plots by ordinal to plot_1, plot_2, and so on, and use that alias only "
             "for TaskDraftItem.target_plot_alias. Visual action target_alias values come from "
             "the injected EngineProfile: use plot for set_title, x_axis/y_axis for set_axis, "
@@ -1129,8 +1049,15 @@ class DurableAgentCoreHost:
             "the colormap-capable series alias from the injected EngineProfile, never plot, and "
             "represent palette identity and reverse as independent fields without encoding the "
             "same reversal twice. If no chart profile is selected, "
-            "choose from the supplied catalog only when the instruction names one unambiguously; "
-            "otherwise ask one blocking profile question. "
+            "resolve the user's wording semantically against the supplied catalog's profile id, "
+            "Chinese display name, official name, summary, and role contract. A common shortened "
+            "name such as 散点图 may identify a longer catalog name such as 二维散点图 when "
+            "exactly one profile is a clear match; exact string equality is not required, and you "
+            "must not ask the user to repeat the catalog wording or select the chart in the UI. "
+            "If the wording still leaves multiple materially plausible profiles, ask one blocking "
+            "profile question "
+            "instead of guessing. Core validates the chosen closed profile and confirmation scope; "
+            "you own the natural-language interpretation. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
             "produce one TaskIntent containing 1–64 independently identified items. Preserve the "
             "user's explicit source-to-chart mapping; do not merge sources, aggregate values, or "

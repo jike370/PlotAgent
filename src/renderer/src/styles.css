@@ -887,7 +887,8 @@ kbd {
 .agent-response > p {
   max-width: min(780px, 72ch);
   margin: 4px 0 13px;
-  font-size: 13px;
+  color: var(--ink-strong);
+  font-size: 13.5px;
   line-height: 1.65;
 }
 
@@ -5387,8 +5388,6 @@ input[type="checkbox"] {
 
 .conversation-history-message { margin: 4px 0 14px; }
 .conversation-history-message .agent-response > p { white-space: pre-line; }
-.conversation-history-message--error .agent-response > p { color: var(--danger); }
-.conversation-history-message--warning .agent-response > p { color: var(--warning); }
 
 .conversation-activity { margin: 4px 0 16px; }
 .conversation-activity .agent-avatar { display: none; }

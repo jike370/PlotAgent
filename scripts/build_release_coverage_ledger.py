@@ -317,6 +317,22 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "task progress, errors and terminal states are readable",
                 "undo, redo and restart project the durable state",
                 "data-update undo restores the complete prior data reference and bindings",
+                (
+                    "the UI chart choice is a default and the latest explicit "
+                    "natural-language chart may override it"
+                ),
+                (
+                    "the composer projects one final chart or a heterogeneous "
+                    "multi-chart task from the durable plan"
+                ),
+                (
+                    "chart projection remains correct across revision, rejection, "
+                    "execution, restart, and late responses"
+                ),
+                (
+                    "a projected single chart becomes the next structured default while a "
+                    "heterogeneous task never leaks a hidden single-chart default"
+                ),
             ],
             "deterministic_sources": [
                 "src/renderer/src/App.test.tsx",
@@ -326,8 +342,24 @@ def _domain_entries() -> list[dict[str, Any]]:
                 "src/renderer/src/styles.test.ts",
                 "src/main/ipc/desktop-ipc.test.ts",
             ],
-            "case_ids": ["RC-UI-01", "RC-UI-02", "RC-UI-03", "RC-UI-04"],
-            "windows_ui_cases": ["RC-UI-01", "RC-UI-02", "RC-UI-03", "RC-UI-04"],
+            "case_ids": [
+                "RC-UI-01",
+                "RC-UI-02",
+                "RC-UI-03",
+                "RC-UI-04",
+                "RC-UI-05",
+                "RC-UI-06",
+                "RC-UI-07",
+            ],
+            "windows_ui_cases": [
+                "RC-UI-01",
+                "RC-UI-02",
+                "RC-UI-03",
+                "RC-UI-04",
+                "RC-UI-05",
+                "RC-UI-06",
+                "RC-UI-07",
+            ],
             "required_artifacts": ["case CSV", "screenshots", "terminal log", "run metadata"],
             "candidate_evidence_status": "UNVERIFIED",
         },

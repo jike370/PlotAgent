@@ -324,10 +324,12 @@ def test_unselected_context_exposes_catalog_but_never_auto_selects_a_chart() -> 
     assert all(tool.permission_phase == "p0_read" for tool in context.tools)
 
 
-def test_selected_profile_injects_only_its_card_and_linked_calculation() -> None:
+def test_selected_creation_profile_keeps_its_card_and_exposes_the_closed_catalog() -> None:
     context = build_context(profiles=("K15",))
     assert context.selected_profile_ids == ("K15",)
-    assert tuple(item.profile_id for item in context.chart_catalog) == ("K15",)
+    assert tuple(item.profile_id for item in context.chart_catalog) == tuple(
+        item.profile_id for item in DOMAIN_KNOWLEDGE.list_chart_catalog()
+    )
     assert tuple(card.profile_id for card in context.chart_knowledge) == ("K15",)
     assert tuple(item.contract_id for item in context.calculation_contracts) == (
         "calculation:histogram_binning.v1",

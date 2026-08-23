@@ -87,6 +87,7 @@ interface ConversationWorkspaceProps {
   activeDataset?: ProductDataset
   selectedWorkflowSourceIds: string[]
   selectedChart?: ChartType
+  multiChartTask?: boolean
   plot?: ProductPlot
   projectPlots: ProductPlot[]
   exportRecord?: ExportRecordView
@@ -656,6 +657,7 @@ function PlotObject({
 function ConversationComposer({
   plotReferences,
   selectedChart,
+  multiChartTask,
   datasetCount,
   configured,
   busy,
@@ -671,6 +673,7 @@ function ConversationComposer({
 }: {
   plotReferences: { reference: PlotReference; plot: ProductPlot }[]
   selectedChart?: ChartType
+  multiChartTask?: boolean
   datasetCount: number
   configured: boolean
   busy: boolean
@@ -738,6 +741,8 @@ function ConversationComposer({
           <span className="target-chip"><Layers3 size={14} />{
             mentionedTargets.length > 0
               ? mentionedTargets.join('、')
+              : multiChartTask
+                ? '多图任务'
               : selectedChart
                 ? `${selectedChart.id} · ${selectedChart.name}`
                 : '未选择图形'
@@ -764,7 +769,7 @@ function ConversationComposer({
         </div>}
         {mentionError && <p id="composer-mention-error" className="composer-mention-error" role="alert">{mentionError}</p>}
         <div className="composer-toolbar">
-          <button type="button" className={selectedChart ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{selectedChart ? selectedChart.name : '选择图形'}</button>
+          <button type="button" className={selectedChart || multiChartTask ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{multiChartTask ? '多图任务' : selectedChart ? selectedChart.name : '选择图形'}</button>
           <button type="button" className="composer-tool" onClick={onImportData} disabled={importing}>
             {importing ? <LoaderCircle className="spin" size={15} /> : <FileUp size={15} />}
             {importing ? '正在导入' : `上传数据${datasetCount > 0 ? ` (${datasetCount})` : ''}`}
@@ -1010,7 +1015,7 @@ function ConversationTextMessage({ message }: { message: ConversationTextItem })
   return message.role === 'user'
     ? <div className="message message--user"><div className="message-content">{message.text}</div><time className="message-time">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div>
     : <AgentMessage className={`conversation-history-message conversation-history-message--${message.kind ?? 'info'}`}>
-        {message.title && <strong>{message.title}</strong>}{paragraphs.map((paragraph, index) => <p className={index === 0 ? undefined : 'agent-question'} key={paragraph}>{paragraph}</p>)}
+        {paragraphs.map((paragraph, index) => <p className={index === 0 ? undefined : 'agent-question'} key={paragraph}>{paragraph}</p>)}
       </AgentMessage>
 }
 
@@ -1189,7 +1194,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
       </aside>}
 
-      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
+      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
     </main>
   )

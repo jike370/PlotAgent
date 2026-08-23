@@ -1017,7 +1017,7 @@ def test_clarification_can_replace_scope_with_two_sources_and_stage_two_items(
         ]
 
 
-def test_chart_selection_conflict_requires_one_answer_before_intent(
+def test_ui_chart_selection_is_a_default_and_explicit_agent_profile_is_authorized(
     tmp_path: Path,
 ) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
@@ -1053,88 +1053,33 @@ def test_chart_selection_conflict_requires_one_answer_before_intent(
         host = DurableAgentCoreHost(project, domain, ledger)
         environment = host.prepare(first_id)
         context = cast(dict[str, object], environment["context"])
+        override_intent = intent(
+            first_id,
+            task_id=task_envelope.task_id,
+            context_hash=cast(str, context["content_hash"]),
+        )
+        override_item = override_intent.items[0].model_copy(update={"profile_id": "K03"})
+        override_intent = override_intent.model_copy(
+            update={"items": (override_item,), "content_hash": "0" * 64}
+        )
+        override_intent = override_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    override_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
         silent_override = AgentIntentReady(
             activation_id=first_id,
             task_id=task_envelope.task_id,
             task_version=1,
-            intent=intent(
-                first_id,
-                task_id=task_envelope.task_id,
-                context_hash=cast(str, context["content_hash"]),
-            ),
+            intent=override_intent,
         )
-        with pytest.raises(AgentFoundationError) as conflict:
-            host.validate_yield(
-                first_id,
-                cast(JsonValue, silent_override.model_dump(mode="json")),
-            )
-        assert conflict.value.code == "CHART_SELECTION_CONFLICT"
-
-        needs_input = AgentNeedsInput(
-            activation_id=first_id,
-            task_id=task_envelope.task_id,
-            task_version=1,
-            questions=(
-                InputQuestion(
-                    question_key="chart-conflict",
-                    prompt="界面选择了 K01，要求中写了 K03，请选择一个。",
-                    answer_kind="profile",
-                    choices=("K01", "K03"),
-                ),
-            ),
+        validated = host.validate_yield(
+            first_id,
+            cast(JsonValue, silent_override.model_dump(mode="json")),
         )
-        awaiting = host.accept_yield(needs_input)
-        answered = ledger.record_user_event(
-            task_envelope.task_id,
-            expected_task_version=awaiting.task_version,
-            action="answered",
-            user_event_id="user-event:profile-conflict",
-            payload_hash="b" * 64,
-            message="使用 K03 散点图。",
-        )
-        continuation = coordinator.next_action(task_envelope.task_id)
-        continuation_id = str(continuation["activation"]["activation_id"])
-        continuation_version = int(continuation["activation"]["task_version"])
-        ledger.mark_activation_running(continuation_id)
-        continuation_host = DurableAgentCoreHost(project, domain, ledger)
-        continuation_environment = continuation_host.prepare(continuation_id)
-        continuation_context = cast(
-            dict[str, object], continuation_environment["context"]
-        )
-        clarified = intent(
-            continuation_id,
-            task_id=task_envelope.task_id,
-            task_version=continuation_version,
-            context_hash=cast(str, continuation_context["content_hash"]),
-        )
-        clarified_item = clarified.items[0].model_copy(update={"profile_id": "K03"})
-        clarified = clarified.model_copy(
-            update={
-                "summary": "Create one K03 scatter plot.",
-                "items": (clarified_item,),
-            }
-        )
-        clarified = clarified.model_copy(
-            update={
-                "content_hash": canonical_hash(
-                    clarified.model_dump(mode="json", exclude={"content_hash"})
-                )
-            }
-        )
-        validated = continuation_host.validate_yield(
-            continuation_id,
-            cast(
-                JsonValue,
-                AgentIntentReady(
-                    activation_id=continuation_id,
-                    task_id=task_envelope.task_id,
-                    task_version=continuation_version,
-                    intent=clarified,
-                ).model_dump(mode="json"),
-            ),
-        )
-        staged = continuation_host.accept_yield(validated)
-        assert answered.state == "investigating"
+        staged = host.accept_yield(validated)
         assert staged.state == "intent_staged"
         assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K03"
 
@@ -1430,19 +1375,84 @@ def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) ->
         assert domain.revision == task_envelope.project_revision
 
 
-def test_unselected_chart_choice_requires_a_literal_user_anchor() -> None:
-    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
-        "请创建一个折线图。", "K01"
-    )
-    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
-        "Create a Line Graph from this table.", "K01"
-    )
-    assert DurableAgentCoreHost._instruction_explicitly_names_profile(
-        "请创建 K01。", "K01"
-    )
-    assert not DurableAgentCoreHost._instruction_explicitly_names_profile(
-        "用这张表画一张图。", "K01"
-    )
+def test_unselected_chart_choice_is_semantically_owned_by_the_agent(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:semantic-profile",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="用当前数据画散点图，横轴 X，纵轴 Y。",
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at="2026-08-18T10:00:00Z",
+        )
+        ledger.create_task(task_envelope)
+        directive = DurableTaskCoordinator(ledger, clock=lambda: NOW).next_action(
+            task_envelope.task_id
+        )
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        environment = host.prepare(activation_id)
+        context = cast(dict[str, object], environment["context"])
+        catalog = cast(list[dict[str, object]], context["chart_catalog"])
+        assert len(catalog) == 34
+        assert any(entry["profile_id"] == "K03" for entry in catalog)
+        prompt = cast(str, environment["system_prompt"])
+        assert "exact string equality is not required" in prompt
+        assert "you own the natural-language interpretation" in prompt
+
+        draft = intent(
+            activation_id,
+            task_id=task_envelope.task_id,
+            context_hash=cast(str, context["content_hash"]),
+        )
+        scatter_item = draft.items[0].model_copy(update={"profile_id": "K03"})
+        draft = draft.model_copy(
+            update={
+                "summary": "Create one K03 scatter plot.",
+                "items": (scatter_item,),
+                "content_hash": "0" * 64,
+            }
+        )
+        draft = draft.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    draft.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        validated = host.validate_yield(
+            activation_id,
+            cast(
+                JsonValue,
+                AgentIntentReady(
+                    activation_id=activation_id,
+                    task_id=task_envelope.task_id,
+                    task_version=1,
+                    intent=draft,
+                ).model_dump(mode="json"),
+            ),
+        )
+        staged = host.accept_yield(validated)
+        assert staged.state == "intent_staged"
+        assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K03"
 
 
 def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: Path) -> None:

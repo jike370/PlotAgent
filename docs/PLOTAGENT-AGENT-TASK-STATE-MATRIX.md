@@ -70,7 +70,8 @@
 | ID | 场景 | 起点 → 事件 → 终点 | 项目/执行不变量 | 确定性证据 |
 |---|---|---|---|---|
 | SM-01 | 开始规划 | `created` → 调度 → `investigating` | 同一检查点只创建一个 activation | `tests/desktop_core/test_agent_foundation.py::test_next_action_creates_one_idempotent_activation` |
-| SM-02 | 图类冲突追问 | `investigating` → UI 图类与文字图类冲突 → `awaiting_input` | 不静默选择任一图类 | `tests/desktop_core/test_agent_foundation.py::test_chart_selection_conflict_requires_one_answer_before_intent` |
+| SM-02 | 明确图类覆盖 UI 默认 | `investigating` → UI 默认 K01、最新指令明确 K03 → `intent_staged` → `awaiting_confirmation` | UI 只作默认；Core 接受闭集 K03，不额外追问，不执行 | `tests/desktop_core/test_agent_foundation.py::test_ui_chart_selection_is_a_default_and_explicit_agent_profile_is_authorized` |
+| SM-02A | 图类仍有实质歧义 | `investigating` → Agent `needs_input` → `awaiting_input` | 只问阻塞图类事实；项目无副作用 | `tests/tasking/test_task_ledger.py::test_activation_needs_input_and_user_answer_are_ordered` |
 | SM-03 | 用户回答追问 | `awaiting_input` → `answered` → `investigating` | 沿用同一 task，回答成为当前依据 | `tests/tasking/test_task_ledger.py::test_activation_needs_input_and_user_answer_are_ordered` |
 | SM-04 | 首版计划待确认 | `investigating` → `intent_ready` → `intent_staged` → `awaiting_confirmation` | TaskItem 已冻结，attempt=0，项目未写入 | `tests/desktop_core/test_agent_foundation.py::test_context_authority_stays_current_until_yield_then_waits_for_confirmation` |
 | SM-05 | stale 确认卡 | `awaiting_confirmation` → 错误 plan hash/version → 保持原状态 | 无 grant、无 plot、revision 不变 | `tests/desktop_core/test_application.py::test_agent_v2_rejects_a_stale_confirmation_without_project_side_effects` |

@@ -318,6 +318,37 @@ function multiSourceBatchPlanFixture(): JsonValue {
   return payload
 }
 
+function profiledCreatePlanFixture(
+  profileIds: string[],
+  state = 'awaiting_confirmation',
+  planId = 'plan:profiles',
+  plotVersion?: number,
+): JsonValue {
+  const payload = structuredClone(
+    profileIds.length === 1 ? batchPlanFixture() : multiSourceBatchPlanFixture(),
+  ) as Record<string, JsonValue>
+  const plan = payload.plan as Record<string, JsonValue>
+  const items = plan.items as Array<Record<string, JsonValue>>
+  plan.plan_id = planId
+  plan.workflow_run_id = `workflow:${planId}`
+  items.forEach((item, index) => {
+    item.profile_id = profileIds[index] ?? profileIds.at(-1) ?? 'K01'
+  })
+  payload.state = state
+  payload.item_progress = items.map((item, index) => ({
+    item_id: item.item_id,
+    state: state === 'succeeded' ? 'succeeded' : 'pending',
+    attempt_count: state === 'succeeded' ? 1 : 0,
+    ...(state === 'succeeded' && plotVersion !== undefined
+      ? {
+          output_plot_id: `plot:profiles.${index + 1}`,
+          output_plot_version: plotVersion,
+        }
+      : {}),
+  }))
+  return payload
+}
+
 function alignedMultiSourcePlanFixture(): JsonValue {
   const payload = structuredClone(batchPlanFixture()) as Record<string, JsonValue>
   const plan = payload.plan as Record<string, JsonValue>
@@ -640,8 +671,8 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
 
     expect(await screen.findByText('把标题改成温度响应')).toBeInTheDocument()
-    expect(await screen.findByText('请先上传数据')).toBeInTheDocument()
-    expect(screen.getByText('收到你的要求了。上传数据后，我会继续声明字段绑定。')).toBeInTheDocument()
+    expect(await screen.findByText('收到你的要求了。上传数据后，我会继续声明字段绑定。')).toBeInTheDocument()
+    expect(screen.queryByText('请先上传数据')).not.toBeInTheDocument()
     expect(api.runWorkflow).not.toHaveBeenCalled()
   })
 
@@ -1662,7 +1693,7 @@ describe('PlotAgent real desktop workflow', () => {
     let finishOldDecision: ((result: DesktopDataResult) => void) | undefined
     const prepareWorkflow = vi.fn()
       .mockImplementationOnce(() => new Promise<DesktopDataResult>((resolve) => { finishOldDecision = resolve }))
-      .mockResolvedValueOnce(ok(workflowResultWithPlan(workflowPlanFixture('needs_confirmation', 'pending', { planId: 'plan:new' }))))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K02'], 'awaiting_confirmation', 'plan:new'))))
     installApi(fakeDesktop({ runWorkflow: prepareWorkflow }))
     render(<App />)
     await openSampleAndCreatePlot(user)
@@ -1686,6 +1717,7 @@ describe('PlotAgent real desktop workflow', () => {
       selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
       instruction: '新目标请求',
     }))
+    expect(screen.getByRole('button', { name: '线点图' })).toBeInTheDocument()
 
     await act(async () => {
       finishOldDecision?.(ok({
@@ -1697,6 +1729,7 @@ describe('PlotAgent real desktop workflow', () => {
     })
     expect(screen.queryByText('陈旧结果不应显示')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '线点图' })).toBeInTheDocument()
   })
 
   it('keeps the plan in place, appends its result below it, and sends an explicit plot mention', async () => {
@@ -1840,7 +1873,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('combobox', { name: '线型' })).toHaveValue('dash')
   })
 
-  it('does not silently accumulate browsed worksheets in the Agent context', async () => {
+  it('does not discard selected worksheets when the active preview changes', async () => {
     const user = userEvent.setup()
     const prepareWorkflow = vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture())))
     installApi(fakeDesktop({
@@ -1857,7 +1890,7 @@ describe('PlotAgent real desktop workflow', () => {
     const datasetSwitcher = await screen.findByRole('combobox', { name: '数据表' })
     await user.selectOptions(datasetSwitcher, 'source:pressure')
     await user.selectOptions(datasetSwitcher, 'source:temperature')
-    expect(screen.getByText('1/8')).toBeInTheDocument()
+    expect(screen.getByText('2/8')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -1868,7 +1901,10 @@ describe('PlotAgent real desktop workflow', () => {
 
     await screen.findByRole('heading', { name: '任务计划' })
     expect(prepareWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({
-      selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
+      selectedSources: [
+        { datasetId: 'source:temperature', sourceVersion: 1 },
+        { datasetId: 'source:pressure', sourceVersion: 1 },
+      ],
     }))
   })
 
@@ -1971,6 +2007,313 @@ describe('PlotAgent real desktop workflow', () => {
       instruction: '数据一画 K01 折线图，数据二画 K03 散点图',
     }))
     expect(prepareWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedProfileIds')
+  })
+
+  it('projects a single Agent-selected chart into the composer instead of keeping the UI default', async () => {
+    const user = userEvent.setup()
+    const plan = profiledCreatePlanFixture(['K03'])
+    installApi(fakeDesktop({ runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(plan))) }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '改用 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '散点图' })).toBeInTheDocument()
+  })
+
+  it('keeps the UI default when the instruction does not name a different chart', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async () => ok(workflowResultWithPlan(profiledCreatePlanFixture(['K01']))))
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '横轴使用时间，纵轴使用信号。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow).toHaveBeenLastCalledWith(expect.objectContaining({ selectedProfileIds: ['K01'] }))
+    expect(await screen.findByRole('button', { name: '折线图' })).toBeInTheDocument()
+  })
+
+  it('projects a same-profile batch as one chart choice rather than a multi-chart task', async () => {
+    const user = userEvent.setup()
+    const plan = profiledCreatePlanFixture(['K03', 'K03'])
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(plan))),
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '两个数据表分别画 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '散点图' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '多图任务' })).not.toBeInTheDocument()
+  })
+
+  it('projects a heterogeneous batch as a multi-chart task', async () => {
+    const user = userEvent.setup()
+    const plan = profiledCreatePlanFixture(['K01', 'K03'])
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(plan))),
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '数据一画 K01 折线图，数据二画 K03 散点图。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '多图任务' })).toBeInTheDocument()
+  })
+
+  it('projects multiple sources merged into one plot as the single final chart', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(alignedMultiSourcePlanFixture()))),
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '把两个来源对齐后画在同一张 X38。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Y 偏移堆叠线图' })).toBeInTheDocument()
+  })
+
+  it('projects the newest revised plan instead of retaining the previous plan chart', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn()
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:first'))))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K02'], 'awaiting_reconfirmation', 'plan:revised'))))
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '创建 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(await screen.findByRole('button', { name: '散点图' })).toBeInTheDocument()
+
+    await user.type(composer, '改为 K02 线点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(await screen.findByRole('button', { name: '线点图' })).toBeInTheDocument()
+  })
+
+  it('uses a projected single chart as the default for the next continuation', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn()
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:single-default'))))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K03'], 'awaiting_reconfirmation', 'plan:single-default-v2'))))
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '改用 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await screen.findByRole('heading', { name: '任务计划' })
+
+    await user.type(composer, '把点调大一些。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      selectedProfileIds: ['K03'],
+      instruction: '把点调大一些。',
+    }))
+  })
+
+  it('does not send a hidden single-chart default after a heterogeneous plan', async () => {
+    const user = userEvent.setup()
+    const plan = profiledCreatePlanFixture(['K01', 'K03'], 'awaiting_confirmation', 'plan:multi-default')
+    const runWorkflow = vi.fn(async (
+      input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0],
+    ) => {
+      void input
+      return ok(workflowResultWithPlan(plan))
+    })
+    installApi(fakeDesktop({
+      runWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '数据一画 K01，数据二画 K03。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await screen.findByRole('heading', { name: '任务计划' })
+
+    await user.type(composer, '两张图都保留默认标题。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedProfileIds')
+  })
+
+  it('lets an explicit new library choice replace the projected task chart', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn()
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:projected'))))
+      .mockResolvedValueOnce(ok(workflowResultWithPlan(profiledCreatePlanFixture(['K02'], 'awaiting_reconfirmation', 'plan:reselected'))))
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const composer = screen.getByRole('textbox', { name: '描述绘图要求' })
+    await user.type(composer, '创建 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await screen.findByRole('heading', { name: '任务计划' })
+
+    const chartTool = document.querySelector<HTMLButtonElement>('button.composer-tool')
+    expect(chartTool).not.toBeNull()
+    await user.click(chartTool as HTMLButtonElement)
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K02')
+    await user.click(screen.getByRole('button', { name: /K02.*线点图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    expect(screen.getByRole('button', { name: '线点图' })).toBeInTheDocument()
+    await user.type(composer, '使用这个图类。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      selectedProfileIds: ['K02'],
+      instruction: '使用这个图类。',
+    }))
+  })
+
+  it('restores the UI default when an unexecuted override plan is rejected', async () => {
+    const user = userEvent.setup()
+    const pending = profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:override')
+    const rejected = profiledCreatePlanFixture(['K03'], 'rejected', 'plan:override')
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pending))),
+      confirmTaskPlan: vi.fn(async () => ok(rejected)),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '改用 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    expect(await screen.findByRole('button', { name: '散点图' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '取消' }))
+
+    expect(await screen.findByRole('button', { name: '折线图' })).toBeInTheDocument()
+  })
+
+  it('keeps the actual single chart projection after plan execution', async () => {
+    const user = userEvent.setup()
+    const pending = profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:execute')
+    const ready = profiledCreatePlanFixture(['K03'], 'ready', 'plan:execute')
+    const succeeded = profiledCreatePlanFixture(['K03'], 'succeeded', 'plan:execute', 1)
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pending))),
+      confirmTaskPlan: vi.fn(async () => ok(ready)),
+      runTaskPlan: vi.fn(async () => ok({ task_plan: succeeded })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion, 'K03', 3))),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '创建 K03 散点图。')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    expect(await screen.findByRole('heading', { name: '@图1 · 散点图 · v1' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '散点图' })).toBeInTheDocument()
+  })
+
+  it('keeps a multi-chart projection after heterogeneous plan execution', async () => {
+    const user = userEvent.setup()
+    const pending = profiledCreatePlanFixture(['K01', 'K03'], 'awaiting_confirmation', 'plan:multi-execute')
+    const ready = profiledCreatePlanFixture(['K01', 'K03'], 'ready', 'plan:multi-execute')
+    const succeeded = profiledCreatePlanFixture(['K01', 'K03'], 'succeeded', 'plan:multi-execute', 1)
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '多表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: [dataset, secondDataset] },
+      })),
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pending))),
+      confirmTaskPlan: vi.fn(async () => ok(ready)),
+      runTaskPlan: vi.fn(async () => ok({ task_plan: succeeded })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion, 'K03', 3))),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '数据一画 K01 折线图，数据二画 K03 散点图。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    expect(await screen.findByRole('button', { name: '多图任务' })).toBeInTheDocument()
+  })
+
+  it('restores a durable plan chart projection after restart', async () => {
+    const user = userEvent.setup()
+    const pending = profiledCreatePlanFixture(['K03'], 'awaiting_confirmation', 'plan:restored')
+    installApi(fakeDesktop({
+      listTaskPlans: vi.fn(async () => ok({ task_plans: [pending] })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    expect(await screen.findByRole('heading', { name: '任务计划' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '散点图' })).toBeInTheDocument()
   })
 
   it('undoes an Agent edit by creating a new inverse-action version', async () => {
@@ -2515,8 +2858,8 @@ describe('PlotAgent real desktop workflow', () => {
 
     await user.click(await screen.findByRole('button', { name: '拒绝修订计划' }))
 
-    expect(await screen.findByText('计划已拒绝')).toBeInTheDocument()
-    expect(screen.getByText('未执行修订计划；已保留此前完成的 1 项结果。')).toBeInTheDocument()
+    expect(await screen.findByText('未执行修订计划；已保留此前完成的 1 项结果。')).toBeInTheDocument()
+    expect(screen.queryByText('计划已拒绝')).not.toBeInTheDocument()
     expect(screen.getByText('已拒绝')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '确认修订计划' })).not.toBeInTheDocument()
   })
@@ -2535,28 +2878,30 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     await user.click(await screen.findByRole('button', { name: '取消' }))
 
-    expect(await screen.findByText('计划已拒绝')).toBeInTheDocument()
+    expect(await screen.findByText('未执行计划，项目未发生更改。')).toBeInTheDocument()
+    expect(screen.queryByText('计划已拒绝')).not.toBeInTheDocument()
     expect(screen.getByText('已拒绝')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '确认并执行' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '修改绑定' })).not.toBeInTheDocument()
   })
 
   it.each([
-    ['task_plan', workflowResultWithPlan(workflowPlanFixture()), '任务计划'],
-    ['needs_input', { outcome: 'needs_input', workflow_run_id: 'workflow:test', questions: [{ question_key: 'legend_position', prompt: '“上面”是指图内还是图外？', answer_kind: 'text', choices: [], required: true }] }, '需要补充信息'],
-    ['unsupported', { outcome: 'unsupported', workflow_run_id: 'workflow:test', reason_code: 'CAPABILITY_UNAVAILABLE', message: '不提供通用非线性拟合。' }, '当前不支持'],
-  ])('shows the Agent %s outcome', async (_kind, decision, expectedTitle) => {
+    ['task_plan', workflowResultWithPlan(workflowPlanFixture()), '任务计划', '任务计划'],
+    ['needs_input', { outcome: 'needs_input', workflow_run_id: 'workflow:test', questions: [{ question_key: 'legend_position', prompt: '“上面”是指图内还是图外？', answer_kind: 'text', choices: [], required: true }] }, '“上面”是指图内还是图外？', '需要补充信息'],
+    ['unsupported', { outcome: 'unsupported', workflow_run_id: 'workflow:test', reason_code: 'CAPABILITY_UNAVAILABLE', message: '不提供通用非线性拟合。' }, '不提供通用非线性拟合。', '当前不支持'],
+  ])('shows the Agent %s outcome', async (_kind, decision, expectedText, persistedTitle) => {
     const user = userEvent.setup()
     installApi(fakeDesktop({ runWorkflow: vi.fn(async () => ok(decision)) }))
     render(<App />)
     await openSampleAndCreatePlot(user)
     await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), 'Y axis 改为 log10')
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
-    expect(await screen.findByText(expectedTitle)).toBeInTheDocument()
+    expect(await screen.findByText(expectedText)).toBeInTheDocument()
     if (_kind !== 'task_plan') {
+      expect(screen.queryByText(persistedTitle)).not.toBeInTheDocument()
       await waitFor(() => expect(
         Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.getItem(window.localStorage.key(index) ?? '')).join('\n'),
-      ).toContain(expectedTitle))
+      ).toContain(persistedTitle))
     }
   })
 

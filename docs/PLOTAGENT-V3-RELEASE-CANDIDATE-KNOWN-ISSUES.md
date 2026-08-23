@@ -4,7 +4,10 @@
 
 RC-UI-001 与 RC-UI-002 已在 `a99a416` 后通过正式 Windows Electron 定向复测关闭；关闭证据记录在《PlotAgent 产品测试覆盖审计》第 8 节。
 
-当前无已知产品开放问题。
+当前无仍待实现的已知产品问题。RC-UI-PROFILE-PROJECTION 与 RC-PACKAGING-ENV 已完成
+能力族级修复并移入发布覆盖账本：前者的完整 App 矩阵现为 `88 PASS / 0 FAIL`，后者的
+`pnpm test:release` 与直接 PowerShell 入口均通过。两项仍须在冻结候选上完成适用的正式
+Electron 或发布门禁复核，不能把工作树结果直接当作最终候选证据。
 
 RC-AGENT-PLOT-CONTEXT 与 RC-UI-MULTISOURCE-PROVENANCE 已完成族级修复并移入发布覆盖账本：
 选中派生图时会恢复全部不可变来源、数据操作与字段绑定；确认卡按原始来源展示角色证据和
