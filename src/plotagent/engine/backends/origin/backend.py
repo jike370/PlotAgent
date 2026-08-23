@@ -36,13 +36,7 @@ class SubprocessOriginWorker:
         response_path = output.with_suffix(".response.json")
         request_path.write_text(request.model_dump_json(indent=2), encoding="utf-8")
         completed = subprocess.run(
-            (
-                sys.executable,
-                "-m",
-                "plotagent.engine.backends.origin.worker",
-                str(request_path),
-                str(response_path),
-            ),
+            _origin_worker_command(request_path, response_path),
             check=False,
             capture_output=True,
             text=True,
@@ -56,6 +50,26 @@ class SubprocessOriginWorker:
                 + (completed.stderr.strip() or completed.stdout.strip() or "unknown error")
             )
         return OriginWorkerResponse.model_validate_json(response_path.read_text(encoding="utf-8"))
+
+
+def _origin_worker_command(request_path: Path, response_path: Path) -> tuple[str, ...]:
+    """Build a worker command that also works from a frozen desktop Core.
+
+    ``sys.executable -m ...`` is correct in development, but a PyInstaller
+    executable ignores Python's ``-m`` contract and starts another Core
+    server.  The packaged entry point therefore exposes one explicit worker
+    mode instead of recursively launching the stdio server.
+    """
+
+    arguments = (str(request_path), str(response_path))
+    if bool(getattr(sys, "frozen", False)):
+        return (sys.executable, "--origin-worker", *arguments)
+    return (
+        sys.executable,
+        "-m",
+        "plotagent.engine.backends.origin.worker",
+        *arguments,
+    )
 
 
 class _Change:

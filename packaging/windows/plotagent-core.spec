@@ -36,7 +36,12 @@ analysis = Analysis(
             "plotagent/engine/backends/origin",
         ),
     ],
-    hiddenimports=[],
+    # Figure.savefig resolves format backends dynamically.  Keep the exact
+    # two formats exposed by PlotAgent instead of collecting GUI backends.
+    hiddenimports=[
+        "matplotlib.backends.backend_agg",
+        "matplotlib.backends.backend_svg",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

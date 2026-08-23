@@ -78,7 +78,14 @@ class _CoreClient:
         thread.start()
         return thread
 
-    def request(self, request_id: str, method: str, params: object = ...) -> object:
+    def request(
+        self,
+        request_id: str,
+        method: str,
+        params: object = ...,
+        *,
+        timeout_seconds: float = 20,
+    ) -> object:
         payload: dict[str, object] = {
             "jsonrpc": "2.0",
             "protocol_version": "1.0",
@@ -92,7 +99,7 @@ class _CoreClient:
             + b"\n"
         )
         self.stdin.flush()
-        deadline = time.monotonic() + 20
+        deadline = time.monotonic() + timeout_seconds
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
@@ -207,6 +214,200 @@ def _core_case(
         duration_ms=round((time.perf_counter() - started) * 1000, 3),
         observation=observation,
         evidence=str(status_path.relative_to(output)),
+    )
+
+
+def _frozen_worker_entry_case(output: Path) -> PackagedResult:
+    started = time.perf_counter()
+    case_id = "PACKAGED-FROZEN-ORIGIN-WORKER-ENTRY"
+    evidence_path = output / "readback" / f"{case_id}.json"
+    try:
+        completed = subprocess.run(
+            [str(CORE_EXECUTABLE), "--origin-worker"],
+            cwd=CORE_EXECUTABLE.parent,
+            capture_output=True,
+            timeout=15,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        stderr = completed.stderr.decode("utf-8", errors="replace")
+        stdout = completed.stdout.decode("utf-8", errors="replace")
+        combined = stderr + stdout
+        if completed.returncode == 0 or "usage: origin worker" not in combined:
+            raise RuntimeError(
+                "frozen Core did not route --origin-worker to the sealed worker entry"
+            )
+        evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        evidence_path.write_text(
+            json.dumps(
+                {
+                    "returncode": completed.returncode,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        status = "PASS"
+        observation = "frozen Core routes --origin-worker and exits promptly on invalid arity"
+    except Exception as exc:  # noqa: BLE001 - release evidence records stable failure text
+        status = "FAIL"
+        observation = f"{type(exc).__name__}: {exc}"
+    return PackagedResult(
+        case_id=case_id,
+        status=status,
+        duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        observation=observation,
+        evidence=str(evidence_path.relative_to(output)),
+    )
+
+
+def _packaged_matplotlib_case(output: Path, configured_origin: Path) -> PackagedResult:
+    started = time.perf_counter()
+    case_id = "PACKAGED-CORE-RENDER-EXPORT"
+    case_root = output / "profiles" / case_id
+    environment = _isolated_environment(case_root, configured_origin)
+    evidence_path = output / "readback" / f"{case_id}.json"
+    fixture = REPOSITORY / "tests" / "fixtures" / "import" / "files" / "excel_two_sheets.xlsx"
+    export_root = output / "exports" / case_id
+    export_root.mkdir(parents=True, exist_ok=True)
+    client = _CoreClient(CORE_EXECUTABLE, environment)
+    try:
+        client.request(
+            "req:init-render",
+            "system.initialize",
+            {"protocol_version": "1.0", "desktop_api_version": "1.0"},
+        )
+        created = cast(
+            dict[str, object],
+            client.request(
+                "req:project-create",
+                "projects.create",
+                {
+                    "display_name": "Packaged render smoke",
+                    "idempotency_key": "packaged-render-smoke",
+                },
+            ),
+        )
+        project_id = cast(str, created["project_id"])
+        opened = cast(
+            dict[str, object],
+            client.request("req:project-open", "projects.open", {"project_id": project_id}),
+        )
+        imported = cast(
+            dict[str, object],
+            client.request(
+                "req:dataset-import",
+                "datasets.import",
+                {
+                    "project_id": project_id,
+                    "resource_id": "resource:packaged-render",
+                    "source_path": str(fixture),
+                    "idempotency_key": "packaged-render-data",
+                    "expected_version": opened["project_version"],
+                    "options": {},
+                },
+                timeout_seconds=60,
+            ),
+        )
+        dataset = cast(dict[str, object], cast(list[object], imported["datasets"])[0])
+        numeric = [
+            cast(str, field["field_id"])
+            for field in cast(list[dict[str, object]], dataset["fields"])
+            if field["logical_type"] == "numeric"
+        ]
+        if len(numeric) < 2:
+            raise RuntimeError("packaged fixture did not expose two numeric fields")
+        rendered = cast(
+            dict[str, object],
+            client.request(
+                "req:plot-create",
+                "engine.actions.execute",
+                {
+                    "project_id": project_id,
+                    "expected_project_version": imported["project_version"],
+                    "action": {
+                        "operation": "create_plot",
+                        "action_id": "action:packaged-render.create",
+                        "plot_id": "plot:packaged-render",
+                        "profile_id": "K01",
+                        "data": {
+                            "kind": "source",
+                            "dataset_id": dataset["source_dataset_id"],
+                            "version": dataset["source_version"],
+                            "content_hash": dataset["content_hash"],
+                        },
+                        "bindings": [
+                            {"role": "x", "field_id": numeric[0]},
+                            {"role": "y", "field_id": numeric[1]},
+                        ],
+                    },
+                },
+                timeout_seconds=90,
+            ),
+        )
+        artifacts: dict[str, object] = {}
+        for export_format in ("png", "svg"):
+            destination = export_root / f"packaged-render.{export_format}"
+            exported = cast(
+                dict[str, object],
+                client.request(
+                    f"req:export-{export_format}",
+                    "engine.exports.execute",
+                    {
+                        "project_id": project_id,
+                        "action": {
+                            "operation": "export_plot",
+                            "action_id": f"action:packaged-render.export-{export_format}",
+                            "target": "plot:packaged-render",
+                            "expected_plot_version": rendered["plot_version"],
+                            "format": export_format,
+                            "output_name": destination.name,
+                        },
+                        "destination_resource_id": f"resource:packaged-{export_format}",
+                        "destination_path": str(destination),
+                    },
+                    timeout_seconds=60,
+                ),
+            )
+            if not destination.is_file():
+                raise RuntimeError(f"packaged {export_format} export is missing")
+            artifact = cast(dict[str, object], exported["artifact"])
+            if _sha256(destination) != artifact["content_hash"]:
+                raise RuntimeError(f"packaged {export_format} hash mismatch")
+            artifacts[export_format] = {
+                "path": str(destination),
+                "size": destination.stat().st_size,
+                "sha256": _sha256(destination),
+            }
+        evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        evidence_path.write_text(
+            json.dumps(
+                {
+                    "project_id": project_id,
+                    "plot_id": rendered["plot_id"],
+                    "plot_version": rendered["plot_version"],
+                    "artifacts": artifacts,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        status = "PASS"
+        observation = "frozen Core rendered K01 and exported verified PNG and SVG"
+    except Exception as exc:  # noqa: BLE001 - release evidence records stable failure text
+        status = "FAIL"
+        observation = f"{type(exc).__name__}: {exc}"
+    finally:
+        client.close()
+    return PackagedResult(
+        case_id=case_id,
+        status=status,
+        duration_ms=round((time.perf_counter() - started) * 1000, 3),
+        observation=observation,
+        evidence=str(evidence_path.relative_to(output)),
     )
 
 
@@ -343,6 +544,7 @@ def execute(output: Path) -> tuple[PackagedResult, ...]:
     supported_origin = Path(r"D:\origin\Origin64.exe")
     results = (
         _integrity_case(output),
+        _frozen_worker_entry_case(output),
         _core_case(output, "PACKAGED-ORIGIN-MISSING", missing_origin, "error", "NOT_INSTALLED"),
         _core_case(
             output,
@@ -352,6 +554,7 @@ def execute(output: Path) -> tuple[PackagedResult, ...]:
             "VERSION_UNSUPPORTED",
         ),
         _core_case(output, "PACKAGED-ORIGIN-SUPPORTED", supported_origin, "ready", None),
+        _packaged_matplotlib_case(output, missing_origin),
         _desktop_case(output, missing_origin),
     )
     metadata = {
