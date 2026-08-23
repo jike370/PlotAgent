@@ -42,6 +42,7 @@ from plotagent.contracts.base import (
 )
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import (
+    MAX_WORKFLOW_SOURCES,
     DataOperation,
     RowPage,
     WorkflowAlias,
@@ -317,7 +318,9 @@ class SelectedPlotContext(StrictModel):
     plot_id: Token
     plot_version: VersionId
     profile_id: Token
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(max_length=MAX_WORKFLOW_SOURCES)
+    ] = ()
     data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[SelectedPlotBindingContext, ...], Field(max_length=128)] = ()
 

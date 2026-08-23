@@ -1230,6 +1230,26 @@ describe('AgentFoundationRuntime', () => {
       instruction: '数据一画折线图，数据二画线点图。',
       parentTaskId: 'task:previous',
     })).toBe(true)
+    expect(runtime.canRun({
+      projectId: 'project:test',
+      selectedSources: Array.from({ length: 9 }, (_, index) => ({
+        datasetId: `source:${index + 1}`,
+        sourceVersion: 1,
+      })),
+      selectedProfileIds: ['K01'],
+      expectedProjectVersion: 4,
+      instruction: '九个数据来源分别绘图。',
+    })).toBe(true)
+    expect(runtime.canRun({
+      projectId: 'project:test',
+      selectedSources: Array.from({ length: 33 }, (_, index) => ({
+        datasetId: `source:${index + 1}`,
+        sourceVersion: 1,
+      })),
+      selectedProfileIds: ['K01'],
+      expectedProjectVersion: 4,
+      instruction: '超出数据来源上限。',
+    })).toBe(false)
     await runtime.run({
       projectId: 'project:test',
       selectedSources: [

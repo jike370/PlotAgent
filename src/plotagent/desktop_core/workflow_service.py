@@ -16,6 +16,7 @@ from pydantic import TypeAdapter
 
 from plotagent.contracts.canonical import canonical_json
 from plotagent.contracts.workflows import (
+    MAX_WORKFLOW_SOURCES,
     CompiledTaskItem,
     DataOperation,
     DraftSetAxis,
@@ -638,8 +639,11 @@ class DesktopWorkflowService:
             if isinstance(selected_plots, (list, tuple)) and selected_plots:
                 return ()
             raise WorkflowServiceError("SOURCE_REQUIRED", "至少选择一个数据表或一张已有图形。")
-        if len(raw) > 8:
-            raise WorkflowServiceError("SOURCE_LIMIT_EXCEEDED", "一次最多选择八个数据表。")
+        if len(raw) > MAX_WORKFLOW_SOURCES:
+            raise WorkflowServiceError(
+                "SOURCE_LIMIT_EXCEEDED",
+                f"一次最多选择 {MAX_WORKFLOW_SOURCES} 个数据表。",
+            )
         result: list[tuple[str, int]] = []
         for item in raw:
             if not isinstance(item, dict):

@@ -19,6 +19,10 @@ from plotagent.desktop_core.engine_session import DesktopEngineSession
 from plotagent.desktop_core.protocol import JsonValue
 from plotagent.desktop_core.services import RpcContext, RpcServiceError, ServiceRegistry
 from plotagent.desktop_core.tasks import BoundedWorkerExecutor, TaskRegistry
+from plotagent.desktop_core.workflow_service import (
+    DesktopWorkflowService,
+    WorkflowServiceError,
+)
 from plotagent.security.credentials import InMemoryCredentialStore
 from plotagent.workflows.executor import TaskPlanExecutor
 
@@ -94,6 +98,25 @@ def _create_open(harness: ApplicationHarness) -> tuple[str, int]:
     project_id = cast(str, created["project_id"])
     opened = harness.call("projects.open", {"project_id": project_id})
     return project_id, cast(int, opened["project_version"])
+
+
+def test_workflow_source_boundary_accepts_nine_and_rejects_thirty_three() -> None:
+    nine_sources = [
+        {"dataset_id": f"source:{position}", "source_version": 1}
+        for position in range(1, 10)
+    ]
+    assert len(DesktopWorkflowService._source_requests({"selected_sources": nine_sources})) == 9
+
+    with pytest.raises(WorkflowServiceError) as captured:
+        DesktopWorkflowService._source_requests(
+            {
+                "selected_sources": [
+                    {"dataset_id": f"source:{position}", "source_version": 1}
+                    for position in range(1, 34)
+                ]
+            }
+        )
+    assert captured.value.code == "SOURCE_LIMIT_EXCEEDED"
 
 
 def test_agent_task_v2_api_persists_checkpoint_and_events(

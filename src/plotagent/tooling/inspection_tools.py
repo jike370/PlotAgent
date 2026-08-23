@@ -11,6 +11,7 @@ from plotagent.contracts.agent_tasks import TaskState
 from plotagent.contracts.agent_tools import ToolProvenance
 from plotagent.contracts.base import StrictModel
 from plotagent.contracts.workflows import (
+    MAX_WORKFLOW_SOURCES,
     FieldProfile,
     InstrumentMetadata,
     RowPage,
@@ -67,7 +68,9 @@ class SearchValuesInput(StrictModel):
 
 
 class CompareSchemasInput(StrictModel):
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES)
+    ]
 
 
 class InspectInstrumentMetadataInput(StrictModel):

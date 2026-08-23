@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "7d67e8437832000d6624b87f500331f103f3963c36171a317e3abf540bd9f268"
+      "sha256": "0f952c2d162a09b61e2d593ca1e1df13d08f9ca387e0077d69a83340f53c88c3"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "a43d1954f9bed25ce82584d5edb41ed4992d7c598ed0053272b123dce78621e3"
+      "sha256": "4cfb7431324f3625b4fa5712e70b0d5b259c1b996af388a73be1ca246825de29"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",

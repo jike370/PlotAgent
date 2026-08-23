@@ -1,4 +1,4 @@
-import type { FieldMappingInput } from '../../../shared/desktop-contract'
+import { MAX_WORKFLOW_SOURCES, type FieldMappingInput } from '../../../shared/desktop-contract'
 
 const STORAGE_PREFIX = 'plotagent.workspace.v2:'
 const WORKFLOW_SOURCE_MODE = 'explicit_extras_v1'
@@ -38,7 +38,7 @@ export function readWorkspaceSelection(
     const datasetId = isSafeId(record.datasetId) ? record.datasetId : undefined
     const workflowSourceIds = record.workflowSourceMode === WORKFLOW_SOURCE_MODE
       && Array.isArray(record.workflowSourceIds)
-      && record.workflowSourceIds.length <= 8
+      && record.workflowSourceIds.length < MAX_WORKFLOW_SOURCES
       && record.workflowSourceIds.every(isSafeId)
       && new Set(record.workflowSourceIds).size === record.workflowSourceIds.length
       ? record.workflowSourceIds : undefined

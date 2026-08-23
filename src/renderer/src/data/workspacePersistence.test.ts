@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { MAX_WORKFLOW_SOURCES } from '../../../shared/desktop-contract'
 import { readWorkspaceSelection, writeWorkspaceSelection } from './workspacePersistence'
 
 describe('workspace persistence', () => {
@@ -51,5 +52,23 @@ describe('workspace persistence', () => {
         workflowSourceIds: Array.from({ length: 8 }, (_, index) => `source:${index + 1}`),
       }),
     }, 'project:one')).toEqual({ datasetId: 'source:eight' })
+  })
+
+  it('restores every extra source allowed by the 32-source task boundary', () => {
+    let stored: string | null = null
+    const storage = {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => { stored = value },
+    }
+    const workflowSourceIds = Array.from(
+      { length: MAX_WORKFLOW_SOURCES - 1 },
+      (_, index) => `source:${index + 2}`,
+    )
+    writeWorkspaceSelection(storage, 'project:one', {
+      datasetId: 'source:one',
+      workflowSourceIds,
+    })
+    expect(readWorkspaceSelection(storage, 'project:one')?.workflowSourceIds)
+      .toEqual(workflowSourceIds)
   })
 })

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import type { JsonValue } from '../../shared/desktop-contract.js'
+import { MAX_WORKFLOW_SOURCES, type JsonValue } from '../../shared/desktop-contract.js'
 import { CorePiRuntimeHostV2, type PiRuntimeCoreBridgeV2 } from './pi-runtime-host-v2.js'
 import {
   PiRuntimeAdapterV2,
@@ -281,7 +281,7 @@ export class AgentFoundationRuntime {
     const durableContinuation = input.continuationWorkflowRunId?.startsWith('task:') === true
     const plotCount = input.selectedPlots?.length ?? 0
     return (durableContinuation || input.selectedSources.length >= 1 || plotCount >= 1)
-      && input.selectedSources.length <= 8
+      && input.selectedSources.length <= MAX_WORKFLOW_SOURCES
       && (input.selectedProfileIds?.length ?? 0) <= 34
       && plotCount <= 8
   }

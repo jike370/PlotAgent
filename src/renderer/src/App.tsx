@@ -11,6 +11,7 @@ import type {
   TaskEvent,
   WorkflowPlotSelection,
 } from '../../shared/desktop-contract'
+import { MAX_WORKFLOW_SOURCES } from '../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from './data/chartCatalog'
 import {
   disambiguateDatasetDisplayNames,
@@ -63,8 +64,6 @@ type ComposerProjection =
   | { kind: 'multi' }
 
 const initialCore: CoreStatus = { phase: 'starting', restartAttempt: 0 }
-const MAX_WORKFLOW_SOURCES = 32
-
 function failureNotice(error: { code: string; message: string; retryable: boolean }): ProductNotice {
   return { kind: 'error', title: '操作未完成', message: error.message }
 }

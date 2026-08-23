@@ -168,6 +168,27 @@ describe('desktop contract validation', () => {
       expectedProjectVersion: 4,
       instruction: '绘图',
     })).toBeNull()
+
+    expect(parseWorkflowRunInput({
+      projectId: 'project:one',
+      selectedSources: Array.from({ length: 9 }, (_, index) => ({
+        datasetId: `source:${index + 1}`,
+        sourceVersion: 1,
+      })),
+      expectedProjectVersion: 4,
+      selectedProfileIds: ['K01'],
+      instruction: '九个数据来源分别绘图',
+    })?.selectedSources).toHaveLength(9)
+    expect(parseWorkflowRunInput({
+      projectId: 'project:one',
+      selectedSources: Array.from({ length: 33 }, (_, index) => ({
+        datasetId: `source:${index + 1}`,
+        sourceVersion: 1,
+      })),
+      expectedProjectVersion: 4,
+      selectedProfileIds: ['K01'],
+      instruction: '超出数据来源上限',
+    })).toBeNull()
   })
 
   it('rejects filesystem authority embedded in workflow requests', () => {

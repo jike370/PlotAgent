@@ -34,6 +34,7 @@ import type {
   TaskEvent,
   WorkflowPlotSelection,
 } from '../../../shared/desktop-contract'
+import { MAX_WORKFLOW_SOURCES } from '../../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from '../data/chartCatalog'
 import type {
   WorkflowBindingView,
@@ -57,8 +58,6 @@ import {
   suggestedFieldMapping,
   type MappingSuggestionRole,
 } from './mappingSuggestions'
-
-const MAX_WORKFLOW_SOURCES = 32
 
 export type ScopeMode = 'current' | 'selected'
 

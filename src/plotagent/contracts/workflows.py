@@ -50,6 +50,8 @@ WorkflowDisplayLabel = Annotated[
     str,
     StringConstraints(min_length=1, max_length=256, strict=True),
 ]
+MAX_WORKFLOW_SOURCES = 32
+
 InstructionText = Annotated[
     str,
     StringConstraints(min_length=1, max_length=4_096, strip_whitespace=True, strict=True),
@@ -248,7 +250,9 @@ class InstrumentMetadata(StrictModel):
 
 
 class SchemaComparison(StrictModel):
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES)
+    ]
     common_field_names: tuple[str, ...]
     only_by_source: dict[WorkflowAlias, tuple[str, ...]]
     isomorphic: bool
@@ -267,7 +271,9 @@ class InspectionAudit(StrictModel):
         "inspect_instrument_metadata",
         "preview_data_operation",
     ]
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=1, max_length=8)]
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=1, max_length=MAX_WORKFLOW_SOURCES)
+    ]
     disclosed_field_count: Annotated[int, Field(ge=0)]
     disclosed_row_count: Annotated[int, Field(ge=0)]
     disclosed_scalar_count: Annotated[int, Field(ge=0)]

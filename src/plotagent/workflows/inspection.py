@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from plotagent.contracts.workflows import (
+    MAX_WORKFLOW_SOURCES,
     FieldProfile,
     InspectionAudit,
     InstrumentMetadata,
@@ -257,9 +258,12 @@ class DataInspectionService:
         return self._audits[-1]
 
     def compare_schemas(self, source_aliases: tuple[str, ...]) -> SchemaComparison:
-        if not 2 <= len(source_aliases) <= 8 or len(source_aliases) != len(set(source_aliases)):
+        if (
+            not 2 <= len(source_aliases) <= MAX_WORKFLOW_SOURCES
+            or len(source_aliases) != len(set(source_aliases))
+        ):
             raise InspectionError(
-                "INSPECTION_SOURCES_INVALID", "结构比较需要 2 至 8 个不同数据表。"
+                "INSPECTION_SOURCES_INVALID", "结构比较需要 2 至 32 个不同数据表。"
             )
         names_by_source: dict[str, tuple[str, ...]] = {}
         for alias in source_aliases:

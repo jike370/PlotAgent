@@ -1,5 +1,6 @@
 export const DESKTOP_API_VERSION = '1.0' as const
 export const CORE_PROTOCOL_VERSION = '1.0' as const
+export const MAX_WORKFLOW_SOURCES = 32
 
 export type DesktopApiVersion = typeof DESKTOP_API_VERSION
 export type CoreProtocolVersion = typeof CORE_PROTOCOL_VERSION
@@ -608,7 +609,7 @@ export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
     const sourceVersion = parseVersion(item.sourceVersion, 1)
     return datasetId === null || sourceVersion === null ? null : { datasetId, sourceVersion }
   })
-  if (selectedSources.length > 8 || selectedSources.some((item) => item === null)) return null
+  if (selectedSources.length > MAX_WORKFLOW_SOURCES || selectedSources.some((item) => item === null)) return null
   const sourceKeys = selectedSources.map((item) => `${item?.datasetId}:${item?.sourceVersion}`)
   if (new Set(sourceKeys).size !== sourceKeys.length) return null
   const instruction = typeof value.instruction === 'string' ? value.instruction.trim() : ''

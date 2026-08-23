@@ -16,6 +16,7 @@ from plotagent.contracts.workflows import (
     DraftSetTitle,
     ExcludeRows,
     ReshapeLongToWide,
+    SchemaComparison,
     TaskDraft,
     TaskDraftItem,
     WorkflowBudget,
@@ -767,6 +768,16 @@ def test_inspection_is_read_only_bounded_and_audited() -> None:
     with pytest.raises(InspectionError) as captured:
         service.preview_rows("data_1", ("data_1_time",), offset=2, limit=1)
     assert captured.value.code == "INSPECTION_BUDGET_EXCEEDED"
+
+
+def test_schema_comparison_contract_accepts_nine_sources() -> None:
+    comparison = SchemaComparison(
+        source_aliases=tuple(f"data_{index}" for index in range(1, 10)),
+        common_field_names=("x", "y"),
+        only_by_source={},
+        isomorphic=True,
+    )
+    assert len(comparison.source_aliases) == 9
 
 
 def test_inspection_bounds_untrusted_cell_and_metadata_text() -> None:
