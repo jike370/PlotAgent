@@ -104,6 +104,9 @@ Assert-True $decision.Success 'valid signature, hash state, Authenticode, and th
 $packageJson = Get-Content -LiteralPath (Join-Path $repoRoot 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $configurationIssues = @(Get-ElectronBuilderConfigurationIssues -PackageJson $packageJson)
 Assert-Equal $configurationIssues.Count 0 'electron-builder allowlists only compiled output and sidecar resources'
+$windowsPowerShell = Get-WindowsPowerShellExecutable
+Assert-True (Test-Path -LiteralPath $windowsPowerShell -PathType Leaf) `
+    'release verification resolves Windows PowerShell independently of the current PSHOME'
 
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("plotagent-release-test-" + [guid]::NewGuid().ToString('N'))
 $publishRoot = Join-Path $testRoot 'publish'
@@ -130,14 +133,14 @@ try {
     Assert-Equal $issues.Count 0 'fresh manifest has an exact artifact set and matching hash'
 
     $verifierPath = Join-Path $repoRoot 'scripts/verify-windows-release.ps1'
-    $strictOutput = & (Join-Path $PSHOME 'powershell.exe') `
+    $strictOutput = & $windowsPowerShell `
         -NoProfile -ExecutionPolicy Bypass -File $verifierPath `
         -ManifestPath $manifestPath
     Assert-Equal $LASTEXITCODE 21 'strict verifier blocks unsigned development output'
     Assert-True (@($strictOutput -match 'INSTALLER_PUBLISHER_SIGNATURE_INVALID').Count -gt 0) `
         'strict verifier emits the stable unsigned failure'
 
-    $developmentOutput = & (Join-Path $PSHOME 'powershell.exe') `
+    $developmentOutput = & $windowsPowerShell `
         -NoProfile -ExecutionPolicy Bypass -File $verifierPath `
         -ManifestPath $manifestPath -AllowUnsignedDevelopment
     Assert-Equal $LASTEXITCODE 0 'explicit development override verifies hashes without claiming signatures'

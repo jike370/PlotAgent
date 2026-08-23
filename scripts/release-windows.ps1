@@ -236,7 +236,7 @@ try {
     } else {
         $verificationArguments += '-AllowUnsignedDevelopment'
     }
-    Invoke-CheckedCommand -FilePath (Join-Path $PSHOME 'powershell.exe') -Arguments $verificationArguments
+    Invoke-CheckedCommand -FilePath (Get-WindowsPowerShellExecutable) -Arguments $verificationArguments
 
     Write-Output "[RELEASE_READY][$releaseMode] $publishRoot"
     Write-Output "Manifest: $manifestPath"

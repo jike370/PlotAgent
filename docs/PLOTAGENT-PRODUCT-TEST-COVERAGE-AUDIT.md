@@ -268,5 +268,6 @@ Windows UI case。未产生任一必要证据时，该图不能记为发布通�
 | 编辑读回 | 同一图例对象的分次动作合并读回；版本变化必须重新挂载对应预览资源 | productState 合并读回、编辑→撤销→重做的 v2/v3/v4 预览断言 | 待新包定向复测 |
 | 规划停止 | 停止先 abort provider，再读取串行 Core 检查点 | planning pump 调用顺序测试 | 待新包定向复测 |
 | 时间线与 Composer | 计划位置不移动，结果在其下方追加；唯一确认图类或“多图任务”回投 Composer | App 时间线顺序、@图目标、单图/多图投影、拒绝与重启恢复测试 | 待新包冒烟，不重复实现 |
+| 发布宿主 | 发布入口无论由 Windows PowerShell 还是 `pwsh` 启动，都使用可验证存在的系统 Windows PowerShell 执行离线签名/哈希校验 | 两种宿主下的 release-tools 测试与 `release-windows.ps1 -DryRun` | 待重新打包 |
 
 本节的发布顺序固定为：全量确定性门禁 → 形成干净候选提交 → 打包 Windows Electron → 只复测上表受影响链路 → 更新本账本与 known issues → 运行唯一一次 SEQ-70。任何定向 UI 产品 FAIL 都会使候选失效并返回能力族审计，不允许边测边逐点修补。

@@ -437,9 +437,29 @@ function Get-ElectronBuilderConfigurationIssues {
     return @($issues)
 }
 
+function Get-WindowsPowerShellExecutable {
+    $command = Get-Command 'powershell.exe' -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($null -ne $command -and (Test-Path -LiteralPath $command.Source -PathType Leaf)) {
+        return [IO.Path]::GetFullPath($command.Source)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:SystemRoot)) {
+        $systemExecutable = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (Test-Path -LiteralPath $systemExecutable -PathType Leaf) {
+            return [IO.Path]::GetFullPath($systemExecutable)
+        }
+    }
+    $hostExecutable = Join-Path $PSHOME 'powershell.exe'
+    if (Test-Path -LiteralPath $hostExecutable -PathType Leaf) {
+        return [IO.Path]::GetFullPath($hostExecutable)
+    }
+    throw '[RELEASE_WINDOWS_POWERSHELL_MISSING] Windows PowerShell 5.1 is required for release verification.'
+}
+
 Export-ModuleMember -Function @(
     'Get-DetachedCmsSignatureInfo',
     'Get-ElectronBuilderConfigurationIssues',
+    'Get-WindowsPowerShellExecutable',
     'Get-ManifestAuthenticodeSignatures',
     'Get-ReleaseArtifactIntegrityIssues',
     'Get-ReleaseVerificationDecision',

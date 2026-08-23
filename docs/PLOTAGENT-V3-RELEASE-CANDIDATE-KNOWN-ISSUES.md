@@ -13,6 +13,7 @@
 - 撤销、重做和连续编辑后的预览按 plot ID、版本与资源 ID 重新挂载，防止界面保留旧位图。
 - Agent 对 profile 已公开的图类专属参数不得静默遗漏；K21 三角矩阵方向作为代表用例固定为 `lower`、`upper`、`full`。
 - 规划中停止先中止当前模型流，再读取串行 Core 检查点，避免停止操作排在长模型调用之后。
+- 发布校验显式解析系统 Windows PowerShell，不再假设当前 `pwsh` 的 `$PSHOME` 中存在 `powershell.exe`。
 
 ## 待定向复测
 
