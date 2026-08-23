@@ -49,8 +49,8 @@ DataScalar = bool | int | float | str | date | datetime | None
 class DataViewLineageStep(StrictModel):
     step_id: Token
     operation_kind: DataOperationKind
-    input_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(max_length=8)] = ()
-    input_data_hashes: Annotated[tuple[Sha256, ...], Field(max_length=8)] = ()
+    input_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(max_length=32)] = ()
+    input_data_hashes: Annotated[tuple[Sha256, ...], Field(max_length=32)] = ()
     parameters_hash: Sha256
     output_data_hash: Sha256
 
@@ -70,8 +70,8 @@ class DataViewHandle(StrictModel):
     task_id: TaskId
     task_version: VersionId
     item_id: TaskItemIdV2 | None = None
-    parent_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(max_length=8)] = ()
-    root_sources: Annotated[tuple[EngineDataRef, ...], Field(min_length=1, max_length=8)]
+    parent_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(max_length=32)] = ()
+    root_sources: Annotated[tuple[EngineDataRef, ...], Field(min_length=1, max_length=32)]
     data: EngineDataRef
     operation_kind: DataOperationKind
     operation_hash: Sha256
@@ -232,13 +232,15 @@ class DataFilterPredicate(StrictModel):
         "greater_or_equal",
         "is_missing",
         "is_not_missing",
+        "is_finite",
+        "is_not_finite",
         "in_values",
     ]
     value: DataScalar | tuple[DataScalar, ...] = None
 
     @model_validator(mode="after")
     def value_matches_operator(self) -> DataFilterPredicate:
-        if self.operator in {"is_missing", "is_not_missing"}:
+        if self.operator in {"is_missing", "is_not_missing", "is_finite", "is_not_finite"}:
             if self.value is not None:
                 raise ValueError("missing predicates do not accept a value")
         elif self.operator == "in_values":
@@ -394,8 +396,8 @@ class ReshapeLongToWideOperation(StrictModel):
 
 class ConcatenateOperation(StrictModel):
     kind: Literal["concatenate"] = "concatenate"
-    input_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(min_length=2, max_length=8)]
-    source_labels: Annotated[tuple[str, ...], Field(min_length=2, max_length=8)]
+    input_handle_ids: Annotated[tuple[DataViewHandleId, ...], Field(min_length=2, max_length=32)]
+    source_labels: Annotated[tuple[str, ...], Field(min_length=2, max_length=32)]
     source_label_field_id: FieldId
     source_label_name: Annotated[
         str,

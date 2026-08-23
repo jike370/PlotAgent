@@ -680,7 +680,7 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
               {compareOpen && previousPlot && (previousPlot.preview?.url ? <img className="focus-real-preview" src={previousPlot.preview.url} alt={`${plot?.title ?? active.title} v${previousPlot.plotVersion} 预览`} /> : <BatchPlot title={active.title} series={active.series} />)}
             </div>
             <div className="canvas-paper canvas-paper--current">
-              {plot?.preview?.url ? <img className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
+              {plot?.preview?.url ? <img key={`${plot.plotId}:${plot.plotVersion}:${plot.preview.resourceId}`} className="focus-real-preview" src={plot.preview.url} alt={`${plot.title} Core 预览`} /> : <BatchPlot title={active.title} series={active.series} />}
               {!plot?.preview?.url && <button
                 className="draggable-legend"
                 type="button"

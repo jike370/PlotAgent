@@ -750,7 +750,7 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   }
   const title = actions.filter((action) => action.operation === 'set_title').at(-1)
   const legendId = objectId('legend')
-  const legend = legendId === undefined ? undefined : actionTarget('set_legend', legendId).at(-1)
+  const legend = legendId === undefined ? undefined : mergedActionTarget('set_legend', legendId)
   const capabilities = (Array.isArray(profile.capabilities) ? profile.capabilities : [])
     .filter(isJsonRecord)
     .reduce<Record<string, readonly string[]>>((result, capability) => {

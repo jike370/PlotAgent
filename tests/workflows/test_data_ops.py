@@ -13,6 +13,8 @@ from plotagent.contracts.workflows import (
     ConvertUnit,
     DropEmptyFields,
     ExcludeRows,
+    FilterPredicate,
+    FilterRows,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
     SelectFields,
@@ -379,6 +381,67 @@ def test_agent_can_bucketize_an_explicit_numeric_field_with_confirmed_thresholds
         column for column in registrar.registered.columns if column.field.field_id == output_id
     )
     assert level.values == ("低", "中", "中", "高", "高")
+
+
+def test_filter_rows_keeps_only_finite_numeric_values_for_renderer_input() -> None:
+    source = _view(
+        "source:one",
+        "one",
+        ((1.0, 10.0), (2.0, float("nan")), (3.0, float("inf")), (4.0, float("-inf"))),
+    )
+    item = CompiledTaskItem(
+        task_kind="create",
+        item_id="item:finite.1",
+        plot_alias="plot_1",
+        plot_id="plot:finite",
+        profile_id="K01",
+        sources=(
+            WorkflowSource(
+                source_alias="data_1",
+                source_dataset_id="source:one",
+                source_version=1,
+                content_hash="a" * 64,
+                display_name="nonfinite.csv",
+                row_count=4,
+            ),
+        ),
+        resolved_fields=(
+            ResolvedWorkflowField(
+                field_alias="time",
+                source_alias="data_1",
+                field_id="field:one_time",
+                name="Time",
+                logical_type="numeric",
+            ),
+            ResolvedWorkflowField(
+                field_alias="signal",
+                source_alias="data_1",
+                field_id="field:one_signal",
+                name="Signal",
+                logical_type="numeric",
+            ),
+        ),
+        data_operations=(
+            FilterRows(
+                source_alias="data_1",
+                predicates=(FilterPredicate(field_alias="signal", operator="is_finite"),),
+            ),
+        ),
+        bindings=(
+            ResolvedFieldBinding(role="x", source_alias="data_1", field_id="field:one_time"),
+            ResolvedFieldBinding(role="y", source_alias="data_1", field_id="field:one_signal"),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.finite.1",
+    )
+    registrar = _Registrar()
+
+    prepare_task_data(item, _Provider({"source:one": source}), registrar)
+
+    assert registrar.registered is not None
+    assert len(registrar.registered.row_ids) == 1
+    assert registrar.registered.row_ids[0].startswith("row:workflow.")
+    assert registrar.registered.columns[1].values == (10.0,)
 
 
 def _text_view(*, invalid: bool = False) -> EngineDataView:

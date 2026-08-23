@@ -98,7 +98,7 @@
             "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Input Handle Ids",
           "type": "array"
@@ -125,7 +125,7 @@
           "items": {
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Source Labels",
           "type": "array"
@@ -326,6 +326,8 @@
             "greater_or_equal",
             "is_missing",
             "is_not_missing",
+            "is_finite",
+            "is_not_finite",
             "in_values"
           ],
           "title": "Operator",

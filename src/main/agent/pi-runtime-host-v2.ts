@@ -41,7 +41,11 @@ function string(value: unknown, label: string): string {
 
 function json(value: unknown, label: string): JsonValue {
   try {
-    return JSON.parse(JSON.stringify(value)) as JsonValue
+    return JSON.parse(JSON.stringify(value, (_key, item: unknown) => {
+      if (typeof item !== 'number' || Number.isFinite(item)) return item
+      if (Number.isNaN(item)) return 'NaN'
+      return item > 0 ? '∞' : '-∞'
+    })) as JsonValue
   } catch {
     throw new PiRuntimeHostV2ProtocolError('PI_V2_HOST_PROTOCOL_INVALID', `${label} was not JSON.`)
   }
@@ -79,7 +83,7 @@ function environment(
     }
   })
   return {
-    context: record(payload.context, 'Agent context') as AgentContextSnapshot,
+    context: record(json(payload.context, 'Agent context'), 'Agent context') as AgentContextSnapshot,
     systemPrompt: string(payload.system_prompt, 'system prompt'),
     provider: runtimeProvider,
     yieldSchema: record(payload.yield_schema, 'yield schema') as TSchema,

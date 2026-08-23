@@ -519,7 +519,7 @@ export type CreatePlot = {
 
 export type DataFilterPredicate = {
   readonly field_id: string;
-  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "in_values";
+  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "is_finite" | "is_not_finite" | "in_values";
   readonly value?: boolean | number | string | ReadonlyArray<boolean | number | string | null> | null;
 }
 
@@ -1000,7 +1000,7 @@ export type FieldSnapshot = {
 
 export type FilterPredicate = {
   readonly field_alias: string;
-  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "in_values";
+  readonly operator: "equal" | "not_equal" | "less_than" | "less_or_equal" | "greater_than" | "greater_or_equal" | "is_missing" | "is_not_missing" | "is_finite" | "is_not_finite" | "in_values";
   readonly value?: boolean | number | string | ReadonlyArray<boolean | number | string | null> | null;
 }
 

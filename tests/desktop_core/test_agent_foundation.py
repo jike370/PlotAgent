@@ -1131,6 +1131,8 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "Use convert_type only after inspecting enough rows" in system_prompt
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
+        assert "K21 request for a lower, upper, or full triangle" in system_prompt
+        assert "use is_finite to keep only finite observations" in system_prompt
         assert "reshape_wide_to_long" in system_prompt
         assert (
             "bind x to the original X, y to output_value, and group to output_name"

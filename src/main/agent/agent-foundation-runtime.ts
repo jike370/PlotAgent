@@ -680,44 +680,12 @@ export class AgentFoundationRuntime {
           this.emit(runId, authority.projectId, 'completed', '失败项可按原计划安全重试')
           return json(view)
         }
-        this.emit(runId, authority.projectId, 'planning', '正在分析失败项并保留已成功结果…')
-        const host = new CorePiRuntimeHostV2(this.core, authority.projectId)
-        const runtime = this.createRuntime(
-          host,
-          (event) => this.forwardRuntime(runId, authority.projectId, event),
-        )
-        const pump = new AgentTaskPump({
-          core: this.core,
-          runtime,
-          emit: (event) => this.forwardPump(runId, authority.projectId, event),
-        })
-        this.activePumps.set(authority.taskId, pump)
-        let drained: TaskPumpResult
-        try {
-          drained = await pump.drain(authority.projectId, authority.taskId)
-        } finally {
-          if (this.activePumps.get(authority.taskId) === pump) {
-            this.activePumps.delete(authority.taskId)
-          }
-        }
-        if (
-          drained.reason === 'awaiting_input'
-          || drained.reason === 'awaiting_reconfirmation'
-        ) {
-          return await this.finishPlanningPump(
-            authority.projectId,
-            authority.taskId,
-            runId,
-            drained,
-          )
-        }
-        if (drained.reason === 'execution_pending') {
-          this.emit(runId, authority.projectId, 'planning', '正在仅重试失败项…')
-          await this.executeAtAtomicBoundaries(
-            authority.projectId,
-            authority.taskId,
-          )
-        }
+        // A semantic failure is a user decision boundary. Keep the durable
+        // partial state visible so completed items can be accepted or a user
+        // correction can start the scoped repair activation. Automatically
+        // pumping here hides those typed choices and spends an extra model turn.
+        this.emit(runId, authority.projectId, 'completed', '成功项已保留，失败项等待处理')
+        return json(view)
       }
       this.emit(runId, authority.projectId, 'validating_draft', '正在读取验证报告与已保存结果…')
       view = record(await this.get(input), 'durable task plan view')
@@ -902,6 +870,10 @@ export class AgentFoundationRuntime {
       })
       this.executionCancellationSignals.set(taskId, { promise, resolve: resolveSignal! })
     }
+    // Abort an active provider stream before requesting the serialized Core
+    // checkpoint. Otherwise the cancel click can sit behind the planning turn
+    // it is supposed to stop.
+    this.activePumps.get(taskId)?.cancel(projectId, taskId)
     const controlTimeoutMs = this.activeExecutions.has(taskId) ? 900_000 : 15_000
     let cancelled = false
     try {
@@ -913,12 +885,10 @@ export class AgentFoundationRuntime {
       if (['completed_verified', 'cancelled', 'rejected', 'failed', 'unsupported'].includes(
         string(task.state, 'task state'),
       )) {
-        this.activePumps.get(taskId)?.cancel(projectId, taskId)
         cancelled = task.state === 'cancelled'
         return
       }
       const version = integer(task.task_version, 'task version')
-      this.activePumps.get(taskId)?.cancel(projectId, taskId)
       const payloadHash = createHash('sha256')
         .update(`cancel:${taskId}:${version}`, 'utf8')
         .digest('hex')

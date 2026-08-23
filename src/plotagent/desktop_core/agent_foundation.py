@@ -633,9 +633,9 @@ class DurableAgentCoreHost:
         _InspectionRows,
         tuple[SelectedPlotContext, ...],
     ]:
-        if len(envelope.selected_sources) > 8:
+        if len(envelope.selected_sources) > 32:
             raise AgentFoundationError(
-                "SOURCE_SCOPE_INVALID", "Agent tasks accept at most eight selected sources."
+                "SOURCE_SCOPE_INVALID", "Agent tasks accept at most 32 selected sources."
             )
         records = {
             (item.source_dataset.source_dataset_id, item.source_dataset.source_version): item
@@ -1034,6 +1034,10 @@ class DurableAgentCoreHost:
             "series_1 etc. for series actions, and legend for set_legend. Emit only the "
             "requested edit actions and preserve every unspecified property. Do not inspect "
             "sources or search the chart catalog for such a task. "
+            "When the selected EngineProfile exposes set_chart_parameter, translate an explicit "
+            "chart-specific request into DraftSetChartParameter instead of omitting it. For "
+            "example, a K21 request for a lower, upper, or full triangle uses parameter=triangle "
+            "with value lower, upper, or full exactly as requested. "
             "The selected_plot_contexts array is the authoritative current data state for each "
             "selected plot. A task_kind=edit item is visual-only and therefore has no sources, "
             "bindings, or data_operations. If the user asks to filter, sort, reshape, convert, or "
@@ -1077,7 +1081,9 @@ class DurableAgentCoreHost:
             "descending; a draft containing only x/y bindings is incomplete and must not be "
             "submitted. filter_rows keeps rows that match its predicates: 'keep values >= 100' "
             "uses greater_or_equal 100, while 'exclude values >= 100' uses the complementary "
-            "less_than 100 predicate. Preserve the user's operation order and use exact opaque "
+            "less_than 100 predicate. For a numeric plotting field that contains NaN or positive "
+            "or negative infinity, use is_finite to keep only finite observations; is_not_missing "
+            "does not remove infinity. Preserve the user's operation order and use exact opaque "
             "aliases. "
             "Use convert_type only after inspecting enough rows to establish an explicit, strict "
             "conversion; a failed token must remain an error rather than becoming missing data. "

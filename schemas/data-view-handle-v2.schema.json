@@ -9,7 +9,7 @@
             "pattern": "^[0-9a-f]{64}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "title": "Input Data Hashes",
           "type": "array"
         },
@@ -19,7 +19,7 @@
             "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "title": "Input Handle Ids",
           "type": "array"
         },
@@ -255,7 +255,7 @@
         "pattern": "^view:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
         "type": "string"
       },
-      "maxItems": 8,
+      "maxItems": 32,
       "title": "Parent Handle Ids",
       "type": "array"
     },
@@ -263,7 +263,7 @@
       "items": {
         "$ref": "#/$defs/EngineDataRef"
       },
-      "maxItems": 8,
+      "maxItems": 32,
       "minItems": 1,
       "title": "Root Sources",
       "type": "array"

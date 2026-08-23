@@ -261,6 +261,14 @@ def _matches(value: EngineScalar, predicate: DataFilterPredicate) -> bool:
         return _is_missing(value)
     if predicate.operator == "is_not_missing":
         return not _is_missing(value)
+    if predicate.operator == "is_finite":
+        return (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        )
+    if predicate.operator == "is_not_finite":
+        return isinstance(value, float) and not math.isfinite(value)
     if predicate.operator == "in_values":
         assert isinstance(predicate.value, tuple)
         return value in predicate.value

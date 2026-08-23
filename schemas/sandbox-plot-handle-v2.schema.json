@@ -440,7 +440,7 @@
       "items": {
         "$ref": "#/$defs/EngineDataRef"
       },
-      "maxItems": 8,
+      "maxItems": 32,
       "minItems": 1,
       "title": "Root Sources",
       "type": "array"

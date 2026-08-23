@@ -847,8 +847,8 @@ describe('AgentFoundationRuntime', () => {
     { terminalState: 'failed', expectedStage: 'failed' },
     { terminalState: 'cancelled', expectedStage: 'cancelled' },
   ] as const)(
-    'projects $terminalState when a partial-repair pump stops terminally',
-    async ({ terminalState, expectedStage }) => {
+    'does not enter a partial-repair pump that could stop as $terminalState before user choice',
+    async ({ terminalState }) => {
       let state = 'partial'
       const events: AgentFoundationRuntimeEvent[] = []
       const core = {
@@ -892,9 +892,11 @@ describe('AgentFoundationRuntime', () => {
       await expect(runtime.execute({
         projectId: 'project:test',
         planId: 'plan:repair-terminal',
-      })).resolves.toMatchObject({ task: { state: terminalState } })
-      expect(events.at(-1)).toMatchObject({ stage: expectedStage })
-      expect(events.at(-1)?.label).not.toBe('任务结果已验证')
+      })).resolves.toMatchObject({ task: { state: 'partial' } })
+      expect(events.at(-1)).toMatchObject({
+        stage: 'completed', label: '成功项已保留，失败项等待处理',
+      })
+      expect(state).toBe('partial')
     },
   )
 
@@ -969,6 +971,56 @@ describe('AgentFoundationRuntime', () => {
     })
     await expect(runtime.cancel('task:fixed')).resolves.toBeUndefined()
     expect(core.calls.filter((call) => call.method === 'agent.tasks.cancel')).toHaveLength(1)
+  })
+
+  it('aborts the active planning pump before waiting for the serialized Core checkpoint', async () => {
+    let pumpAborted = false
+    const calls: string[] = []
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        calls.push(method)
+        if (method === 'agent.tasks.list') return {
+          tasks: [{
+            task_id: 'task:planning-cancel',
+            task_version: 4,
+            state: 'investigating',
+            intent: { intent_id: 'intent:planning-cancel' },
+            items: [],
+          }],
+        }
+        if (method === 'agent.tasks.get') {
+          expect(pumpAborted).toBe(true)
+          return {
+            task_id: 'task:planning-cancel', task_version: 4, state: 'investigating', items: [],
+          }
+        }
+        if (method === 'agent.tasks.cancel') return {
+          task_id: 'task:planning-cancel', task_version: 6, state: 'cancelled', items: [],
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined, id: () => 'planning-cancel' })
+    await runtime.list('project:test')
+    const internals = runtime as unknown as {
+      activePumps: Map<string, { cancel: (projectId: string, taskId: string) => void }>
+    }
+    internals.activePumps.set('task:planning-cancel', {
+      cancel: (projectId, taskId) => {
+        expect(projectId).toBe('project:test')
+        expect(taskId).toBe('task:planning-cancel')
+        pumpAborted = true
+      },
+    })
+
+    await expect(runtime.cancel('task:planning-cancel')).resolves.toBeUndefined()
+
+    expect(pumpAborted).toBe(true)
+    expect(calls).toEqual([
+      'agent.tasks.list',
+      'agent.tasks.get',
+      'agent.tasks.cancel',
+    ])
   })
 
   it('accepts a recovered partial result through the typed durable user event', async () => {
@@ -1261,7 +1313,7 @@ describe('AgentFoundationRuntime', () => {
     })
   })
 
-  it('re-enters the durable repair pump and retries only after a typed repair yield', async () => {
+  it('keeps a semantic partial result stable until the user requests repair', async () => {
     class PartialCore {
       readonly calls: string[] = []
       private state = 'partial'
@@ -1347,12 +1399,12 @@ describe('AgentFoundationRuntime', () => {
 
     await runtime.list('project:test')
     await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:partial' }))
-      .resolves.toMatchObject({ task: { state: 'completed_verified' } })
-    expect(core.calls.filter((method) => method === 'agent.tasks.execute')).toHaveLength(1)
-    expect(core.calls).toContain('agent.tasks.yield.accept')
+      .resolves.toMatchObject({ task: { state: 'partial' } })
+    expect(core.calls).not.toContain('agent.tasks.execute')
+    expect(core.calls).not.toContain('agent.tasks.yield.accept')
   })
 
-  it('returns a typed repair question instead of hiding it behind the partial task view', async () => {
+  it('does not spend a repair model turn before the user chooses how to handle a partial result', async () => {
     let pumpCalls = 0
     const core = {
       request: async (method: string): Promise<unknown> => {
@@ -1414,19 +1466,11 @@ describe('AgentFoundationRuntime', () => {
 
     await runtime.list('project:test')
     await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:repair-question' }))
-      .resolves.toEqual({
-        outcome: 'needs_input',
-        workflow_run_id: 'task:repair-question',
-        questions: [{
-          question_key: 'repair_choice',
-          prompt: '失败项应取消，还是提供替代数据后重试？',
-          answer_kind: 'text',
-          required: true,
-        }],
-      })
+      .resolves.toMatchObject({ task: { state: 'partial' } })
+    expect(pumpCalls).toBe(0)
   })
 
-  it('returns an Agent-revised plan for reconfirmation instead of retrying an invalid plan', async () => {
+  it('waits for user correction before asking the Agent to revise an invalid partial plan', async () => {
     class RevisionCore {
       readonly calls: string[] = []
       private state = 'partial'
@@ -1517,12 +1561,8 @@ describe('AgentFoundationRuntime', () => {
 
     await runtime.list('project:test')
     await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:revise' }))
-      .resolves.toMatchObject({
-        task: { state: 'awaiting_reconfirmation' },
-        plan: { plan_id: 'plan:revise.v2' },
-        confirmation_state: 'pending',
-      })
-    expect(core.calls).toContain('agent.tasks.yield.accept')
+      .resolves.toMatchObject({ task: { state: 'partial' } })
+    expect(core.calls).not.toContain('agent.tasks.yield.accept')
     expect(core.calls).not.toContain('agent.tasks.execute')
   })
 

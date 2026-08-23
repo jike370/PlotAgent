@@ -283,7 +283,7 @@
         "pattern": "^[a-z][a-z0-9_]{0,63}$",
         "type": "string"
       },
-      "maxItems": 8,
+      "maxItems": 32,
       "title": "Selected Source Aliases",
       "type": "array"
     },

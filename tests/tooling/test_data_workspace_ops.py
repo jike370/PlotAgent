@@ -146,6 +146,39 @@ def test_closed_operations_chain_without_mutating_the_input() -> None:
     assert deduplicated.columns[-1].values == (2000.0, 4000.0, 6000.0)
 
 
+def test_filter_rows_distinguishes_missing_from_nonfinite_numeric_values() -> None:
+    original = view(
+        rows=("row:finite", "row:nan", "row:positive-inf", "row:negative-inf"),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:value",
+                    name="Value",
+                    logical_type="numeric",
+                ),
+                values=(1.0, float("nan"), float("inf"), float("-inf")),
+            ),
+        ),
+    )
+    finite = apply_data_view_operation(
+        FilterRowsOperation(
+            input_handle_id="view:source",
+            predicates=(DataFilterPredicate(field_id="field:value", operator="is_finite"),),
+        ),
+        (original,),
+    )
+    nonfinite = apply_data_view_operation(
+        FilterRowsOperation(
+            input_handle_id="view:source",
+            predicates=(DataFilterPredicate(field_id="field:value", operator="is_not_finite"),),
+        ),
+        (original,),
+    )
+
+    assert finite.row_ids == ("row:finite",)
+    assert nonfinite.row_ids == ("row:nan", "row:positive-inf", "row:negative-inf")
+
+
 def test_reshape_round_trip_and_explicit_aggregate() -> None:
     wide = view(
         rows=("row:1", "row:2"),

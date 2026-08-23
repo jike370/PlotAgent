@@ -117,7 +117,7 @@ function enginePlotFixture(
       ],
     },
     readback: { objects: [{ semantic_id: `series:${token}.primary` }] },
-    preview: { resourceId: 'resource:preview', kind: 'preview', url: 'plotagent-resource://local/00000000-0000-0000-0000-000000000001', mimeType: 'image/png' },
+    preview: { resourceId: `resource:preview-v${plotVersion}`, kind: 'preview', url: `plotagent-resource://local/preview-v${plotVersion}`, mimeType: 'image/png' },
   }
 }
 
@@ -1910,7 +1910,7 @@ describe('PlotAgent real desktop workflow', () => {
     const datasetSwitcher = await screen.findByRole('combobox', { name: '数据表' })
     await user.selectOptions(datasetSwitcher, 'source:pressure')
     await user.selectOptions(datasetSwitcher, 'source:temperature')
-    expect(screen.getByText('2/8')).toBeInTheDocument()
+    expect(screen.getByText('2/32')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -1926,6 +1926,57 @@ describe('PlotAgent real desktop workflow', () => {
         { datasetId: 'source:pressure', sourceVersion: 1 },
       ],
     }))
+  })
+
+  it('keeps more than eight selected sources available to the Agent task', async () => {
+    const user = userEvent.setup()
+    const prepareWorkflow = vi.fn(async (input: unknown) => {
+      void input
+      return ok(workflowResultWithPlan(workflowPlanFixture()))
+    })
+    const manyDatasets = Array.from({ length: 9 }, (_, index) => ({
+      ...dataset,
+      source_dataset_id: `source:batch-${index + 1}`,
+      source_file_name: `batch-${index + 1}.csv`,
+      content_hash: `${index + 1}`.repeat(64).slice(0, 64),
+      fields: dataset.fields.map((field) => ({
+        ...field,
+        field_id: field.field_id.replace('field:', `field:batch-${index + 1}.`),
+      })),
+    }))
+    installApi(fakeDesktop({
+      runWorkflow: prepareWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '九来源项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: manyDatasets },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+
+    const datasetSwitcher = await screen.findByRole('combobox', { name: '数据表' })
+    for (const item of manyDatasets.slice(1)) {
+      await user.selectOptions(datasetSwitcher, item.source_dataset_id)
+    }
+    expect(screen.getByText('9/32')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '选择图形' }))
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '用九个来源绘图')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    await screen.findByRole('heading', { name: '任务计划' })
+    const selectedSources = (prepareWorkflow.mock.calls.at(-1)?.[0] as {
+      selectedSources: readonly unknown[]
+    } | undefined)?.selectedSources
+    expect(selectedSources).toHaveLength(9)
+    expect(selectedSources).toEqual(expect.arrayContaining(manyDatasets.map((item) => ({
+      datasetId: item.source_dataset_id,
+      sourceVersion: 1,
+    }))))
   })
 
   it('authorizes every imported worksheet without parsing a file name from the instruction', async () => {
@@ -2503,13 +2554,16 @@ describe('PlotAgent real desktop workflow', () => {
     await user.type(title, '可撤销标题')
     await user.click(screen.getByRole('button', { name: '应用图标题' }))
     expect(await screen.findByText('版本 v2')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Core 预览/ })).toHaveAttribute('src', 'plotagent-resource://local/preview-v2')
     expect(screen.getByRole('button', { name: '撤销' })).toBeEnabled()
 
     await user.click(screen.getByRole('button', { name: '撤销' }))
     expect(await screen.findByText('版本 v3')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Core 预览/ })).toHaveAttribute('src', 'plotagent-resource://local/preview-v3')
     expect(screen.getByRole('button', { name: '重做' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: '重做' }))
     expect(await screen.findByText('版本 v4')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /Core 预览/ })).toHaveAttribute('src', 'plotagent-resource://local/preview-v4')
 
     for (const format of ['PNG', 'SVG', 'OPJU'] as const) {
       await user.click(screen.getByRole('button', { name: '导出' }))

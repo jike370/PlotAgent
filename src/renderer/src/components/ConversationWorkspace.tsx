@@ -58,6 +58,8 @@ import {
   type MappingSuggestionRole,
 } from './mappingSuggestions'
 
+const MAX_WORKFLOW_SOURCES = 32
+
 export type ScopeMode = 'current' | 'selected'
 
 export interface ProductNotice {
@@ -363,7 +365,7 @@ function DatasetObject({
         </div>
       </section>
       {datasets.length > 1 && <details className="agent-dataset-context">
-        <summary>本次任务数据 <span>{selectedWorkflowSourceIds.length}/8</span></summary>
+        <summary>本次任务数据 <span>{selectedWorkflowSourceIds.length}/{MAX_WORKFLOW_SOURCES}</span></summary>
         <div>
           {datasets.map((dataset) => {
             const active = dataset.datasetId === activeDataset.datasetId
@@ -372,7 +374,7 @@ function DatasetObject({
               <input
                 type="checkbox"
                 checked={selected}
-                disabled={active || (!selected && selectedWorkflowSourceIds.length >= 8)}
+                disabled={active || (!selected && selectedWorkflowSourceIds.length >= MAX_WORKFLOW_SOURCES)}
                 onChange={() => onToggleWorkflowSource(dataset.datasetId)}
               />
               <span><strong>{dataset.displayName}</strong><small>{active ? '当前数据表，始终提供' : `${dataset.rowCount} 行 · ${dataset.fieldCount} 字段`}</small></span>
@@ -637,7 +639,7 @@ function PlotObject({
         <span className={interactive ? 'status-label status-label--success' : 'status-label'}><Check size={13} />{interactive ? (previewMode ? '界面预览' : '已渲染') : '历史版本'}</span>
       </header>
       <div className="product-preview">
-        {plot.preview?.url ? <img src={plot.preview.url} alt={`${plotChart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
+        {plot.preview?.url ? <img key={`${plot.plotId}:${plot.plotVersion}:${plot.preview.resourceId}`} src={plot.preview.url} alt={`${plotChart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
       </div>
       {interactive && <footer className="plot-actions">
         <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>

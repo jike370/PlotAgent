@@ -157,7 +157,7 @@ class WorkflowContext(StrictModel):
     sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=64)] = ()
     fields: Annotated[tuple[WorkflowField, ...], Field(max_length=512)] = ()
     plots: Annotated[tuple[WorkflowPlot, ...], Field(max_length=64)] = ()
-    selected_source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
+    selected_source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=32)] = ()
     selected_plot_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
     selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
     allowed_profile_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
@@ -290,13 +290,15 @@ class FilterPredicate(StrictModel):
         "greater_or_equal",
         "is_missing",
         "is_not_missing",
+        "is_finite",
+        "is_not_finite",
         "in_values",
     ]
     value: WorkflowScalar | tuple[WorkflowScalar, ...] = None
 
     @model_validator(mode="after")
     def operator_value_match(self) -> FilterPredicate:
-        if self.operator in {"is_missing", "is_not_missing"}:
+        if self.operator in {"is_missing", "is_not_missing", "is_finite", "is_not_finite"}:
             if self.value is not None:
                 raise ValueError("missing predicates do not accept a value")
         elif self.operator == "in_values":
@@ -429,7 +431,7 @@ class ConcatenateSources(StrictModel):
         tuple[WorkflowAlias, ...],
         Field(
             min_length=2,
-            max_length=8,
+            max_length=32,
             description="Exact opaque Core source aliases copied from the current context.",
         ),
     ]
@@ -442,7 +444,7 @@ class ConcatenateSources(StrictModel):
             )
         ),
     ] = "source_group"
-    source_labels: Annotated[tuple[WorkflowDisplayLabel, ...], Field(max_length=8)] = ()
+    source_labels: Annotated[tuple[WorkflowDisplayLabel, ...], Field(max_length=32)] = ()
 
     @model_validator(mode="after")
     def unique_sources(self) -> ConcatenateSources:
@@ -460,13 +462,13 @@ class AlignSourcesOnX(StrictModel):
     """Build one wide table from independent series sharing an ordered X domain."""
 
     operation: Literal["align_sources_on_x"] = "align_sources_on_x"
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
-    x_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
-    value_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=8)]
+    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
+    x_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
+    value_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
     output_x_field_alias: WorkflowAlias
     output_x_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
     output_series_fields: Annotated[
-        tuple[WorkflowOutputField, ...], Field(min_length=2, max_length=8)
+        tuple[WorkflowOutputField, ...], Field(min_length=2, max_length=32)
     ]
     numeric_tolerance: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0.0
 
@@ -846,7 +848,7 @@ class TaskDraftItem(StrictModel):
     plot_alias: WorkflowAlias
     profile_id: Token
     target_plot_alias: WorkflowAlias | None = None
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
+    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=32)] = ()
     data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[DraftFieldBinding, ...], Field(max_length=128)] = ()
     visual_actions: Annotated[tuple[DraftVisualAction, ...], Field(max_length=64)] = ()
@@ -965,7 +967,7 @@ class CompiledTaskItem(StrictModel):
     profile_id: Token
     target_plot_id: Token | None = None
     target_plot_version: VersionId | None = None
-    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=8)] = ()
+    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=32)] = ()
     resolved_fields: tuple[ResolvedWorkflowField, ...] = ()
     data_operations: tuple[DataOperation, ...]
     bindings: tuple[ResolvedFieldBinding, ...] = ()

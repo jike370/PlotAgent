@@ -144,7 +144,7 @@ describe('CorePiRuntimeHostV2', () => {
         }
         if (method === 'agent.activations.prepare') {
           return {
-            context: context(current),
+            context: { ...context(current), untrusted_measurement: Number.POSITIVE_INFINITY },
             system_prompt: 'Inspect facts and submit one typed yield.',
             yield_schema: { type: 'object' },
             tools: [{
@@ -168,6 +168,7 @@ describe('CorePiRuntimeHostV2', () => {
     expect(prepared.provider).toEqual({
       baseUrl: 'https://model.test', modelId: 'model', apiKey: 'secret',
     })
+    expect((prepared.context as unknown as Record<string, unknown>).untrusted_measurement).toBe('∞')
     expect(calls[0]?.params).not.toHaveProperty('api_key')
 
     const invocation: ToolInvocation = {

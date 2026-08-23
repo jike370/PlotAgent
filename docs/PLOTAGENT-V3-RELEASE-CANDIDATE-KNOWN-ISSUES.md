@@ -1,46 +1,34 @@
 # PlotAgent 发布候选已知问题
 
-> 本文件只保留当前仍未关闭的问题。已经实现但待回归的事项进入测试矩阵，不继续占用 known issues；历史问题从 Git 追溯。
+> 本文件只保留当前候选仍未关闭的问题。已经完成能力族修复但等待正式桌面证据的事项列为“待定向复测”，不提前记为 PASS；历史问题从 Git 与《PlotAgent 产品测试覆盖审计》追溯。
 
-RC-UI-001 与 RC-UI-002 已在 `a99a416` 后通过正式 Windows Electron 定向复测关闭；关闭证据记录在《PlotAgent 产品测试覆盖审计》第 8 节。
+## 当前实现问题
 
-RC-UI-PROFILE-PROJECTION 与 RC-PACKAGING-ENV 已完成能力族级修复并移入发布覆盖账本：
-前者已在正式打包 Electron 覆盖显式图类、同类批量、异构批量、拒绝恢复和重启恢复；后者已在
-候选 `8903c54` 发布脚本中完成 package 入口和直接 PowerShell 入口复核。
+本轮集中审计后，暂未保留“已知但不修”的实现缺口。旧候选暴露的同源问题已按能力族处理：
 
-## 当前开放问题（2026-08-23 候选定向 UI）
+- 多来源选择不再在第 8 个来源处截断；当前单次任务最多显式选择 32 个来源，合同、桌面上下文和 Composer 使用同一上限。
+- 部分任务完成后不再自动消耗模型轮次并隐藏用户选择；确定性安全重试、接受成功项和自然语言修订保持为三个明确入口。
+- 数值列可显式筛选有限值与非有限值；NaN、正负无穷不会再使 Agent 上下文在 JSON 边界崩溃。
+- 图例编辑状态由同一图例对象的历史动作合并读回，不再因分次设置可见性和位置而显示旧默认值。
+- 撤销、重做和连续编辑后的预览按 plot ID、版本与资源 ID 重新挂载，防止界面保留旧位图。
+- Agent 对 profile 已公开的图类专属参数不得静默遗漏；K21 三角矩阵方向作为代表用例固定为 `lower`、`upper`、`full`。
+- 规划中停止先中止当前模型流，再读取串行 Core 检查点，避免停止操作排在长模型调用之后。
 
-### RC-PACK-FROZEN-BACKENDS
+## 待定向复测
 
-- `8903c54` 打包侧车执行 X38 轴范围编辑时缺少 `matplotlib.backends.backend_svg`。
-- 原因：Matplotlib 按格式动态解析 backend，而 PyInstaller spec 未声明产品公开的 PNG/SVG backend。
-- 修复：spec 显式包含 `backend_agg` 与 `backend_svg`；发布包矩阵新增真实 K01 渲染和 PNG/SVG 哈希验证。
-- 状态：候选 `e434e41` 的扩展打包矩阵已用冻结 Core 真实生成并校验 PNG/SVG，`PACKAGED-CORE-RENDER-EXPORT` 为 PASS；X38 正式 UI 轴范围链路仍待定向复测。
+以下项目需要在本轮新打包 Windows Electron 候选中取得正式 UI 证据；在完成前均为 `UNVERIFIED`，不是产品 `FAIL`：
 
-### RC-PACK-FROZEN-ORIGIN-WORKER
+1. 九个以上来源均可在 UI 中保持选中并传入同一 Agent 任务。
+2. 批量任务发生一项语义失败后保持 `partial`，成功图不重复执行，任务中心显示“保留成功项并结束”；仅对确定性、无副作用失败显示“仅重试失败项”。
+3. 含 NaN/正负无穷的数据可以由 Agent 使用 `is_finite` 整理，不再出现原始 JSON `inf` 报错。
+4. K21 的“只保留下三角”自然语言编辑能形成 `set_chart_parameter(triangle=lower)` 并执行。
+5. 分次编辑图例、标题或轴后，编辑面板读回当前值；撤销、重做时预览与版本同步变化。
+6. 规划中停止能及时生效；时间线仍只向下追加，Composer 仍投影确认图类或“多图任务”。
 
-- `8903c54` 项目 126 OPJU 导出超过 60 秒、无文件，停止后 Core 超时，应用无法正常退出。
-- 原因：冻结 Core 中 `sys.executable -m plotagent...worker` 实际递归启动另一 Core，不会进入 Origin worker。
-- 修复：冻结入口新增唯一 `--origin-worker REQUEST RESPONSE` 模式，源运行时仍使用 Python `-m`；发布包矩阵新增冻结 worker 路由门禁。
-- 状态：候选 `e434e41` 的冻结 worker 入口门禁 PASS，34 图 Origin fresh-reopen 为 `306/306 PASS`；项目 126 正式打包 UI 的真实 OPJU 导出、成功回执和 Origin 新会话编辑仍待复测。
+34 个图类的冻结默认视觉、Origin 原生创建/重开和公共编辑矩阵已在旧候选完成，不因上述公共运行时/UI 修复重复执行。定向复测只覆盖受影响链路；若发现 renderer 或 profile 变化，再使相应视觉证据失效。
 
-### RC-UI-PLAN-REVISION-ENTRY
+## 最终发布证据缺口
 
-- “修改绑定”曾先拒绝计划，再尝试打开只适用于“无现有图”的旧手动映射卡；有现有图时用户只看到计划被拒绝。
-- 修复：保持原计划处于待确认态，提示用户在 Composer 中描述绑定调整，由同一耐久任务生成修订计划并重新确认。
-- 状态：App 完整矩阵现为 `89 PASS / 0 FAIL`，等待新包正式 UI 复测。
-
-RC-AGENT-PLOT-CONTEXT 与 RC-UI-MULTISOURCE-PROVENANCE 已完成族级修复并移入发布覆盖账本：
-选中派生图时会恢复全部不可变来源、数据操作与字段绑定；确认卡按原始来源展示角色证据和
-真实样本。确定性回归与正式 Electron 定向验证均已通过，候选冻结后仍须按账本重跑。
-
-## 当前测试证据缺口
-
-### RC-RUNTIME-STOP-EVIDENCE
-
-确认前取消已经在正式 Electron 中通过，但真实模型约 3 秒内完成规划，没有稳定取得“运行中
-停止”的有效点击证据。该项保持 `UNVERIFIED`，后续用确定性慢响应/可中断 provider 夹具验证
-停止、迟到响应丢弃、输入恢复和重新提交；不能用确认前拒绝替代运行中停止。
-
-详细探索证据见
-`build/pre-release-exploration/619043c/REPORT.md`。
+- 本轮新候选尚未完成上述正式 UI 定向复测。
+- 只有在候选冻结、全量确定性门禁与 UI 定向复测全绿后，才运行唯一一次最终 SEQ-70。
+- SEQ-70 完成前不作发布通过结论，也不得通过重复运行挑选较好结果。

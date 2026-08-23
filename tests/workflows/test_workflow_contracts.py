@@ -262,6 +262,35 @@ def test_concat_operation_preserves_explicit_agent_selected_order() -> None:
     assert operation.source_labels == ("Second", "First")
 
 
+def test_workflow_contract_accepts_more_than_eight_explicit_sources() -> None:
+    aliases = tuple(f"data_{index}" for index in range(1, 10))
+    sources = tuple(
+        WorkflowSource(
+            source_alias=alias,
+            source_dataset_id=f"source:{index}",
+            source_version=1,
+            content_hash=f"{index}" * 64,
+            display_name=f"input-{index}.csv",
+            row_count=2,
+        )
+        for index, alias in enumerate(aliases, start=1)
+    )
+    context = WorkflowContext(
+        workflow_run_id="workflow:nine-sources",
+        project_id="project:test",
+        project_revision=1,
+        instruction="分别处理九个来源",
+        sources=sources,
+        selected_source_aliases=aliases,
+        allowed_profile_ids=("K01",),
+        budget=WorkflowBudget(),
+    )
+    operation = ConcatenateSources(source_aliases=aliases)
+
+    assert context.selected_source_aliases == aliases
+    assert operation.source_aliases == aliases
+
+
 def test_compiler_accepts_agent_declared_concatenate_identity_field() -> None:
     context = _context().model_copy(
         update={

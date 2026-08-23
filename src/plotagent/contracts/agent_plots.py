@@ -110,7 +110,7 @@ class SandboxPlotHandle(StrictModel):
     item_id: TaskItemIdV2 | None = None
     parent_handle_id: SandboxPlotHandleId | None = None
     data_view_handle_id: DataViewHandleId
-    root_sources: Annotated[tuple[EngineDataRef, ...], Field(min_length=1, max_length=8)]
+    root_sources: Annotated[tuple[EngineDataRef, ...], Field(min_length=1, max_length=32)]
     staged_data_hash: Sha256
     document: PlotDocument
     backends: Annotated[tuple[SandboxBackend, ...], Field(min_length=1, max_length=2)]

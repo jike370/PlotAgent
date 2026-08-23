@@ -457,6 +457,14 @@ def _matches(value: WorkflowScalar, predicate: FilterPredicate) -> bool:
         return value is None or (isinstance(value, float) and math.isnan(value))
     if predicate.operator == "is_not_missing":
         return value is not None and not (isinstance(value, float) and math.isnan(value))
+    if predicate.operator == "is_finite":
+        return (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        )
+    if predicate.operator == "is_not_finite":
+        return isinstance(value, float) and not math.isfinite(value)
     if predicate.operator == "in_values":
         assert isinstance(predicate.value, tuple)
         return value in predicate.value

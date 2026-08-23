@@ -218,7 +218,8 @@ describe('product plot state', () => {
         { operation: 'set_axis', target: 'axis:test.y', tick_labels_visible: false, minor_ticks_visible: false, tick_direction: 'inout', axis_line_visible: false },
         { operation: 'set_series_style', target: 'series:test.primary', line_stroke_color: '#123456', line_width_pt: 1.5, marker_size_pt: 7, line_style: 'dash', marker_shape: 'diamond' },
         { operation: 'set_series_style', target: 'series:test.primary', visible: false },
-        { operation: 'set_legend', target: 'legend:test.main', visible: false, anchor: 'right' },
+        { operation: 'set_legend', target: 'legend:test.main', visible: false },
+        { operation: 'set_legend', target: 'legend:test.main', anchor: 'right' },
         { operation: 'add_annotation', target: 'plot:test', annotation_id: 'annotation:test', text: 'Peak', x: 2, y: 5 },
       ],
     })

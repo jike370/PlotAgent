@@ -62,7 +62,7 @@
           "items": {
             "$ref": "#/$defs/WorkflowOutputField"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Output Series Fields",
           "type": "array"
@@ -83,7 +83,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Source Aliases",
           "type": "array"
@@ -93,7 +93,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Value Field Aliases",
           "type": "array"
@@ -103,7 +103,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "X Field Aliases",
           "type": "array"
@@ -901,7 +901,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "minItems": 2,
           "title": "Source Aliases",
           "type": "array"
@@ -920,7 +920,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "maxItems": 8,
+          "maxItems": 32,
           "title": "Source Labels",
           "type": "array"
         }
@@ -1565,6 +1565,8 @@
             "greater_or_equal",
             "is_missing",
             "is_not_missing",
+            "is_finite",
+            "is_not_finite",
             "in_values"
           ],
           "title": "Operator",
