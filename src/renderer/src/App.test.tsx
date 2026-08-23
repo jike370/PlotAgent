@@ -1510,6 +1510,26 @@ describe('PlotAgent real desktop workflow', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成'))
   })
 
+  it('keeps a pending plan alive while the user describes a binding revision', async () => {
+    const user = userEvent.setup()
+    const confirmTaskPlan = vi.fn(async () => ok(batchPlanFixture('ready')))
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture()))),
+      confirmTaskPlan,
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: /创建批次/ }))
+    await user.click(await screen.findByRole('button', { name: '修改绑定' }))
+
+    expect(confirmTaskPlan).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '确认并执行' })).toBeInTheDocument()
+    expect(screen.queryByText('未执行计划，项目未发生更改。')).not.toBeInTheDocument()
+    expect(screen.getByText(/请在输入框说明要修改的字段绑定/)).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '描述绘图要求' })).toBeEnabled()
+  })
+
   it('presents a terminal execution failure as stopped instead of resumable partial work', async () => {
     const user = userEvent.setup()
     installApi(fakeDesktop({

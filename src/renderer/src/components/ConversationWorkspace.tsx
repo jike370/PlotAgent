@@ -1038,6 +1038,7 @@ function ExportResult({
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
   const { project, datasets, activeDataset, selectedChart, plot, exportRecord, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
+  const [planRevisionOpen, setPlanRevisionOpen] = useState(false)
   const [timeline, setTimeline] = useState<ConversationTimelineItem[]>(() => (
     project ? readConversationTimeline(window.localStorage, project.projectId) : []
   ))
@@ -1145,10 +1146,11 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   useEffect(() => {
     if (timeline.length === 0 && busyAction === undefined) return
     queueMicrotask(() => scrollAnchorRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
-  }, [busyAction, timeline.length])
+  }, [busyAction, planRevisionOpen, timeline.length])
 
   const submitInstruction = (instruction: string, selectedPlots: WorkflowPlotSelection[]): void => {
     if (!project) return
+    setPlanRevisionOpen(false)
     const turnId = `turn:${crypto.randomUUID()}`
     activeTurnIdRef.current = turnId
     updateTimeline((current) => [...current, {
@@ -1176,13 +1178,14 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             )}
             {timeline.map((item) => {
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
-              if (item.type === 'plan') return <AgentMessage key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={(planId) => { props.onRejectWorkflowPlan(planId); setManualMappingOpen(true) }} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
+              if (item.type === 'plan') return <AgentMessage key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={() => setPlanRevisionOpen(true)} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
               if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
               return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
+            {planRevisionOpen && <AgentMessage><p>请在输入框说明要修改的字段绑定，例如“X 改为 Time”。我会基于当前计划生成修订版，再请你确认。</p></AgentMessage>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>
