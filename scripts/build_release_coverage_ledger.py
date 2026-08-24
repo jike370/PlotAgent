@@ -144,7 +144,7 @@ def _chart_entry(profile: Any) -> dict[str, Any]:
                 "windows_ui_case": f"BB-RECOVERY-{profile_id}",
                 "required_assertions": [
                     "linear action history",
-                    "undo creates an inverse version",
+                    "undo creates a new exact snapshot version",
                     "redo creates a forward version",
                     "restart restores the same plot id and latest version",
                     "no successful action is executed twice",
