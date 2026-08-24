@@ -262,7 +262,7 @@ Windows UI case。未产生任一必要证据时，该图不能记为发布通�
 | 风险族 | 产品不变量 | 确定性证据 | 正式 UI 状态 |
 |---|---|---|---|
 | 来源选择 | UI、Main、Core 与 workflow 合同均允许超过 8 个显式来源；当前公开上限 32 | 九来源 App/Main/Core/workflow/inspection 合同测试；33 来源稳定拒绝 | PASS；`22e5b13` 正式 UI 9/32、九项计划、九项执行，项目 `v9 → v18` |
-| 部分失败 | 语义失败停在 `partial` 等待用户选择；成功项不重跑；只有无副作用的确定性失败可直接安全重试 | Agent runtime 的稳定 partial、无自动 pump、用户修订与接受成功项测试 | PASS；`4dcc23b` 正式故障夹具完成失败项定向重试且成功项未重跑 |
+| 部分失败 | 完整、`known_none` 且不缺用户事实的语义失败自动进入 Agent scoped repair；缺少事实时追问；成功项不重跑；旧计划不盲重试 | Agent runtime 自动返修、重新确认、缺失事实追问、用户修订与接受成功项测试 | 旧候选 UI 仅证明确定性重试；新候选待正式 UI 证明自动修订计划卡 |
 | 非有限数值 | 缺失值和 NaN/±Inf 语义分离；`is_finite`/`is_not_finite` 可由 Agent 调用，诊断上下文保持 JSON 安全 | 数据操作语义、合同 codegen、Pi host JSON 边界与 Agent 提示测试 | PASS；正式 UI 计划显示 `y is finite` 并成功执行 |
 | 图类专属参数 | profile 已公开的 `set_chart_parameter` 必须能从自然语言进入草稿；不得只在 renderer 存在 | K21 `triangle=lower/upper/full` profile、backend 与 Agent 提示回归 | PASS；正式 UI “只保留下三角”计划及结果 |
 | 编辑读回 | 同一图例对象的分次动作合并读回；版本变化必须重新挂载对应预览资源 | productState 合并读回、编辑→撤销→重做的 v2/v3/v4 预览断言 | PASS；正式 UI 图例分次编辑、标题编辑及撤销/重做 `v8 → v13` |
@@ -271,3 +271,19 @@ Windows UI case。未产生任一必要证据时，该图不能记为发布通�
 | 发布宿主 | 发布入口无论由 Windows PowerShell 还是 `pwsh` 启动，都使用可验证存在的系统 Windows PowerShell 执行离线签名/哈希校验 | 两种宿主下的 release-tools 测试与 `release-windows.ps1 -DryRun` | PASS；`22e5b13` Windows 发布脚本生成 installer 并返回 `UNSIGNED_DEVELOPMENT_VERIFIED` |
 
 本节的发布顺序固定为：全量确定性门禁 → 形成干净候选提交 → 打包 Windows Electron → 只复测上表受影响链路 → 更新本账本与 known issues → 运行唯一一次 SEQ-70。任何定向 UI 产品 FAIL 都会使候选失效并返回能力族审计，不允许边测边逐点修补。
+
+## 12. 2026-08-24 长链路黑盒新增缺口与统一修复
+
+冻结候选长链路继续暴露了四个公共层问题：后改中文标题沿用 profile 的 Latin 字体、
+`@图N` Agent 编辑未进入撤销历史、Core 子进程重启后当前项目未自动重开，以及多来源
+结构错误仍可能把同一失败计划原样交给用户重试。本轮按能力族统一修复，不改任一图类
+renderer、Origin recipe 或默认视觉，因此既有 34 图视觉签名不失效。
+
+确定性门禁已完成：Python `847/847`、Vitest `284/284`、TypeScript、ESLint 和 production
+build 全部通过。进入新候选完整黑盒前，正式 Windows UI 必须定向关闭以下五项：
+
+1. S34 等 profile 在 Agent 后改中文标题时使用可显示 CJK 的字体；
+2. `@图N` 指定单图并确认编辑后，撤销立即可用且生成线性新版本；
+3. Core 被终止并自动拉起后，当前项目、数据表与最新 plot/version 自动恢复；
+4. `WORKFLOW_NON_ISOMORPHIC`、来源未合并和绑定输出缺失不再原样重试，而是形成待重新确认的修订计划；
+5. 任务中心只显示当前 durable 状态，不同时展示“当前不支持”和可重试失败项等矛盾动作。

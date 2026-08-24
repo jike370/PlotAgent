@@ -49,6 +49,7 @@ _TaskErrorCategory = Literal[
 _PLAN_REVISION_REQUIRED_CODES = frozenset(
     {
         "WORKFLOW_BINDING_OUTPUT_MISSING",
+        "WORKFLOW_NON_ISOMORPHIC",
         "WORKFLOW_SOURCES_NOT_COMBINED",
         "WORKFLOW_SOURCE_UNUSED",
     }
@@ -807,7 +808,9 @@ class DurableTaskExecutionService:
         )
         self.ledger.record_tool_receipt(receipt)
         item_state: TaskItemState = (
-            "repairable_failed" if retryable or requires_user else "failed"
+            "repairable_failed"
+            if retryable or requires_user or category == "semantic_conflict"
+            else "failed"
         )
         failed_item = self.ledger.transition_item(
             task_id,
@@ -841,9 +844,10 @@ class DurableTaskExecutionService:
         normalized = code.upper()
         if normalized in _PLAN_REVISION_REQUIRED_CODES:
             # These failures prove that the confirmed structured plan is invalid.
-            # Re-running the immutable plan cannot help: the Agent must stage a
-            # corrected intent and the user must reconfirm it.
-            return "semantic_conflict", False, True
+            # Re-running the immutable plan cannot help. The Agent can inspect
+            # the already-authorized sources and stage a corrected intent; the
+            # user still reconfirms that revised plan before execution.
+            return "semantic_conflict", False, False
         if any(token in normalized for token in ("TIMEOUT", "UNAVAILABLE", "DISCONNECT")):
             return "transient_external", True, False
         if any(token in normalized for token in ("STALE", "REVISION", "CONFLICT")):
@@ -865,7 +869,10 @@ class DurableTaskExecutionService:
                 "CONTRACT",
             )
         ):
-            return "semantic_conflict", False, True
+            # Execution-time data and binding conflicts first go back through a
+            # scoped Agent repair. The repair activation may still ask the user
+            # when the authorized context does not contain the missing fact.
+            return "semantic_conflict", False, False
         return "deterministic_technical", True, False
 
     @staticmethod

@@ -91,6 +91,7 @@ const PLAN_VISIBLE_TASK_STATES = new Set([
 
 const PLAN_REVISION_REQUIRED_ERROR_CODES = new Set([
   'WORKFLOW_BINDING_OUTPUT_MISSING',
+  'WORKFLOW_NON_ISOMORPHIC',
   'WORKFLOW_SOURCES_NOT_COMBINED',
   'WORKFLOW_SOURCE_UNUSED',
 ])
@@ -169,6 +170,24 @@ function hasSafeDeterministicRetry(task: Record<string, unknown>): boolean {
     return !PLAN_REVISION_REQUIRED_ERROR_CODES.has(String(detail.code))
       && detail.category === 'deterministic_technical'
       && detail.retryable === true
+      && detail.requires_user === false
+      && detail.side_effect_state === 'known_none'
+  })
+}
+
+function hasAgentRepairableSemanticFailure(task: Record<string, unknown>): boolean {
+  if (!Array.isArray(task.items)) return false
+  const failed = task.items.flatMap((candidate): Record<string, unknown>[] => {
+    if (candidate === null || typeof candidate !== 'object' || Array.isArray(candidate)) return []
+    const item = candidate as Record<string, unknown>
+    return item.state === 'repairable_failed' ? [item] : []
+  })
+  return failed.length > 0 && failed.every((item) => {
+    const error = item.last_error
+    if (error === null || typeof error !== 'object' || Array.isArray(error)) return false
+    const detail = error as Record<string, unknown>
+    return detail.category === 'semantic_conflict'
+      && detail.retryable === false
       && detail.requires_user === false
       && detail.side_effect_state === 'known_none'
   })
@@ -680,10 +699,13 @@ export class AgentFoundationRuntime {
           this.emit(runId, authority.projectId, 'completed', '失败项可按原计划安全重试')
           return json(view)
         }
-        // A semantic failure is a user decision boundary. Keep the durable
-        // partial state visible so completed items can be accepted or a user
-        // correction can start the scoped repair activation. Automatically
-        // pumping here hides those typed choices and spends an extra model turn.
+        if (hasAgentRepairableSemanticFailure(task)) {
+          this.emit(runId, authority.projectId, 'planning', 'Agent 正在根据失败证据修订计划…')
+          return await this.resumeTask(authority.taskId)
+        }
+        // Missing semantic facts and uncertain side effects remain an explicit
+        // user boundary; only failures fully explained by authorized evidence
+        // enter the automatic scoped repair above.
         this.emit(runId, authority.projectId, 'completed', '成功项已保留，失败项等待处理')
         return json(view)
       }
@@ -811,9 +833,9 @@ export class AgentFoundationRuntime {
         '这项任务正在运行，无需再次继续。',
       )
     }
-    if (!['created', 'investigating', 'intent_staged', 'repairing', 'blocked'].includes(
-      string(task.state, 'task state'),
-    )) {
+    const state = string(task.state, 'task state')
+    const automaticSemanticRepair = state === 'partial' && hasAgentRepairableSemanticFailure(task)
+    if (!automaticSemanticRepair && !['created', 'investigating', 'intent_staged', 'repairing', 'blocked'].includes(state)) {
       throw new AgentFoundationRuntimeError(
         'AGENT_V2_TASK_RESUME_UNAVAILABLE',
         '这项任务当前不需要恢复 Agent 规划，请按任务卡上的可用操作继续。',

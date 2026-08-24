@@ -136,7 +136,11 @@ class MatplotlibBackend:
                     "axes.unicode_minus": False,
                 }
             ),
-            apply_visuals_before_save(document, visual_actions),
+            apply_visuals_before_save(
+                document,
+                visual_actions,
+                resolved_font_family=font_family,
+            ),
         ):
             readback = renderer.render(
                 document,

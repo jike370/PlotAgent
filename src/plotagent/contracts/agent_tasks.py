@@ -404,11 +404,8 @@ class TaskError(StrictModel):
 
     @model_validator(mode="after")
     def category_matches_recovery_flags(self) -> TaskError:
-        if (
-            self.category in {"semantic_conflict", "safety_or_permission"}
-            and not self.requires_user
-        ):
-            raise ValueError("semantic and permission errors require user involvement")
+        if self.category == "safety_or_permission" and not self.requires_user:
+            raise ValueError("permission errors require user involvement")
         if self.category in {"unsupported", "safety_or_permission"} and self.retryable:
             raise ValueError("unsupported and permission errors cannot be blindly retried")
         return self

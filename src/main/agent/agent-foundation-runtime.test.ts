@@ -1490,7 +1490,7 @@ describe('AgentFoundationRuntime', () => {
     expect(pumpCalls).toBe(0)
   })
 
-  it('waits for user correction before asking the Agent to revise an invalid partial plan', async () => {
+  it('automatically asks the Agent to revise an invalid partial plan', async () => {
     class RevisionCore {
       readonly calls: string[] = []
       private state = 'partial'
@@ -1516,7 +1516,7 @@ describe('AgentFoundationRuntime', () => {
                       code: 'WORKFLOW_SOURCES_NOT_COMBINED',
                       category: 'semantic_conflict',
                       retryable: false,
-                      requires_user: true,
+                      requires_user: false,
                       side_effect_state: 'known_none',
                     }
                   : null,
@@ -1544,6 +1544,21 @@ describe('AgentFoundationRuntime', () => {
                 },
               }
             : { kind: 'wait', reason: 'awaiting_reconfirmation', task_state: 'awaiting_reconfirmation' }
+        }
+        if (method === 'agent.tasks.get') {
+          return {
+            task_id: 'task:revise', task_version: 8, state: 'partial',
+            items: [{
+              item_id: 'item:revise.1', state: 'repairable_failed', attempt_count: 1,
+              last_error: {
+                code: 'WORKFLOW_SOURCES_NOT_COMBINED',
+                category: 'semantic_conflict',
+                retryable: false,
+                requires_user: false,
+                side_effect_state: 'known_none',
+              },
+            }],
+          }
         }
         if (method === 'agent.tasks.activation.running') return { state: 'repairing' }
         if (method === 'agent.tasks.yield.accept') {
@@ -1581,8 +1596,8 @@ describe('AgentFoundationRuntime', () => {
 
     await runtime.list('project:test')
     await expect(runtime.execute({ projectId: 'project:test', planId: 'plan:revise' }))
-      .resolves.toMatchObject({ task: { state: 'partial' } })
-    expect(core.calls).not.toContain('agent.tasks.yield.accept')
+      .resolves.toMatchObject({ task: { state: 'awaiting_reconfirmation' } })
+    expect(core.calls).toContain('agent.tasks.yield.accept')
     expect(core.calls).not.toContain('agent.tasks.execute')
   })
 

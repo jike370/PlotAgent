@@ -569,6 +569,28 @@ def test_matplotlib_shared_visual_language_edits_native_artists() -> None:
     plt.close(figure)
 
 
+def test_matplotlib_cjk_edit_replaces_a_profile_local_latin_font() -> None:
+    figure, axis = plt.subplots()
+    axis.set_title("Nyquist Plot", fontfamily="DejaVu Sans")
+    action = SetTitle(
+        action_id="action:cjk-title",
+        target="plot:t1",
+        expected_plot_version=1,
+        text="最终黑盒 S34",
+    )
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (action,),
+        resolved_font_family="Microsoft YaHei",
+    )
+
+    assert axis.get_title() == "最终黑盒 S34"
+    assert axis.title.get_fontfamily() == ["Microsoft YaHei"]
+    plt.close(figure)
+
+
 def test_matplotlib_legend_columns_have_native_property_evidence() -> None:
     figure, axis = plt.subplots()
     right = axis.twinx()

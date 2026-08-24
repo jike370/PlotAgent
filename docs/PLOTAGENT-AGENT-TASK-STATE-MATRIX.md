@@ -135,7 +135,7 @@
 | SM-63 | 追问后补充结构化上下文 | `awaiting_input` → 用户选择 source/profile/精确 plot version → `answered` → `investigating` | 同一 task 的 durable context 被更新；原始 envelope 不变；重启后继续使用新选择，不能只记录聊天文本 | `tests/tasking/test_task_ledger.py::test_user_answer_durably_replaces_effective_context_without_mutating_envelope`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `continues the same durable task after the reply`、`src/renderer/src/App.test.tsx` 中 `continues a pending question with the exact plot selected by an @ mention` 与 `keeps a pending task when chart selection answers the Agent question` |
 | SM-64 | 多来源多问题单轮续答 | `awaiting_input` + 多个字段问题 → 一段自然语言同时回答 → `answered` → `investigating` | JSON 中的 source/profile/plot 数组必须按严格合同持久化；沿用同一 task；合法数组不能在模型运行前被参数层拒绝 | `tests/desktop_core/test_application.py::test_agent_task_answer_accepts_json_selection_arrays_in_context_update`、`src/renderer/src/App.test.tsx` 中 `continues a multi-source task after one reply answers several binding questions` |
 | SM-65 | 数据更新完整撤销与重做 | 已有图版本 N → `update_data` 生成 N+1 → 撤销生成 N+2 → 重做生成 N+3 | 历史项保存更新前后完整不可变 `data` 与 `bindings`；撤销先逆转同轮视觉动作再恢复旧绑定，重做先恢复新绑定再重放视觉动作；禁止只恢复部分字段 | `src/renderer/src/data/plotHistory.test.ts::restores the complete previous data reference and bindings before redoing a data update`、`src/renderer/src/App.test.tsx::undoes and redoes an Agent data update with complete bind_fields snapshots` |
-| SM-66 | 语义部分失败等待用户决策 | 执行返回 `partial` 且不存在确定性安全重试 → 保持 `partial` | 不自动启动修复 Agent、不重复成功项；任务中心公开“保留成功项并结束”，用户自然语言修改才启动同一任务的 scoped repair | `src/main/agent/agent-foundation-runtime.test.ts::keeps a semantic partial result stable until the user requests repair`、`does not spend a repair model turn before the user chooses how to handle a partial result`、`waits for user correction before asking the Agent to revise an invalid partial plan` |
+| SM-66 | 语义部分失败分流 | `partial` + 完整失败证据 + `known_none` + 不需用户事实 → 自动 scoped repair；否则保持 `partial/awaiting_input` | 不按旧计划重试、不重复成功项；证据充分时 Agent 修订并重新确认，缺少语义事实时才交还用户 | `src/main/agent/agent-foundation-runtime.test.ts` 中 `automatically asks the Agent to revise an invalid partial plan before returning to the user`；`tests/desktop_core/test_application.py::test_agent_v2_scoped_repair_can_request_missing_semantic_input` |
 | SM-67 | 规划中即时停止 | active planning pump → 用户停止 → provider abort → Core cancel checkpoint | 必须先中止模型流，再等待串行 Core 状态；停止请求不能排在其要终止的长模型调用之后 | `src/main/agent/agent-foundation-runtime.test.ts::aborts the active planning pump before waiting for the serialized Core checkpoint` |
 
 ## 4. 一次性缺口审计结论
@@ -169,7 +169,7 @@
 25. 执行期若仍发现结构性计划错误，将其分类为需要修订的语义冲突，自动再激活 Agent 生成下一版 intent；旧计划不得直接重放，修订计划必须重新确认。
 26. 续轮回答的结构化 source/profile/plot 选择进入 durable `UserTaskEvent`；Core 以事件折叠得到有效 envelope，前端选择、Main 内存和聊天文案不再形成互相割裂的上下文。
 27. JSON RPC 边界统一按 JSON 模式校验严格不可变合同；多来源、多图和多 profile 的数组不得以 Python `list`/合同 `tuple` 的表示差异被误拒绝，并以真实多问题续答链路做跨层回归。
-28. 将语义部分失败冻结为用户决策边界：产品不得在用户选择前自动消耗修复模型轮次；只有已证明无副作用的确定性失败可直接展示安全重试。
+28. 将语义部分失败按证据充分性分流：完整、无副作用且不缺用户事实的失败自动进入受限 Agent 修订；缺少语义事实或副作用不确定时才停在用户决策边界。两者都不得把旧计划当作确定性重试直接重放。
 29. 规划中停止先中止当前 provider 流，再读取 Core 检查点并提交取消事件；避免串行通道把停止排到长调用之后。
 
 ## 5. 冻结门禁

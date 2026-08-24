@@ -269,6 +269,8 @@ export function App(): React.JSX.Element {
   const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
   const importInFlight = useRef(false)
   const agentRequestGeneration = useRef(0)
+  const workflowHistorySources = useRef(new Map<string, ProductPlot>())
+  const corePhaseRef = useRef<CoreStatus['phase']>(initialCore.phase)
 
   useEffect(() => {
     if (notice?.kind !== 'success') return
@@ -650,14 +652,68 @@ export function App(): React.JSX.Element {
     }
   }, [api, busyAction, clearWorkspace, project])
 
+  const restoreProjectAfterCoreRestart = useEffectEvent(async (): Promise<void> => {
+    if (!api || !project) return
+    const projectId = project.projectId
+    setBusyAction('core-recovery')
+    setNotice({ kind: 'warning', title: '正在恢复项目', message: '本地 Core 已重启，正在重新打开当前项目。' })
+    try {
+      const opened = valueOrThrow(await api.activateProject({ projectId }))
+      const nextProject = projectWithVersion(project, projectVersionFrom(opened, project.projectVersion))
+      setProject(nextProject)
+      mergeProjects([nextProject])
+
+      const listed = valueOrThrow(await api.listDatasets({ projectId }))
+      const restoredDatasets = disambiguateDatasetDisplayNames(readDatasets(listed))
+      const availableIds = new Set(restoredDatasets.map((dataset) => dataset.datasetId))
+      setDatasets(restoredDatasets)
+      setActiveDatasetId((current) => (
+        current !== undefined && availableIds.has(current)
+          ? current
+          : restoredDatasets[0]?.datasetId
+      ))
+      setWorkflowSourceIds((current) => current.filter((id) => availableIds.has(id)))
+
+      const recovery = await recoverLatestPlot(projectId)
+      setPlot(recovery.plot)
+      setProjectPlots(recovery.plots)
+      setPreviousPlot(undefined)
+      setSelectedChart(recovery.plot
+        ? chartCatalog.find((chart) => chart.id === recovery.plot?.chartId)
+        : selectedChart)
+      setNotice(recovery.notice ?? {
+        kind: 'success',
+        title: '项目已恢复',
+        message: '本地 Core 已重新连接，当前项目和图形版本已恢复。',
+      })
+    } catch (error) {
+      setNotice({
+        kind: 'error',
+        title: '项目恢复未完成',
+        message: `${errorNotice(error).message} 请从左侧重新打开项目。`,
+      })
+    } finally {
+      setBusyAction((current) => current === 'core-recovery' ? undefined : current)
+    }
+  })
+
+  const projectCoreStatus = useEffectEvent((status: CoreStatus): void => {
+    const previous = corePhaseRef.current
+    corePhaseRef.current = status.phase
+    setCore(status)
+    if (status.phase === 'ready' && previous !== 'ready' && project !== undefined) {
+      void restoreProjectAfterCoreRestart()
+    }
+  })
+
   useEffect(() => {
     if (!api) return
     let active = true
     void api.getBootstrap().then((bootstrap) => {
       if (!active) return
-      setCore(bootstrap.core)
+      projectCoreStatus(bootstrap.core)
     }).catch((error: unknown) => { if (active) setNotice(errorNotice(error)) })
-    const unsubCore = api.onCoreStatus((status) => setCore(status))
+    const unsubCore = api.onCoreStatus(projectCoreStatus)
     const unsubTasks = api.onTaskEvent((event) => setTaskEvents((current) => ({ ...current, [event.taskId]: event })))
     const unsubAgentRuntime = api.onWorkflowRuntimeEvent((event) => setAgentRuntimeEvent(event))
     const unsubOpen = api.onOpenResourceRequested((request) => {
@@ -1008,6 +1064,12 @@ export function App(): React.JSX.Element {
         : undefined
     if (!api) return
     pendingAgentRequest.current = undefined
+    const selectedHistorySource = selectedPlots.length === 1
+      ? [plot, ...projectPlots].find((candidate) => (
+          candidate?.plotId === selectedPlots[0].plotId
+          && candidate.plotVersion === selectedPlots[0].plotVersion
+        ))
+      : selectedPlots.length === 0 ? plot : undefined
     const requestGeneration = agentRequestGeneration.current + 1
     agentRequestGeneration.current = requestGeneration
     setBusyAction('agent'); setWorkflowOutcome(undefined); setWorkflowPlan(undefined); setNotice(undefined)
@@ -1038,6 +1100,9 @@ export function App(): React.JSX.Element {
       if (agentRequestGeneration.current !== requestGeneration) return
       mergeDurableResult(value)
       const outcome = readWorkflowOutcome(value)
+      if (outcome.plan && selectedHistorySource) {
+        workflowHistorySources.current.set(outcome.plan.planId, selectedHistorySource)
+      }
       projectWorkflowPlan(outcome.plan)
       setWorkflowOutcome(outcome)
     } catch (error) {
@@ -1081,9 +1146,13 @@ export function App(): React.JSX.Element {
     return nextPlot
   }
 
-  const executeWorkflowPlan = async (planId: string, resume = false): Promise<void> => {
+  const executeWorkflowPlan = async (
+    planId: string,
+    resume = false,
+    historySourceOverride?: ProductPlot,
+  ): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
-    const historySourcePlot = plot && workflowPlan?.planId === planId ? plot : undefined
+    const historySourcePlot = historySourceOverride ?? plot
     setBusyAction('agent-plan')
     setNotice(undefined)
     setWorkflowPlan((current) => current?.planId === planId ? { ...current, state: 'running' } : current)
@@ -1127,6 +1196,9 @@ export function App(): React.JSX.Element {
       if ((plan.state === 'succeeded' || plan.state === 'completed_with_skips') && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
         setRedoStack([])
+      }
+      if (plan.state === 'succeeded' || plan.state === 'completed_with_skips' || plan.state === 'failed') {
+        workflowHistorySources.current.delete(planId)
       }
       setWorkflowOutcome({
         kind: 'task_plan',
@@ -1242,6 +1314,10 @@ export function App(): React.JSX.Element {
 
   const confirmWorkflowPlan = async (planId: string): Promise<void> => {
     if (!api || !project || busyAction !== undefined) return
+    // React state projection of the confirmed plan is asynchronous. Preserve the
+    // exact pre-execution plot here instead of trying to recover it from the next
+    // render, otherwise Agent edits never enter the shared undo history.
+    const historySourcePlot = workflowHistorySources.current.get(planId) ?? plot
     setBusyAction('agent-plan')
     let confirmedPlan: WorkflowPlanView | undefined
     try {
@@ -1259,7 +1335,7 @@ export function App(): React.JSX.Element {
     }
     setBusyAction(undefined)
     if (confirmedPlan?.state === 'succeeded') return
-    await executeWorkflowPlan(planId)
+    await executeWorkflowPlan(planId, false, historySourcePlot)
   }
 
   const rejectWorkflowPlan = async (planId: string): Promise<void> => {
@@ -1274,6 +1350,7 @@ export function App(): React.JSX.Element {
       }
       if (rejectedPlan) setWorkflowPlan(rejectedPlan)
       else setWorkflowPlan(undefined)
+      workflowHistorySources.current.delete(planId)
       setComposerProjection(undefined)
       const retainedCount = rejectedPlan?.completedCount ?? 0
       setWorkflowOutcome({

@@ -904,6 +904,7 @@ export function readWorkflowOutcome(value: JsonValue): WorkflowOutcome {
 
 const planRevisionRequiredErrorCodes = new Set([
   'WORKFLOW_BINDING_OUTPUT_MISSING',
+  'WORKFLOW_NON_ISOMORPHIC',
   'WORKFLOW_SOURCES_NOT_COMBINED',
   'WORKFLOW_SOURCE_UNUSED',
 ])

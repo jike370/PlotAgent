@@ -2252,7 +2252,13 @@ def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
 def test_multi_source_plan_structure_failure_requires_agent_revision() -> None:
     assert DurableTaskExecutionService._classify_failure(
         "WORKFLOW_SOURCES_NOT_COMBINED"
-    ) == ("semantic_conflict", False, True)
+    ) == ("semantic_conflict", False, False)
+    assert DurableTaskExecutionService._classify_failure(
+        "WORKFLOW_NON_ISOMORPHIC"
+    ) == ("semantic_conflict", False, False)
+    assert DurableTaskExecutionService._classify_failure(
+        "ValueError"
+    ) == ("semantic_conflict", False, False)
 
 
 def _dataset_and_fields(imported: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:

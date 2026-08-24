@@ -579,6 +579,30 @@ describe('PlotAgent real desktop workflow', () => {
     expect(api.listProjects).toHaveBeenCalledTimes(1)
   })
 
+  it('automatically reopens the active project after the Core restarts', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop({
+      listPlots: vi.fn(async () => ok({
+        project_version: 2,
+        plots: [enginePlotFixture('plot:one', 1, 'K01', 2)],
+      })),
+      getPlot: vi.fn(async () => ok(enginePlotFixture('plot:one', 1, 'K01', 2))),
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+    await waitFor(() => expect(coreListener).toBeDefined())
+
+    await act(async () => {
+      coreListener?.({ phase: 'starting', restartAttempt: 1 })
+      coreListener?.({ phase: 'ready', restartAttempt: 1 })
+    })
+
+    await waitFor(() => expect(api.activateProject).toHaveBeenCalledWith({ projectId: 'project:sample' }))
+    expect(await screen.findByText('项目已恢复')).toBeInTheDocument()
+    expect(screen.getAllByRole('img', { name: /真实渲染预览/ }).length).toBeGreaterThan(0)
+  })
+
   it('starts with three local entry points and no account or invitation gate', async () => {
     render(<App />)
   expect(await screen.findByRole('region', { name: '开始使用 PlotAgent' })).toBeInTheDocument()
@@ -2624,6 +2648,40 @@ describe('PlotAgent real desktop workflow', () => {
     expect(resumeWorkflowPlan).toHaveBeenCalledWith({ projectId: 'project:sample', planId: 'plan:one' })
     expect(await screen.findByText('更改已保存')).toBeInTheDocument()
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
+  })
+
+  it('records a confirmed Agent edit in the same undo history as panel edits', async () => {
+    const user = userEvent.setup()
+    const api = fakeDesktop({
+      executePlotAction: vi.fn(async (input) => ok(enginePlotFixture(
+        'plot:one',
+        1,
+        'K01',
+        2,
+        [input.action],
+      ))),
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
+      runTaskPlan: vi.fn(async () => ok({
+        task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }),
+      })),
+      getPlot: vi.fn(async () => ok(enginePlotFixture(
+        'plot:one',
+        2,
+        'K01',
+        3,
+        [{ operation: 'set_title', target: 'plot:one', text: '更新后的标题' }],
+      ))),
+    })
+    installApi(api)
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '@图1 把标题改成更新后的标题')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '撤销本轮修改' })).toBeEnabled())
   })
 
   it('sends a natural-language partial repair back to the same durable task', async () => {

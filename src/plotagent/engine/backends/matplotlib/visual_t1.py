@@ -25,6 +25,7 @@ from matplotlib.image import AxesImage
 from matplotlib.lines import Line2D
 from matplotlib.markers import MarkerStyle
 from matplotlib.patches import Patch
+from matplotlib.text import Text
 from matplotlib.ticker import (
     AutoMinorLocator,
     FuncFormatter,
@@ -47,6 +48,8 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.visual_t1 import effective_visual_actions
+
+from .font import contains_cjk_text
 
 _LINE_STYLES: dict[str, Any] = {
     "solid": "-",
@@ -94,6 +97,8 @@ _PALETTES = {
 def apply_visuals_before_save(
     document: PlotDocument,
     actions: tuple[PlotEngineAction, ...],
+    *,
+    resolved_font_family: str | None = None,
 ) -> Iterator[None]:
     """Apply shared visuals exactly once immediately before a figure is saved.
 
@@ -108,7 +113,12 @@ def apply_visuals_before_save(
 
     def savefig(figure: Figure, *args: object, **kwargs: object) -> Any:
         if figure not in applied:
-            apply_visual_actions(figure, document, actions)
+            apply_visual_actions(
+                figure,
+                document,
+                actions,
+                resolved_font_family=resolved_font_family,
+            )
             applied.add(figure)
         return original(figure, *args, **kwargs)
 
@@ -123,6 +133,8 @@ def apply_visual_actions(
     figure: Figure,
     document: PlotDocument,
     actions: tuple[PlotEngineAction, ...],
+    *,
+    resolved_font_family: str | None = None,
 ) -> None:
     for action in effective_visual_actions(actions):
         if isinstance(action, SetTitle):
@@ -143,6 +155,14 @@ def apply_visual_actions(
             _apply_annotation(figure, action)
         else:  # pragma: no cover - split_visual_actions is the closed dispatcher
             raise TypeError(f"unsupported Matplotlib visual action {action.operation}")
+    # Profile renderers may create their initial Latin labels inside a local
+    # rc_context. A later Agent edit can replace one with CJK text while the Text
+    # object keeps the old font. The backend already resolved one font covering
+    # every visible glyph, so normalize CJK-bearing artists after all edits.
+    if resolved_font_family is not None:
+        for text in figure.findobj(match=Text):
+            if contains_cjk_text(text.get_text()):
+                text.set_fontfamily(resolved_font_family)
 
 
 def _data_axes(figure: Figure) -> list[Axes]:

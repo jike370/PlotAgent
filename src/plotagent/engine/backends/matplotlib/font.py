@@ -31,6 +31,12 @@ def _is_cjk(codepoint: int) -> bool:
     )
 
 
+def contains_cjk_text(text: str) -> bool:
+    """Return whether text needs the shared CJK-capable renderer font."""
+
+    return any(_is_cjk(ord(character)) for character in text)
+
+
 def _supports(path: Path, codepoints: frozenset[int]) -> bool:
     try:
         face = FT2Font(path)
