@@ -59,10 +59,12 @@ DataOperation 使用严格 Pydantic discriminated union。Agent 可通过预演�
 - `sort_rows`：稳定多键排序，保存缺失值位置策略。
 - `exclude_rows`：只排除预览中已明确确认的零基行位置；越界或清空全部数据即失败。
 - `drop_empty_fields`：只删除已指定且全为空/空白的字段；字段出现任何有效值即失败。
-- `convert_type`：按显式小数点、千位符、日期格式或布尔字典严格生成新字段；首个非法 token 连同来源行稳定报错，禁止转成 missing。
+- `convert_type`：按显式小数点、千位符、日期格式或布尔字典严格生成新字段；首个非法 token 连同来源行稳定报错，禁止转成 missing。日期文本转数值不是普通 numeric parse：只有显式给出 `datetime_format` 和 `datetime_numeric_mode=ordinal_day` 时才生成日序数，并把单位记为 `day`。
 - `reshape_long_to_wide` / `reshape_wide_to_long`：不隐式聚合重复键。
 - `concatenate_sources`：仅拼接兼容来源，保留来源标签。
 - `align_sources_on_x`：把多个独立来源整理为“一个共同 X + 每来源一个数值系列”的宽表；保持第一个来源的行序，逐项验证 X 值、类型和单位，不排序、不插值、不截断。
+
+以上确定性操作一旦在确认后因数据内容、类型、形状或对齐关系失败，原确认计划即被证明无效；Core 必须把失败交回 Agent 修订或追问，不得原样重放同一操作序列。
 - `derive_column`：只允许注册表内有类型、量纲和确定性实现的算子。
 - `convert_unit`：只允许单位注册表内的量纲兼容转换，产生新字段或明确替换派生字段。
 

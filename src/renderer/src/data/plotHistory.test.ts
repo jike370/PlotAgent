@@ -159,6 +159,33 @@ describe('plot history', () => {
     })
   })
 
+  it('restores automatic bounds exactly after a fixed-range edit', () => {
+    expect(plotHistoryEntry(plot, [{
+      operation: 'set_axis', target: 'axis:y', minimum: 10, maximum: 20,
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_axis', target: 'axis:y', bounds_mode: 'automatic',
+      }],
+      redoActions: [{
+        operation: 'set_axis', target: 'axis:y', minimum: 10, maximum: 20,
+      }],
+    })
+
+    const fixed = {
+      ...plot,
+      axisStates: {
+        y: { ...plot.axisStates.y, minimum: 2, maximum: 8 },
+      },
+    } as ProductPlot
+    expect(plotHistoryEntry(fixed, [{
+      operation: 'set_axis', target: 'axis:y', bounds_mode: 'automatic',
+    }])).toMatchObject({
+      undoActions: [{
+        operation: 'set_axis', target: 'axis:y', bounds_mode: 'fixed', minimum: 2, maximum: 8,
+      }],
+    })
+  })
+
   it('refuses a partial undo when an action contains parameters without an exact inverse', () => {
     expect(plotHistoryEntry(plot, [{
       operation: 'set_title', target: 'plot:one', text: '新标题', font_size_pt: 14,

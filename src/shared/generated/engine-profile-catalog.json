@@ -4733,10 +4733,7 @@
           "numeric"
         ],
         "x": [
-          "numeric",
-          "categorical",
-          "datetime",
-          "text"
+          "numeric"
         ]
       }
     },

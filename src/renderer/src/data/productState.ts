@@ -711,6 +711,10 @@ export function readPlot(value: JsonValue): ProductPlot | undefined {
   )
   const mergedActionTarget = (operation: string, target: string): JsonRecord => (
     actionTarget(operation, target).reduce<JsonRecord>((result, action) => {
+      if (operation === 'set_axis' && action.bounds_mode === 'automatic') {
+        delete result.minimum
+        delete result.maximum
+      }
       for (const [key, value] of Object.entries(action)) {
         if (value !== null && value !== undefined) result[key] = value
       }
@@ -1113,6 +1117,7 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     completedCount: steps.filter((step) => step.state === 'succeeded').length,
     resumable: state === 'partially_succeeded'
       && steps.some((step) => step.failure?.retryable === true
+        && step.attemptCount < 2
         && !planRevisionRequiredErrorCodes.has(step.failure.code)
         && step.failure.category === 'deterministic_technical'
         && step.failure.requiresUser !== true

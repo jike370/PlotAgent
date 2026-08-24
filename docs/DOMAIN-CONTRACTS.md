@@ -40,6 +40,8 @@ renderer 不读取导入器内部对象，也不写回原始数据。
 
 每个变更动作包含稳定 `action_id`、精确 target 和期望图版本。Profile 能力目录在调用 backend 前验证字段、对象类型、参数名、范围与支持性。未声明能力必须稳定拒绝。底层兼容联合中仍存在 `add_annotation` 类型，但当前 34 个 Profile 均不声明该能力，因此不属于公共动作。
 
+`set_axis` 的范围语义同时包含固定上下限和显式 `bounds_mode=automatic`。后者不是“省略参数”，而是一个可持久化、可读回的动作，用于把固定范围精确恢复为数据驱动范围；因此包含轴范围的 Agent 编辑也能完整撤销、重做，而不是只撤销同轮的其他视觉参数。
+
 ## 4. 后端端口
 
 `PlotBackend` 只接受 `EngineRenderSource`，返回 `EngineReadback` 与正式 `EngineArtifact`。读回记录文档版本、数据哈希、对象状态和 backend 原生证据。Matplotlib 与 Origin 可使用不同内部结构，但不能改变字段身份、系列身份或动作语义。

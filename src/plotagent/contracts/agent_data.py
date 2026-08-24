@@ -172,6 +172,7 @@ class ConvertTypeOperation(StrictModel):
         ]
         | None
     ) = None
+    datetime_numeric_mode: Literal["ordinal_day"] | None = None
     true_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     false_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     case_sensitive: bool = False
@@ -186,16 +187,28 @@ class ConvertTypeOperation(StrictModel):
         ):
             raise ValueError("decimal and thousands separators must differ")
         if self.target_type == "numeric":
-            if self.decimal_separator is None:
-                raise ValueError("numeric conversion requires an explicit decimal separator")
-            if self.datetime_format or self.true_values or self.false_values:
-                raise ValueError("numeric conversion cannot carry non-numeric options")
+            if self.datetime_numeric_mode is None:
+                if self.decimal_separator is None:
+                    raise ValueError("numeric conversion requires an explicit decimal separator")
+                if self.datetime_format is not None:
+                    raise ValueError("numeric datetime format requires datetime_numeric_mode")
+            else:
+                if self.datetime_format is None:
+                    raise ValueError("ordinal-day conversion requires an explicit datetime format")
+                if self.decimal_separator is not None or self.thousands_separator is not None:
+                    raise ValueError("ordinal-day conversion cannot carry numeric separators")
+            if self.true_values or self.false_values:
+                raise ValueError("numeric conversion cannot carry boolean options")
         elif self.target_type == "datetime":
+            if self.datetime_numeric_mode is not None:
+                raise ValueError("datetime target cannot carry a numeric datetime mode")
             if self.datetime_format is None:
                 raise ValueError("datetime conversion requires an explicit format")
             if self.decimal_separator or self.thousands_separator:
                 raise ValueError("datetime conversion cannot carry numeric separators")
         elif self.target_type == "boolean":
+            if self.datetime_numeric_mode is not None:
+                raise ValueError("boolean conversion cannot carry a numeric datetime mode")
             if not self.true_values or not self.false_values:
                 raise ValueError("boolean conversion requires true and false values")
             normalized_true = tuple(
@@ -215,6 +228,7 @@ class ConvertTypeOperation(StrictModel):
                 self.datetime_format,
                 self.true_values,
                 self.false_values,
+                self.datetime_numeric_mode,
             )
         ):
             raise ValueError("text and categorical conversion do not accept parsing options")

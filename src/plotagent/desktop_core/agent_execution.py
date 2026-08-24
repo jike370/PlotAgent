@@ -856,6 +856,12 @@ class DurableTaskExecutionService:
             return "unsupported", False, False
         if any(token in normalized for token in ("PERMISSION", "AUTHORITY", "SCOPE")):
             return "safety_or_permission", False, True
+        if normalized.startswith("WORKFLOW_"):
+            # Workflow validation/data-operation failures are deterministic for
+            # the immutable confirmed plan. Replaying that plan cannot change
+            # its fields, operation order or data, so the Agent must revise it
+            # (or ask the user) instead of exposing an unchanged retry loop.
+            return "semantic_conflict", False, False
         if any(
             token in normalized
             for token in (

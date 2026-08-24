@@ -261,6 +261,7 @@ class SetAxis(VersionedPlotAction):
     target: SemanticObjectId
     label: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
     scale: Literal["linear", "log10", "datetime", "categorical"] | None = None
+    bounds_mode: Literal["automatic", "fixed"] | None = None
     minimum: FiniteNumber | None = None
     maximum: FiniteNumber | None = None
     reverse: bool | None = None
@@ -294,6 +295,14 @@ class SetAxis(VersionedPlotAction):
     def valid_axis_edit(self) -> SetAxis:
         if not self.target.startswith("axis:"):
             raise ValueError("set_axis requires an axis target")
+        if self.bounds_mode == "automatic" and (
+            self.minimum is not None or self.maximum is not None
+        ):
+            raise ValueError("automatic axis bounds cannot include fixed limits")
+        if self.bounds_mode == "fixed" and (
+            self.minimum is None or self.maximum is None
+        ):
+            raise ValueError("fixed axis bounds require minimum and maximum")
         if (self.minimum is None) != (self.maximum is None):
             raise ValueError("axis bounds must both be fixed or both be automatic")
         if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:
@@ -303,6 +312,7 @@ class SetAxis(VersionedPlotAction):
             for value in (
                 self.label,
                 self.scale,
+                self.bounds_mode,
                 self.minimum,
                 self.maximum,
                 self.reverse,

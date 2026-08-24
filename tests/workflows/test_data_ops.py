@@ -560,6 +560,45 @@ def test_type_conversion_reports_the_exact_source_row_instead_of_coercing_to_mis
     assert "'bad'" in caught.value.message
 
 
+def test_workflow_date_conversion_uses_explicit_ordinal_day_mode() -> None:
+    base = _text_view()
+    source = base.model_copy(
+        update={
+            "columns": (
+                base.columns[0].model_copy(
+                    update={"values": ("Date", "2026-01-04", "2026-01-05")}
+                ),
+                base.columns[1],
+            )
+        }
+    )
+    item = _text_item().model_copy(
+        update={
+            "data_operations": (
+                ExcludeRows(source_alias="data_1", row_indices=(0,)),
+                DropEmptyFields(source_alias="data_1", field_aliases=("empty",)),
+                ConvertType(
+                    source_alias="data_1",
+                    field_alias="angle_text",
+                    target_type="numeric",
+                    output_field_alias="angle_numeric",
+                    output_name="Date ordinal",
+                    datetime_format="%Y-%m-%d",
+                    datetime_numeric_mode="ordinal_day",
+                ),
+            )
+        }
+    )
+    registrar = _Registrar()
+    prepare_task_data(item, _Provider({"source:text": source}), registrar)
+    assert registrar.registered is not None
+    first, second = registrar.registered.columns[-1].values
+    assert isinstance(first, float)
+    assert isinstance(second, float)
+    assert second - first == 1
+    assert registrar.registered.columns[-1].field.unit_label == "day"
+
+
 def _series_view(
     dataset_id: str,
     prefix: str,

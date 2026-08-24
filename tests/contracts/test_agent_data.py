@@ -44,6 +44,17 @@ def test_parsing_options_are_explicit_and_unambiguous() -> None:
             false_values=("YES",),
         )
 
+    ordinal = ConvertTypeOperation(
+        input_handle_id="view:source",
+        field_id="field:date",
+        target_type="numeric",
+        output_field_id="field:date_ordinal",
+        output_name="Date ordinal",
+        datetime_format="%Y-%m-%d",
+        datetime_numeric_mode="ordinal_day",
+    )
+    assert ordinal.datetime_numeric_mode == "ordinal_day"
+
 
 def test_reshape_contract_rejects_implicit_field_overwrite() -> None:
     with pytest.raises(ValidationError, match="new and distinct"):

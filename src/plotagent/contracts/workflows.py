@@ -372,6 +372,7 @@ class ConvertType(StrictModel):
     datetime_format: (
         Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)] | None
     ) = None
+    datetime_numeric_mode: Literal["ordinal_day"] | None = None
     true_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     false_values: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     case_sensitive: bool = False
@@ -382,8 +383,17 @@ class ConvertType(StrictModel):
             raise ValueError("type conversion must create a new field alias")
         if self.decimal_separator == self.thousands_separator:
             raise ValueError("decimal and thousands separators must differ")
+        if self.datetime_numeric_mode is not None:
+            if self.target_type != "numeric" or self.datetime_format is None:
+                raise ValueError(
+                    "datetime numeric conversion requires numeric target and explicit format"
+                )
+        elif self.target_type == "numeric" and self.datetime_format is not None:
+            raise ValueError("numeric datetime format requires datetime_numeric_mode")
         if self.target_type == "datetime" and self.datetime_format is None:
             raise ValueError("datetime conversion requires an explicit format")
+        if self.target_type != "numeric" and self.datetime_numeric_mode is not None:
+            raise ValueError("datetime numeric mode is only valid for numeric conversion")
         if self.target_type == "boolean":
             if not self.true_values or not self.false_values:
                 raise ValueError("boolean conversion requires true and false values")
@@ -639,6 +649,7 @@ class DraftSetAxis(StrictModel):
     target_alias: WorkflowAlias
     label: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
     scale: Literal["linear", "log10", "datetime", "categorical"] | None = None
+    bounds_mode: Literal["automatic", "fixed"] | None = None
     minimum: FiniteNumber | None = None
     maximum: FiniteNumber | None = None
     reverse: bool | None = None
@@ -670,6 +681,14 @@ class DraftSetAxis(StrictModel):
 
     @model_validator(mode="after")
     def valid_edit(self) -> DraftSetAxis:
+        if self.bounds_mode == "automatic" and (
+            self.minimum is not None or self.maximum is not None
+        ):
+            raise ValueError("automatic axis bounds cannot include fixed limits")
+        if self.bounds_mode == "fixed" and (
+            self.minimum is None or self.maximum is None
+        ):
+            raise ValueError("fixed axis bounds require minimum and maximum")
         if (self.minimum is None) != (self.maximum is None):
             raise ValueError("axis bounds must be both fixed or both automatic")
         if self.minimum is not None and self.maximum is not None and self.minimum >= self.maximum:

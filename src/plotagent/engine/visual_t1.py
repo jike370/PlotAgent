@@ -120,10 +120,21 @@ def effective_visual_actions(
             continue
         key = (type(action), action.target)
         previous = merged.get(key)
+        update = action.model_dump(exclude_none=True)
+        if isinstance(action, SetAxis):
+            if action.bounds_mode == "automatic":
+                # Resetting to automatic bounds must remove earlier fixed limits
+                # from the cumulative action state.
+                update["minimum"] = None
+                update["maximum"] = None
+            elif action.minimum is not None and action.maximum is not None:
+                # A later fixed pair supersedes an earlier automatic reset even
+                # when callers use the backwards-compatible implicit fixed mode.
+                update["bounds_mode"] = "fixed"
         merged[key] = (
             action
             if previous is None
-            else previous.model_copy(update=action.model_dump(exclude_none=True))
+            else previous.model_copy(update=update)
         )
         last_positions[key] = index
 

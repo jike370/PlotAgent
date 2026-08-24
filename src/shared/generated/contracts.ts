@@ -470,6 +470,7 @@ export type ConvertType = {
   readonly decimal_separator?: "." | ",";
   readonly thousands_separator?: "," | "." | " " | null;
   readonly datetime_format?: string | null;
+  readonly datetime_numeric_mode?: "ordinal_day" | null;
   readonly true_values?: ReadonlyArray<string>;
   readonly false_values?: ReadonlyArray<string>;
   readonly case_sensitive?: boolean;
@@ -485,6 +486,7 @@ export type ConvertTypeOperation = {
   readonly decimal_separator?: "." | "," | null;
   readonly thousands_separator?: "," | "." | " " | null;
   readonly datetime_format?: string | null;
+  readonly datetime_numeric_mode?: "ordinal_day" | null;
   readonly true_values?: ReadonlyArray<string>;
   readonly false_values?: ReadonlyArray<string>;
   readonly case_sensitive?: boolean;
@@ -647,6 +649,7 @@ export type DraftSetAxis = {
   readonly target_alias: string;
   readonly label?: string | null;
   readonly scale?: "linear" | "log10" | "datetime" | "categorical" | null;
+  readonly bounds_mode?: "automatic" | "fixed" | null;
   readonly minimum?: number | null;
   readonly maximum?: number | null;
   readonly reverse?: boolean | null;
@@ -1511,6 +1514,7 @@ export type SetAxis = {
   readonly target: string;
   readonly label?: string | null;
   readonly scale?: "linear" | "log10" | "datetime" | "categorical" | null;
+  readonly bounds_mode?: "automatic" | "fixed" | null;
   readonly minimum?: number | null;
   readonly maximum?: number | null;
   readonly reverse?: boolean | null;

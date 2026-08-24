@@ -146,6 +146,35 @@ def test_closed_operations_chain_without_mutating_the_input() -> None:
     assert deduplicated.columns[-1].values == (2000.0, 4000.0, 6000.0)
 
 
+def test_explicit_iso_dates_convert_to_numeric_calendar_ordinals() -> None:
+    source = view(
+        rows=("row:1", "row:2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(field_id="field:date", name="Date", logical_type="text"),
+                values=("2026-01-04", "2026-01-05"),
+            ),
+        ),
+    )
+    converted = apply_data_view_operation(
+        ConvertTypeOperation(
+            input_handle_id="view:source",
+            field_id="field:date",
+            target_type="numeric",
+            output_field_id="field:date_ordinal",
+            output_name="Date ordinal",
+            datetime_format="%Y-%m-%d",
+            datetime_numeric_mode="ordinal_day",
+        ),
+        (source,),
+    )
+    first, second = converted.columns[-1].values
+    assert isinstance(first, float)
+    assert isinstance(second, float)
+    assert second - first == 1
+    assert converted.columns[-1].field.unit_label == "day"
+
+
 def test_filter_rows_distinguishes_missing_from_nonfinite_numeric_values() -> None:
     original = view(
         rows=("row:finite", "row:nan", "row:positive-inf", "row:negative-inf"),

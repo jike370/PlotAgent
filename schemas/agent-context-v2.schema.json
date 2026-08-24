@@ -1009,6 +1009,19 @@
           "default": null,
           "title": "Datetime Format"
         },
+        "datetime_numeric_mode": {
+          "anyOf": [
+            {
+              "const": "ordinal_day",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Datetime Numeric Mode"
+        },
         "decimal_separator": {
           "default": ".",
           "enum": [

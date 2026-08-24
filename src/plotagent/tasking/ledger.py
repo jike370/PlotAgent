@@ -1023,6 +1023,11 @@ class TaskLedgerRepository:
                         "Only unchanged, side-effect-free failed items can be retried "
                         "without Agent revision."
                     )
+                if any(item.attempt_count >= 2 for item in retryable):
+                    raise self._conflict(
+                        "An unchanged technical retry is limited to one attempt; "
+                        "revise the task or stop it after the repeated failure."
+                    )
             now = _utc_now()
             sequence = self._next_sequence(connection, task_id)
             event = UserTaskEvent(

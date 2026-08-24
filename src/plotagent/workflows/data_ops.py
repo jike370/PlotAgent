@@ -134,6 +134,7 @@ def preview_data_operation(
             operation.decimal_separator,
             operation.thousands_separator,
             operation.datetime_format,
+            operation.datetime_numeric_mode,
             operation.true_values,
             operation.false_values,
             operation.case_sensitive,
@@ -304,6 +305,7 @@ def prepare_task_data(
                 operation.decimal_separator,
                 operation.thousands_separator,
                 operation.datetime_format,
+                operation.datetime_numeric_mode,
                 operation.true_values,
                 operation.false_values,
                 operation.case_sensitive,
@@ -578,6 +580,7 @@ def _convert_type(
     decimal_separator: str,
     thousands_separator: str | None,
     datetime_format: str | None,
+    datetime_numeric_mode: str | None,
     true_values: tuple[str, ...],
     false_values: tuple[str, ...],
     case_sensitive: bool,
@@ -594,24 +597,42 @@ def _convert_type(
         if _is_missing(value):
             converted.append(None)
             continue
+        result: WorkflowScalar
         try:
             if target_type == "numeric":
-                if isinstance(value, bool):
-                    raise ValueError
-                if isinstance(value, (int, float)):
-                    result: WorkflowScalar = float(value)
-                elif isinstance(value, str):
-                    text = value.strip()
-                    if thousands_separator:
-                        text = text.replace(thousands_separator, "")
-                    if decimal_separator == ",":
-                        text = text.replace(",", ".")
-                    numeric = float(text)
-                    if not math.isfinite(numeric):
+                if datetime_numeric_mode == "ordinal_day":
+                    if isinstance(value, datetime):
+                        parsed = value
+                    elif isinstance(value, date):
+                        parsed = datetime.combine(value, datetime.min.time())
+                    elif isinstance(value, str) and datetime_format is not None:
+                        parsed = datetime.strptime(value.strip(), datetime_format)
+                    else:
                         raise ValueError
-                    result = numeric
+                    seconds = (
+                        parsed.hour * 3600
+                        + parsed.minute * 60
+                        + parsed.second
+                        + parsed.microsecond / 1_000_000
+                    )
+                    result = float(parsed.toordinal()) + seconds / 86_400
                 else:
-                    raise ValueError
+                    if isinstance(value, bool):
+                        raise ValueError
+                    if isinstance(value, (int, float)):
+                        result = float(value)
+                    elif isinstance(value, str):
+                        text = value.strip()
+                        if thousands_separator:
+                            text = text.replace(thousands_separator, "")
+                        if decimal_separator == ",":
+                            text = text.replace(",", ".")
+                        numeric = float(text)
+                        if not math.isfinite(numeric):
+                            raise ValueError
+                        result = numeric
+                    else:
+                        raise ValueError
                 if not isinstance(result, float) or not math.isfinite(result):
                     raise ValueError
             elif target_type == "datetime":
@@ -654,7 +675,11 @@ def _convert_type(
             field_id=output_field_id,
             name=output_name,
             logical_type=cast(Any, target_type),
-            unit_label=source.field.unit_label if target_type == "numeric" else None,
+            unit_label=(
+                "day"
+                if datetime_numeric_mode == "ordinal_day"
+                else source.field.unit_label if target_type == "numeric" else None
+            ),
         ),
         values=tuple(converted),
     )

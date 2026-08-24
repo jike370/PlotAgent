@@ -508,7 +508,7 @@ describe('product plot state', () => {
       sideEffectState: 'known_none',
     })
     expect(plan?.completedCount).toBe(2)
-    expect(plan?.resumable).toBe(true)
+    expect(plan?.resumable).toBe(false)
   })
 
   it('does not offer resume for a deterministic data failure', () => {

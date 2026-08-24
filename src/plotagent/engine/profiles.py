@@ -68,7 +68,7 @@ _ROLE_FIELD_TYPES: dict[str, dict[str, tuple[str, ...]]] = {
     "X24": {"category": _CATEGORY, "value": _NUMERIC},
     "X35": {"category": _CATEGORY, "left": _NUMERIC, "right": _NUMERIC},
     "X36": {"category": _CATEGORY, "left": _NUMERIC, "right": _NUMERIC},
-    "X38": {"x": _X_GENERAL, "series_1": _NUMERIC, "series": _NUMERIC},
+    "X38": {"x": _NUMERIC, "series_1": _NUMERIC, "series": _NUMERIC},
     "X39": {"series_1": _NUMERIC, "series_2": _NUMERIC, "series": _NUMERIC},
     "X40": {"label": _CATEGORY, "series_1": _NUMERIC, "series_2": _NUMERIC, "group": _CATEGORY},
 }

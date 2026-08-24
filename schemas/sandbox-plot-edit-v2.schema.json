@@ -215,6 +215,22 @@
           "default": null,
           "title": "Axis Title Visible"
         },
+        "bounds_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "automatic",
+                "fixed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bounds Mode"
+        },
         "expected_plot_version": {
           "minimum": 1,
           "title": "Expected Plot Version",

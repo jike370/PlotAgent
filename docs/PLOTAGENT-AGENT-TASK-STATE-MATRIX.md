@@ -138,6 +138,9 @@
 | SM-66 | 语义部分失败分流 | `partial` + 完整失败证据 + `known_none` + 不需用户事实 → 自动 scoped repair；否则保持 `partial/awaiting_input` | 不按旧计划重试、不重复成功项；证据充分时 Agent 修订并重新确认，缺少语义事实时才交还用户 | `src/main/agent/agent-foundation-runtime.test.ts` 中 `automatically asks the Agent to revise an invalid partial plan before returning to the user`；`tests/desktop_core/test_application.py::test_agent_v2_scoped_repair_can_request_missing_semantic_input` |
 | SM-67 | 规划中即时停止 | active planning pump → 用户停止 → provider abort → Core cancel checkpoint | 必须先中止模型流，再等待串行 Core 状态；停止请求不能排在其要终止的长模型调用之后 | `src/main/agent/agent-foundation-runtime.test.ts::aborts the active planning pump before waiting for the serialized Core checkpoint` |
 | SM-68 | 零成功项返修耗尽终态 | `partial` + 第一次修订仍失败 + 0 succeeded → item `failed` → task `failed` | 不继续占用“进行中”任务，不显示停止或原地重试；明确告知自动返修仍未通过、项目未修改。非同构修订必须逐项核对字段名、类型和单位；缺失语义事实时精确追问 | `tests/desktop_core/test_agent_foundation.py::test_exhausted_repair_without_any_success_becomes_terminal_failed`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `surfaces an exhausted zero-success repair as a terminal failure`、`tests/desktop_core/test_application.py` 的返修提示合同断言 |
+| SM-69 | 轴范围编辑完整撤销 | 自动范围 → 固定上下限 → 撤销/重做 | 撤销以显式 `bounds_mode=automatic` 恢复数据驱动范围；Origin 只重缩放目标轴，Matplotlib 恢复 autoscale；同轮标题/轴/图例编辑形成一个完整历史项 | `src/renderer/src/data/plotHistory.test.ts::restores automatic bounds exactly after a fixed-range edit`、`tests/engine/test_visual_t1.py::test_axis_bounds_can_transition_between_fixed_and_automatic` |
+| SM-70 | 工作流数据失败必须修订 | `WORKFLOW_*` 数据/绑定/形状/对齐失败 → `semantic_conflict` | 已确认的不可变计划不得原样重跑；自动 scoped repair、重新确认或精确追问 | `tests/desktop_core/test_application.py::test_multi_source_plan_structure_failure_requires_agent_revision` |
+| SM-71 | 不变技术重试上限 | 首次确定性技术失败 → 用户安全重试一次 → 同错再次失败 | 第二次后不再展示/接受不变重试；成功项不重复，用户可修订任务、保留成功项或停止 | `tests/desktop_core/test_application.py::test_agent_v2_user_safe_retry_replays_failed_item_without_agent_activation`、`src/renderer/src/data/productState.test.ts` |
 
 ## 4. 一次性缺口审计结论
 
@@ -173,6 +176,8 @@
 28. 将语义部分失败按证据充分性分流：完整、无副作用且不缺用户事实的失败自动进入受限 Agent 修订；缺少语义事实或副作用不确定时才停在用户决策边界。两者都不得把旧计划当作确定性重试直接重放。
 29. 规划中停止先中止当前 provider 流，再读取 Core 检查点并提交取消事件；避免串行通道把停止排到长调用之后。
 30. 一次修订后仍失败且没有任何成功项时，任务从 `partial` 明确进入 `failed`；任务中心不再将其误算为进行中。`WORKFLOW_NON_ISOMORPHIC` 的返修提示要求逐项消除字段名、逻辑/物理类型与单位差异；证据不足时必须追问，不得重复一个必然失败的合并方案。
+31. 轴范围补齐显式 automatic/fixed 状态；从模板自动范围改为固定上下限后，撤销能够恢复 Origin/Matplotlib 的真实自动缩放语义。
+32. 所有 `WORKFLOW_*` 数据与计划执行错误归为不可原样重放的语义冲突；用户触发的不变技术重试最多一次，第二次相同失败必须终止该重试路径。
 
 ## 5. 冻结门禁
 

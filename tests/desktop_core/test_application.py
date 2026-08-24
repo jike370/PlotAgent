@@ -1622,6 +1622,23 @@ def test_agent_v2_user_safe_retry_replays_failed_item_without_agent_activation(
     assert sum(
         event["event_type"] == "agent_activation" for event in events_after
     ) == activation_count
+    latest = harness.call(
+        "agent.tasks.get",
+        {"project_id": project_id, "task_id": "task:safe-retry"},
+    )
+    with pytest.raises(RpcServiceError) as repeated_retry:
+        harness.call(
+            "agent.tasks.retry_safe",
+            {
+                "project_id": project_id,
+                "task_id": "task:safe-retry",
+                "expected_task_version": latest["task_version"],
+                "user_event_id": "user-event:safe-retry-repeated",
+                "payload_hash": "e" * 64,
+            },
+        )
+    assert repeated_retry.value.code == "VERSION_CONFLICT"
+    assert "limited to one attempt" in repeated_retry.value.message
 
 
 def test_agent_v2_accepts_verified_subset_without_reconfirmation_or_rerun(
@@ -2261,6 +2278,12 @@ def test_multi_source_plan_structure_failure_requires_agent_revision() -> None:
     ) == ("semantic_conflict", False, False)
     assert DurableTaskExecutionService._classify_failure(
         "ValueError"
+    ) == ("semantic_conflict", False, False)
+    assert DurableTaskExecutionService._classify_failure(
+        "WORKFLOW_TYPE_CONVERSION_FAILED"
+    ) == ("semantic_conflict", False, False)
+    assert DurableTaskExecutionService._classify_failure(
+        "WORKFLOW_ALIGNMENT_X_MISMATCH"
     ) == ("semantic_conflict", False, False)
 
 

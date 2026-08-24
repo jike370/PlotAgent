@@ -435,7 +435,13 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
     axis = layer.axis(axis_name)
     if action.scale in {"linear", "log10"}:
         axis.scale = action.scale
-    if action.minimum is not None and action.maximum is not None:
+    if action.bounds_mode == "automatic":
+        # Origin's skip string names the scales that remain fixed. This resets
+        # only the requested axis and preserves bounds on sibling axes/layers.
+        layer.set_int(f"{axis_name}.rescale", 3)
+        layer.rescale("yzm" if axis_name == "x" else "xzm")
+    elif action.minimum is not None and action.maximum is not None:
+        layer.set_int(f"{axis_name}.rescale", 0)
         axis.set_limits(action.minimum, action.maximum)
     if action.reverse is not None:
         layer.set_int(f"{axis_name}.reverse", int(action.reverse))
@@ -1134,6 +1140,11 @@ def _verify_actions(
                 _require_number("axis minimum", begin, expected_limits[0])
                 _require_number("axis maximum", end, expected_limits[1])
                 observed["limits"] = (begin, end)
+            if action.bounds_mode is not None:
+                observed_mode = int(layer.get_int(f"{axis_name}.rescale"))
+                expected_mode = 3 if action.bounds_mode == "automatic" else 0
+                _require_equal("axis bounds mode", observed_mode, expected_mode)
+                observed["bounds_mode"] = action.bounds_mode
             if action.reverse is not None:
                 _require_equal("axis reverse", observed["reverse"], int(action.reverse))
             if action.label is not None:

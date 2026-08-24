@@ -6238,10 +6238,7 @@
         ],
         "accepted_logical_types": {
           "x": [
-            "numeric",
-            "categorical",
-            "datetime",
-            "text"
+            "numeric"
           ],
           "series_1": [
             "numeric"

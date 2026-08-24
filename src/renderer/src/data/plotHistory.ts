@@ -58,6 +58,7 @@ const preciselyReversibleParameters: Readonly<Record<string, ReadonlySet<string>
     'label',
     'scale',
     'reverse',
+    'bounds_mode',
     'minimum',
     'maximum',
     'tick_labels_visible',
@@ -188,9 +189,21 @@ function reversibleAction(plot: ProductPlot, value: JsonValue): { undo: JsonValu
       if (Object.hasOwn(value, key) && value[key] !== null) undo[key] = previous
     }
     if (typeof value.minimum === 'number' || typeof value.maximum === 'number') {
-      if (axis.minimum === undefined || axis.maximum === undefined) return undefined
-      undo.minimum = axis.minimum
-      undo.maximum = axis.maximum
+      if (axis.minimum === undefined || axis.maximum === undefined) {
+        undo.bounds_mode = 'automatic'
+      } else {
+        undo.bounds_mode = 'fixed'
+        undo.minimum = axis.minimum
+        undo.maximum = axis.maximum
+      }
+    } else if (value.bounds_mode === 'automatic' || value.bounds_mode === 'fixed') {
+      if (axis.minimum === undefined || axis.maximum === undefined) {
+        undo.bounds_mode = 'automatic'
+      } else {
+        undo.bounds_mode = 'fixed'
+        undo.minimum = axis.minimum
+        undo.maximum = axis.maximum
+      }
     }
     return Object.keys(undo).length > 2 ? { undo, redo } : undefined
   }

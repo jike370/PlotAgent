@@ -170,7 +170,11 @@ def _convert_type(view: EngineDataView, operation: ConvertTypeOperation) -> Engi
             field_id=operation.output_field_id,
             name=operation.output_name,
             logical_type=operation.target_type,
-            unit_label=source.field.unit_label if operation.target_type == "numeric" else None,
+            unit_label=(
+                "day"
+                if operation.datetime_numeric_mode == "ordinal_day"
+                else source.field.unit_label if operation.target_type == "numeric" else None
+            ),
         ),
         values=values,
     )
@@ -181,6 +185,25 @@ def _converted_value(value: EngineScalar, operation: ConvertTypeOperation) -> En
     if _is_missing(value):
         return None
     if operation.target_type == "numeric":
+        if operation.datetime_numeric_mode == "ordinal_day":
+            try:
+                if isinstance(value, datetime):
+                    parsed = value
+                elif isinstance(value, date):
+                    parsed = datetime.combine(value, datetime.min.time())
+                elif isinstance(value, str) and operation.datetime_format is not None:
+                    parsed = datetime.strptime(value.strip(), operation.datetime_format)
+                else:
+                    raise ValueError
+            except ValueError as error:
+                raise _conversion_error() from error
+            seconds = (
+                parsed.hour * 3600
+                + parsed.minute * 60
+                + parsed.second
+                + parsed.microsecond / 1_000_000
+            )
+            return float(parsed.toordinal()) + seconds / 86_400
         if isinstance(value, bool):
             raise _conversion_error()
         if isinstance(value, (int, float)):

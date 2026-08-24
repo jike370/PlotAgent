@@ -285,6 +285,66 @@ def test_origin_final_state_verification_coalesces_repeated_visual_edits() -> No
     assert axis.scale == "log10"
 
 
+def test_axis_bounds_can_transition_between_fixed_and_automatic() -> None:
+    fixed = SetAxis(
+        action_id="action:axis-fixed",
+        target="axis:t1.x",
+        expected_plot_version=1,
+        minimum=10,
+        maximum=20,
+    )
+    automatic = SetAxis(
+        action_id="action:axis-automatic",
+        target="axis:t1.x",
+        expected_plot_version=2,
+        bounds_mode="automatic",
+    )
+    effective = effective_visual_actions((fixed, automatic))
+    assert len(effective) == 1
+    reset = effective[0]
+    assert isinstance(reset, SetAxis)
+    assert reset.bounds_mode == "automatic"
+    assert reset.minimum is None
+    assert reset.maximum is None
+
+    fixed_again = fixed.model_copy(
+        update={"action_id": "action:axis-fixed-again", "expected_plot_version": 3}
+    )
+    effective = effective_visual_actions((fixed, automatic, fixed_again))
+    restored = effective[0]
+    assert isinstance(restored, SetAxis)
+    assert restored.bounds_mode == "fixed"
+    assert (restored.minimum, restored.maximum) == (10, 20)
+
+
+def test_matplotlib_automatic_bounds_restore_data_driven_limits() -> None:
+    figure, axis = plt.subplots()
+    axis.plot((0, 1, 2), (1, 4, 9))
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetAxis(
+                action_id="action:fixed-before-reset",
+                target="axis:t1.x",
+                expected_plot_version=1,
+                minimum=10,
+                maximum=20,
+            ),
+            SetAxis(
+                action_id="action:reset-to-auto",
+                target="axis:t1.x",
+                expected_plot_version=2,
+                bounds_mode="automatic",
+            ),
+        ),
+    )
+    left, right = axis.get_xlim()
+    plt.close(figure)
+    assert left < 0
+    assert right > 2
+
+
 def test_effective_visual_actions_keep_latest_cross_type_precedence() -> None:
     marker_first = SetSeriesStyle(
         action_id="action:marker-first",

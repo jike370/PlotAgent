@@ -70,6 +70,11 @@ def test_axis_capability_exceptions_are_explicit_and_frozen() -> None:
     assert "bounds" in _capabilities("X38")["set_axis"]
 
 
+def test_x38_requires_numeric_x_before_renderer_execution() -> None:
+    profile = next(item for item in ENGINE_PROFILES if item.profile_id == "X38")
+    assert profile.role_field_types["x"] == ("numeric",)
+
+
 def test_error_style_capabilities_match_each_native_error_shape() -> None:
     assert _capabilities("K06")["set_error_style"] == {
         "bar_color",

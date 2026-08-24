@@ -266,7 +266,11 @@ def _apply_axis(figure: Figure, action: SetAxis) -> None:
     )
     if action.scale in {"linear", "log10"}:
         getattr(axis, f"set_{name}scale")("log" if action.scale == "log10" else "linear")
-    if action.minimum is not None and action.maximum is not None:
+    if action.bounds_mode == "automatic":
+        getattr(axis, f"set_autoscale{name}_on")(True)
+        axis.relim()
+        axis.autoscale_view(scalex=name == "x", scaley=name == "y")
+    elif action.minimum is not None and action.maximum is not None:
         getattr(axis, f"set_{name}lim")((action.minimum, action.maximum))
     if action.reverse is True:
         current = getattr(axis, f"get_{name}lim")()

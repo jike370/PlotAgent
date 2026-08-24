@@ -670,9 +670,10 @@ class DraftCompiler:
         operation = dumped.pop("operation")
         dumped.pop("target_alias", None)
         if operation == "set_axis":
+            bounds_mode = dumped.pop("bounds_mode", None)
             minimum = dumped.pop("minimum", None)
             maximum = dumped.pop("maximum", None)
-            if minimum is not None or maximum is not None:
+            if bounds_mode is not None or minimum is not None or maximum is not None:
                 dumped["bounds"] = True
         if operation == "set_chart_parameter":
             return {str(dumped["parameter"])}
