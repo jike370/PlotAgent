@@ -52,6 +52,7 @@ import {
   type ProductNotice,
 } from './components/ConversationWorkspace'
 import { FocusEditor, type ParameterTab } from './components/FocusEditor'
+import { MotionPresence, type MotionPhase } from './components/MotionPresence'
 import { Sidebar } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
@@ -160,11 +161,12 @@ interface ProviderSettingsProps {
   busy: boolean
   configured?: ProviderConfigurationView
   notice?: ProductNotice
+  motionState?: MotionPhase
   onClose: () => void
   onConfigure: (input: CustomProviderConfigureInput) => void
 }
 
-function ProviderSettings({ busy, configured, notice, onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
+function ProviderSettings({ busy, configured, notice, motionState = 'entered', onClose, onConfigure }: ProviderSettingsProps): React.JSX.Element {
   const initialProvider = matchProviderPreset(configured?.baseUrl)
   const initialPreset = providerPreset(initialProvider)
   const configuredPresetModel = initialPreset?.models.find((model) => model.id === configured?.modelId)
@@ -177,7 +179,7 @@ function ProviderSettings({ busy, configured, notice, onClose, onConfigure }: Pr
   )
   const [apiKey, setApiKey] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
-  const dialogRef = useDialogFocus<HTMLElement>()
+  const dialogRef = useDialogFocus<HTMLElement>(motionState === 'entered')
   const preset = providerPreset(providerId)
   const effectiveBaseUrl = preset?.baseUrl ?? baseUrl
   const keyRequired = configured?.baseUrl.replace(/\/$/, '') !== effectiveBaseUrl.replace(/\/$/, '')
@@ -195,8 +197,8 @@ function ProviderSettings({ busy, configured, notice, onClose, onConfigure }: Pr
   }
 
   return (
-    <div className="provider-settings-layer" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <section ref={dialogRef} className="provider-settings" role="dialog" aria-modal="true" aria-labelledby="provider-settings-title" tabIndex={-1}>
+    <div className="provider-settings-layer" data-motion-state={motionState} aria-hidden={motionState === 'exiting' ? true : undefined} inert={motionState === 'exiting' ? true : undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <section ref={dialogRef} className="provider-settings" role={motionState === 'entered' ? 'dialog' : undefined} aria-modal={motionState === 'entered' ? true : undefined} aria-labelledby="provider-settings-title" tabIndex={-1}>
         <header><div><h2 id="provider-settings-title">模型服务</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="关闭模型服务设置"><X size={18} /></button></header>
         <form onSubmit={(event) => {
           event.preventDefault()
@@ -1665,8 +1667,12 @@ export function App(): React.JSX.Element {
         setUndoStack([]); setRedoStack([])
         setNotice(activeDataset ? undefined : { kind: 'info', title: `已选择 ${chart.name} ${chart.id}`, message: '可以继续上传数据。' })
       }} />}
-      {tasksOpen && <TaskDrawer tasks={Object.values(taskEvents)} durableTasks={durableTasks} plans={workflowPlans} runtimeEvent={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent : undefined} onCancel={(taskId) => { void cancelTask(taskId) }} onAcceptPartial={(taskId) => { void acceptPartialTask(taskId) }} onResumeTask={(taskId) => { void resumeAgentTask(taskId) }} onRetryPlan={(planId) => { void executeWorkflowPlan(planId, true) }} onClose={() => setTasksOpen(false)} />}
-      {providerOpen && <ProviderSettings busy={busyAction === 'provider'} configured={providerConfiguration} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
+      <MotionPresence present={tasksOpen} exitMs={160}>
+        {(motionState) => <TaskDrawer motionState={motionState} tasks={Object.values(taskEvents)} durableTasks={durableTasks} plans={workflowPlans} runtimeEvent={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent : undefined} onCancel={(taskId) => { void cancelTask(taskId) }} onAcceptPartial={(taskId) => { void acceptPartialTask(taskId) }} onResumeTask={(taskId) => { void resumeAgentTask(taskId) }} onRetryPlan={(planId) => { void executeWorkflowPlan(planId, true) }} onClose={() => setTasksOpen(false)} />}
+      </MotionPresence>
+      <MotionPresence present={providerOpen} exitMs={140}>
+        {(motionState) => <ProviderSettings motionState={motionState} busy={busyAction === 'provider'} configured={providerConfiguration} notice={providerNotice} onClose={() => setProviderOpen(false)} onConfigure={(input) => void configureProvider(input)} />}
+      </MotionPresence>
     </div>
   )
 }

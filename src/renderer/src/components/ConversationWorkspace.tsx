@@ -618,6 +618,7 @@ function PlotObject({
   plot,
   plotNumber,
   interactive,
+  className,
   busyAction,
   previewMode,
   onExport,
@@ -627,11 +628,12 @@ function PlotObject({
 }: Pick<ConversationWorkspaceProps, 'plot' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & {
   plotNumber: number
   interactive: boolean
+  className?: string
 }): React.JSX.Element {
   if (!plot) return <div />
   const plotChart = chartCatalog.find((item) => item.id === plot.chartId)
   return (
-    <section className="object-block product-plot-object" aria-label={`@图${plotNumber} ${plotChart?.name ?? plot.chartId} v${plot.plotVersion}`}>
+    <section className={`object-block product-plot-object${className ? ` ${className}` : ''}`} aria-label={`@图${plotNumber} ${plotChart?.name ?? plot.chartId} v${plot.plotVersion}`}>
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
         <div><h3>@图{plotNumber} · {plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3></div>
@@ -1004,36 +1006,62 @@ function ActivityMessage({
     ? `${task.progress.completed}/${task.progress.total} ${task.progress.unit}`
     : undefined
   return <AgentMessage className="conversation-activity" live>
-    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong>{label}{progressLabel ? ` · ${progressLabel}` : ''}</strong></div>
+    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong><span className="activity-message__stage" key={label}>{label}</span>{progressLabel ? ` · ${progressLabel}` : ''}</strong></div>
       {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
   </AgentMessage>
 }
 
-function ConversationTextMessage({ message }: { message: ConversationTextItem }): React.JSX.Element {
+function ConversationTextMessage({ message, animate = false }: { message: ConversationTextItem; animate?: boolean }): React.JSX.Element {
   const paragraphs = [message.text, ...(message.questions ?? [])]
     .filter((text, index, values) => text.trim().length > 0 && values.indexOf(text) === index)
   return message.role === 'user'
     ? <div className="message message--user"><div className="message-content">{message.text}</div><time className="message-time">{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time></div>
-    : <AgentMessage className={`conversation-history-message conversation-history-message--${message.kind ?? 'info'}`}>
+    : <AgentMessage className={`conversation-history-message conversation-history-message--${message.kind ?? 'info'}${animate ? ' motion-timeline-enter' : ''}`}>
         {paragraphs.map((paragraph, index) => <p className={index === 0 ? undefined : 'agent-question'} key={paragraph}>{paragraph}</p>)}
       </AgentMessage>
 }
 
 function ExportResult({
   record,
+  className,
   onOpen,
   onReveal,
 }: {
   record: ConversationExportRecord
+  className?: string
   onOpen: (resourceId: string) => void
   onReveal: (resourceId: string) => void
 }): React.JSX.Element {
-  return <section className="object-block product-result-strip product-result-strip--success" role="status" aria-live="polite" aria-label="导出记录">
+  return <section className={`object-block product-result-strip product-result-strip--success${className ? ` ${className}` : ''}`} role="status" aria-live="polite" aria-label="导出记录">
     <CircleCheck size={17} />
     <div><strong>{record.format.toLocaleUpperCase('en-US')} 导出完成</strong><p>{record.fileName}{record.plotVersion === undefined ? '' : ` · v${record.plotVersion}`}{record.artifactSize === undefined ? '' : ` · ${record.artifactSize.toLocaleString('zh-CN')} B`}</p>{record.artifactHash && <code title={record.artifactHash}>{record.artifactHash.slice(0, 12)}…</code>}</div>
     <div className="product-result-strip__actions"><button type="button" onClick={() => onOpen(record.resourceId)}>打开文件</button><button type="button" onClick={() => onReveal(record.resourceId)}>打开所在文件夹</button></div>
   </section>
+}
+
+function ProductToast({
+  notice,
+  record,
+  onOpen,
+  onReveal,
+}: {
+  notice: ProductNotice
+  record: ExportRecordView
+  onOpen: (resourceId: string) => void
+  onReveal: (resourceId: string) => void
+}): React.JSX.Element {
+  const [exiting, setExiting] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setExiting(true), 7_800)
+    return () => window.clearTimeout(timer)
+  }, [record.exportId])
+
+  return <aside className="product-toast product-toast--success" data-motion-state={exiting ? 'exiting' : 'entered'} role="status" aria-live="polite">
+    <CircleCheck size={19} />
+    <div><strong>{notice.title}</strong><p>{notice.message}</p><span>{record.fileName}</span></div>
+    <div className="product-toast__actions"><button type="button" onClick={() => onOpen(record.resourceId)}>打开文件</button><button type="button" onClick={() => onReveal(record.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
+  </aside>
 }
 
 export function ConversationWorkspace(props: ConversationWorkspaceProps): React.JSX.Element {
@@ -1043,6 +1071,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   const [timeline, setTimeline] = useState<ConversationTimelineItem[]>(() => (
     project ? readConversationTimeline(window.localStorage, project.projectId) : []
   ))
+  const [hydratedTimelineIds] = useState(() => new Set(timeline.map((item) => item.id)))
   const initialPlotIds = [...new Set([...props.projectPlots.map((item) => item.plotId), ...(plot ? [plot.plotId] : [])])]
   const [plotReferences, setPlotReferences] = useState<PlotReference[]>(() => (
     project ? registerPlotReferences(window.localStorage, project.projectId, initialPlotIds) : []
@@ -1146,7 +1175,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
 
   useEffect(() => {
     if (timeline.length === 0 && busyAction === undefined) return
-    queueMicrotask(() => scrollAnchorRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }))
+    queueMicrotask(() => scrollAnchorRef.current?.scrollIntoView?.({ behavior: 'auto', block: 'center' }))
   }, [busyAction, planRevisionOpen, timeline.length])
 
   const submitInstruction = (instruction: string, selectedPlots: WorkflowPlotSelection[]): void => {
@@ -1178,10 +1207,11 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               <AgentMessage><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></AgentMessage>
             )}
             {timeline.map((item) => {
-              if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} />
-              if (item.type === 'plan') return <AgentMessage key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={() => setPlanRevisionOpen(true)} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
-              if (item.type === 'plot') return <PlotObject key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
-              return <ExportResult key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
+              const motionClass = hydratedTimelineIds.has(item.id) ? undefined : 'motion-timeline-enter'
+              if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} animate={item.role === 'agent' && motionClass !== undefined} />
+              if (item.type === 'plan') return <AgentMessage className={motionClass} key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={() => setPlanRevisionOpen(true)} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
+              if (item.type === 'plot') return <PlotObject className={motionClass} key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
+              return <ExportResult className={motionClass} key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
@@ -1192,11 +1222,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
         </div>
       )}
 
-      {project && notice?.kind === 'success' && exportRecord && <aside className="product-toast product-toast--success" role="status" aria-live="polite">
-        <CircleCheck size={19} />
-        <div><strong>{notice.title}</strong><p>{notice.message}</p><span>{exportRecord.fileName}</span></div>
-        <div className="product-toast__actions"><button type="button" onClick={() => props.onOpenExport(exportRecord.resourceId)}>打开文件</button><button type="button" onClick={() => props.onRevealExport(exportRecord.resourceId)}><FolderOpen size={14} />打开文件夹</button></div>
-      </aside>}
+      {project && notice?.kind === 'success' && exportRecord && <ProductToast key={exportRecord.exportId} notice={notice} record={exportRecord} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />}
 
       {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}

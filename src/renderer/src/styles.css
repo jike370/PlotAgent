@@ -62,7 +62,14 @@
   --shadow-sm: 0 1px 2px rgb(16 18 22 / 7%), 0 4px 8px rgb(16 18 22 / 5%);
   --shadow-card: 0 1px 2px rgb(16 18 22 / 7%), 0 8px 16px rgb(16 18 22 / 7%);
   --shadow-dialog: 0 18px 44px rgb(16 18 22 / 20%), 0 3px 10px rgb(16 18 22 / 9%);
-  --motion-fast: 160ms cubic-bezier(.2, .8, .2, 1);
+  --motion-state: 120ms;
+  --motion-exit: 140ms;
+  --motion-fast: 160ms;
+  --motion-surface: 180ms;
+  --motion-drawer: 220ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   --plot-blue: oklch(0.52 0.155 252);
   --plot-blue-soft: oklch(0.83 0.075 252);
@@ -105,7 +112,11 @@ select {
 
 button {
   color: inherit;
-  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
+  transition:
+    transform var(--motion-exit) var(--ease-out),
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 button:not(:disabled) {
@@ -113,12 +124,15 @@ button:not(:disabled) {
 }
 
 button:not(:disabled):active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
   button {
-    transition: none;
+    transition:
+      background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      color var(--motion-fast) ease;
   }
 
   button:not(:disabled):active {
@@ -1395,10 +1409,6 @@ kbd {
   background: var(--canvas);
 }
 
-.plot-open:hover .batch-plot {
-  transform: scale(1.012);
-}
-
 .batch-tile > footer {
   min-height: 31px;
   display: flex;
@@ -1597,10 +1607,6 @@ input[type="checkbox"] {
   object-fit: contain;
   object-position: center;
   background: var(--canvas);
-}
-
-.batch-plot {
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .plot-paper {
@@ -2911,6 +2917,18 @@ input[type="checkbox"] {
   border-radius: 8px;
   background: var(--canvas);
   box-shadow: 0 5px 8px oklch(0.22 0.02 155 / 0.18);
+  transform: translateY(0) scale(1);
+  transform-origin: top right;
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
+}
+
+.export-menu[data-motion-state='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(.97);
+  transition-duration: var(--motion-state);
 }
 
 .export-menu button {
@@ -4526,6 +4544,14 @@ input[type="checkbox"] {
   justify-content: flex-end;
   background: rgb(16 18 22 / 24%);
   backdrop-filter: blur(2px);
+  opacity: 1;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.drawer-backdrop[data-motion-state='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: var(--motion-fast);
 }
 
 .task-drawer {
@@ -4536,6 +4562,14 @@ input[type="checkbox"] {
   overflow: auto;
   background: #f3f4f6;
   box-shadow: -18px 0 44px rgb(16 18 22 / 16%);
+  transform: translateX(0);
+  transition: transform var(--motion-drawer) var(--ease-drawer);
+}
+
+.drawer-backdrop[data-motion-state='exiting'] .task-drawer {
+  transform: translateX(4%);
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-out);
 }
 
 .task-drawer > header {
@@ -5445,6 +5479,12 @@ input[type="checkbox"] {
   font-weight: 650;
 }
 
+.activity-message__stage {
+  display: inline-block;
+  opacity: 1;
+  transition: opacity var(--motion-state) var(--ease-out);
+}
+
 .activity-pulse i {
   width: 3px;
   height: 6px;
@@ -5681,6 +5721,18 @@ input[type="checkbox"] {
   color: var(--ink);
   background: var(--canvas);
   box-shadow: var(--shadow-dialog);
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--motion-surface) var(--ease-out),
+    transform var(--motion-surface) var(--ease-out);
+}
+
+.product-toast[data-motion-state='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12%);
+  transition-duration: var(--motion-exit);
 }
 
 .product-toast--success > svg { color: var(--success); }
@@ -5747,6 +5799,14 @@ input[type="checkbox"] {
   place-items: center;
   padding: 28px;
   background: rgb(23 23 23 / 42%);
+  opacity: 1;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.provider-settings-layer[data-motion-state='exiting'] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: var(--motion-exit);
 }
 
 .provider-settings {
@@ -5754,6 +5814,25 @@ input[type="checkbox"] {
   border-radius: 12px;
   background: var(--canvas);
   box-shadow: var(--shadow-dialog);
+  transform: translateY(0) scale(1);
+  transform-origin: center;
+  transition:
+    opacity var(--motion-surface) var(--ease-out),
+    transform var(--motion-surface) var(--ease-out);
+}
+
+.provider-settings-layer[data-motion-state='exiting'] .provider-settings {
+  opacity: 0;
+  transform: translateY(6px) scale(.97);
+  transition-duration: var(--motion-exit);
+}
+
+.motion-timeline-enter {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .provider-settings > header {
@@ -5843,6 +5922,41 @@ input[type="checkbox"] {
   object-fit: contain;
 }
 
+@starting-style {
+  .motion-timeline-enter {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  .activity-message__stage {
+    opacity: .3;
+  }
+
+  .product-toast {
+    opacity: 0;
+    transform: translateY(12%);
+  }
+
+  .drawer-backdrop,
+  .provider-settings-layer {
+    opacity: 0;
+  }
+
+  .task-drawer {
+    transform: translateX(4%);
+  }
+
+  .provider-settings {
+    opacity: 0;
+    transform: translateY(6px) scale(.97);
+  }
+
+  .export-menu {
+    opacity: 0;
+    transform: translateY(-4px) scale(.97);
+  }
+}
+
 @media (max-width: 1220px) {
   .sidebar {
     width: 230px;
@@ -5899,6 +6013,13 @@ input[type="checkbox"] {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  }
+
+  .motion-timeline-enter,
+  .product-toast,
+  .task-drawer,
+  .provider-settings,
+  .export-menu {
+    transform: none !important;
   }
 }

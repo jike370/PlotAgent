@@ -10,6 +10,7 @@ import {
 
 import type { TaskEvent, WorkflowRuntimeEvent } from '../../../shared/desktop-contract'
 import type { DurableTaskView, WorkflowPlanView } from '../data/productState'
+import type { MotionPhase } from './MotionPresence'
 import { useDialogFocus } from './useDialogFocus'
 
 interface TaskDrawerProps {
@@ -17,6 +18,7 @@ interface TaskDrawerProps {
   durableTasks: DurableTaskView[]
   plans: WorkflowPlanView[]
   runtimeEvent?: WorkflowRuntimeEvent
+  motionState?: MotionPhase
   onCancel: (taskId: string) => void
   onAcceptPartial: (taskId: string) => void
   onResumeTask: (taskId: string) => void
@@ -97,6 +99,7 @@ export function TaskDrawer({
   durableTasks,
   plans,
   runtimeEvent,
+  motionState = 'entered',
   onCancel,
   onAcceptPartial,
   onResumeTask,
@@ -104,7 +107,7 @@ export function TaskDrawer({
   onClose,
 }: TaskDrawerProps): React.JSX.Element {
   const [view, setView] = useState<'active' | 'all'>('active')
-  const dialogRef = useDialogFocus<HTMLElement>()
+  const dialogRef = useDialogFocus<HTMLElement>(motionState === 'entered')
   const planByTask = new Map(plans.flatMap((plan) => (
     plan.taskId === undefined ? [] : [[plan.taskId, plan] as const]
   )))
@@ -129,8 +132,8 @@ export function TaskDrawer({
     + (showRuntime ? 1 : 0)
 
   return (
-    <div className="drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <aside ref={dialogRef} className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-title" tabIndex={-1}>
+    <div className="drawer-backdrop" data-motion-state={motionState} aria-hidden={motionState === 'exiting' ? true : undefined} inert={motionState === 'exiting' ? true : undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <aside ref={dialogRef} className="task-drawer" role={motionState === 'entered' ? 'dialog' : undefined} aria-modal={motionState === 'entered' ? true : undefined} aria-labelledby="task-title" tabIndex={-1}>
         <header>
           <div><h2 id="task-title">任务中心</h2></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭任务中心"><X size={18} /></button>

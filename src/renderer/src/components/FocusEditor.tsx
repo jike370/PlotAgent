@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 
 import type { ScopeMode } from './ConversationWorkspace'
+import { MotionPresence } from './MotionPresence'
 import { BatchPlot } from './PlotVisuals'
 import type { JsonValue } from '../../../shared/desktop-contract'
 import type { ProductPlot } from '../data/productState'
@@ -643,13 +644,13 @@ export function FocusEditor({ initialIndex, initialPanelOpen = false, simplePane
           <button className={panelOpen ? 'is-active' : ''} type="button" onClick={() => setPanelOpen((open) => !open)}><SlidersHorizontal size={16} />编辑面板</button>
           <div className="export-anchor">
             <button className="primary-button" type="button" onClick={() => setExportOpen((open) => !open)} aria-expanded={exportOpen}><Download size={16} />导出<ChevronDown size={14} /></button>
-            {exportOpen && (
-              <div className="export-menu" role="menu">
+            <MotionPresence present={exportOpen} exitMs={120}>
+              {(motionState) => <div className="export-menu" data-motion-state={motionState} role="menu">
                 <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('png') }}><FileImage size={16} /><span><strong>导出 PNG</strong><small>位图文件</small></span></button>
                 <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('svg') }}><FileType2 size={16} /><span><strong>导出 SVG</strong><small>保留矢量对象</small></span></button>
                 <button role="menuitem" type="button" onClick={() => { setExportOpen(false); onExport?.('opju') }}><Layers3 size={16} /><span><strong>导出 OPJU</strong><small>Origin 原生可编辑项目</small></span></button>
-              </div>
-            )}
+              </div>}
+            </MotionPresence>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="关闭聚焦编辑"><X size={19} /></button>
         </div>

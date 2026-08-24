@@ -9,10 +9,11 @@ const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
-export function useDialogFocus<ElementType extends HTMLElement>(): React.RefObject<ElementType | null> {
+export function useDialogFocus<ElementType extends HTMLElement>(active = true): React.RefObject<ElementType | null> {
   const dialogRef = useRef<ElementType>(null)
 
   useEffect(() => {
+    if (!active) return
     const dialog = dialogRef.current
     if (!dialog) return
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
@@ -44,7 +45,7 @@ export function useDialogFocus<ElementType extends HTMLElement>(): React.RefObje
       dialog.removeEventListener('keydown', keepFocusInside)
       previouslyFocused?.focus()
     }
-  }, [])
+  }, [active])
 
   return dialogRef
 }
