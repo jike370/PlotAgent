@@ -1191,7 +1191,8 @@ export function App(): React.JSX.Element {
           ]
         : []
       const historyEntry = historySourcePlot
-        ? plotHistoryEntry(historySourcePlot, historyActions)
+        && nextPlot
+        ? plotHistoryEntry(historySourcePlot, nextPlot, historyActions)
         : undefined
       if ((plan.state === 'succeeded' || plan.state === 'completed_with_skips') && historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
@@ -1372,7 +1373,6 @@ export function App(): React.JSX.Element {
     if (!isJsonRecord(patch) || typeof patch.operation !== 'string') {
       throw new Error('绘图动作无效。')
     }
-    const historyEntry = plotHistoryEntry(plot, [patch])
     setBusyAction('plot-patch'); setNotice(undefined)
     try {
       const value = valueOrThrow(await api.executePlotAction({
@@ -1390,6 +1390,7 @@ export function App(): React.JSX.Element {
       mergeProjectPlot(nextPlot)
       setPreviousPlot(plot)
       setProject(projectWithVersion(project, projectVersionFrom(value, project.projectVersion + 1)))
+      const historyEntry = plotHistoryEntry(plot, nextPlot, [patch])
       if (historyEntry) {
         setUndoStack((current) => [...current, historyEntry].slice(-50))
         setRedoStack([])
@@ -1410,25 +1411,20 @@ export function App(): React.JSX.Element {
     if (!api || !project || !plot || plot.plotId !== entry.plotId || busyAction !== undefined) return false
     setBusyAction(direction)
     setNotice(undefined)
-    let nextPlot = plot
-    let nextProjectVersion = project.projectVersion
     try {
-      for (const action of direction === 'undo' ? entry.undoActions : entry.redoActions) {
-        if (!isJsonRecord(action)) throw new Error('历史动作无效。')
-        const value = valueOrThrow(await api.executePlotAction({
-          projectId: project.projectId,
-          expectedProjectVersion: nextProjectVersion,
-          action: {
-            ...action,
-            action_id: `action:ui.${direction}.${crypto.randomUUID()}`,
-            expected_plot_version: nextPlot.plotVersion,
-          },
-        }))
-        const restored = readPlot(value)
-        if (!restored) throw new Error('Core 未返回恢复后的 PlotDocument。')
-        nextPlot = restored
-        nextProjectVersion = projectVersionFrom(value, nextProjectVersion + 1)
-      }
+      const value = valueOrThrow(await api.restorePlotVersion({
+        projectId: project.projectId,
+        expectedProjectVersion: project.projectVersion,
+        plotId: plot.plotId,
+        expectedPlotVersion: plot.plotVersion,
+        sourcePlotVersion: direction === 'undo'
+          ? entry.undoPlotVersion
+          : entry.redoPlotVersion,
+        actionId: `action:ui.${direction}.${crypto.randomUUID()}`,
+      }))
+      const nextPlot = readPlot(value)
+      if (!nextPlot) throw new Error('Core 未返回恢复后的 PlotDocument。')
+      const nextProjectVersion = projectVersionFrom(value, project.projectVersion + 1)
       setPlot(nextPlot)
       mergeProjectPlot(nextPlot)
       setPreviousPlot(plot)

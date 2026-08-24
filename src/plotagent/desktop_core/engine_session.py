@@ -38,7 +38,7 @@ from plotagent.engine.backends.matplotlib import (
     default_matplotlib_backend,
 )
 from plotagent.engine.backends.origin import OriginBackend, SubprocessOriginWorker
-from plotagent.engine.contracts import ExportPlot
+from plotagent.engine.contracts import ExportPlot, RestorePlotVersion
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage.project import ProjectStore
 
@@ -109,6 +109,28 @@ class DesktopEngineSession:
             expected_project_revision=expected_project_revision,
         )
         return self._result_payload(result)
+
+    def restore(
+        self,
+        *,
+        plot_id: str,
+        expected_plot_version: int,
+        source_plot_version: int,
+        action_id: str,
+        expected_project_revision: int,
+    ) -> dict[str, object]:
+        action = RestorePlotVersion(
+            action_id=action_id,
+            target=plot_id,
+            expected_plot_version=expected_plot_version,
+            source_plot_version=source_plot_version,
+        )
+        return self._result_payload(
+            self.runtime.restore(
+                action,
+                expected_project_revision=expected_project_revision,
+            )
+        )
 
     def get(self, plot_id: str, plot_version: int | None = None) -> dict[str, object]:
         stored = self.documents.get(plot_id, plot_version)
@@ -216,7 +238,8 @@ class DesktopEngineSession:
         }
 
     def _document_payload(self, document: PlotDocument) -> dict[str, object]:
-        applied_ids = set(document.applied_action_ids)
+        render_actions = self.runtime.render_actions(document)
+        applied_ids = {action.action_id for action in render_actions}
         payload: dict[str, object] = {
             "plot_id": document.plot_id,
             "plot_version": document.plot_version,

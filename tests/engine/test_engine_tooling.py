@@ -22,6 +22,7 @@ def test_agent_neutral_tool_schema_is_closed_and_profile_discoverable() -> None:
     assert "bind_fields" in serialized
     assert "set_axis" in serialized
     assert "export_plot" in serialized
+    assert "restore_plot_version" not in serialized
     assert codec.profile_manifest() == (
         {
             "profile_id": "K01",
@@ -77,6 +78,16 @@ def test_tool_decodes_a_typed_action_and_rejects_unknown_arguments() -> None:
                 "action_id": "action:unguarded",
                 "target": "axis:demo.y",
                 "scale": "log10",
+            }
+        )
+    with pytest.raises(EngineCommandError, match="invalid plot engine action"):
+        codec.decode(
+            {
+                "operation": "restore_plot_version",
+                "action_id": "action:unsafe-history",
+                "target": "plot:demo",
+                "expected_plot_version": 2,
+                "source_plot_version": 1,
             }
         )
     with pytest.raises(EngineCommandError, match="invalid plot engine action"):

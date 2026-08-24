@@ -17,6 +17,7 @@ from plotagent.engine.ports import (
     EngineRenderSource,
     PlotBackendChange,
 )
+from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest, OriginWorkerResponse
 from .recipe import origin_recipe
@@ -148,6 +149,23 @@ class OriginBackend:
             encoding="utf-8",
         )
         return _Change(staging, self._version_dir(document), response.readback)
+
+    def stage_restore(
+        self,
+        document: PlotDocument,
+        source_document: PlotDocument,
+    ) -> PlotBackendChange:
+        source_dir = self._version_dir(source_document)
+        if not source_dir.is_dir():
+            raise FileNotFoundError(f"Origin restore source is missing: {source_dir}")
+        source_readback = self.readback(source_document)
+        staging = self._root / ".staging" / uuid.uuid4().hex
+        shutil.copytree(source_dir, staging)
+        readback = source_readback.model_copy(update={"document": document_ref(document)})
+        (staging / "readback.json").write_text(
+            readback.model_dump_json(indent=2), encoding="utf-8"
+        )
+        return _Change(staging, self._version_dir(document), readback)
 
     def readback(self, document: PlotDocument) -> EngineReadback:
         return EngineReadback.model_validate_json(

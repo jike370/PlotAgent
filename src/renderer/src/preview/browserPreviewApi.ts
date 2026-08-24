@@ -351,6 +351,33 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
       plots.set(plotKey(input.projectId, String(current.document.plot_id)), updated)
       return ok(updated)
     },
+    restorePlotVersion: async (input) => {
+      const project = projects.get(input.projectId)
+      const current = plots.get(plotKey(input.projectId, input.plotId))
+      if (!project || !current || !isJsonRecord(current.document)) {
+        return missing('界面预览中没有找到该图形历史。')
+      }
+      project.projectVersion += 1
+      const nextVersion = input.expectedPlotVersion + 1
+      const restored: JsonRecord = {
+        ...current,
+        project_version: project.projectVersion,
+        plot_version: nextVersion,
+        document: {
+          ...current.document,
+          plot_version: nextVersion,
+          parent_version: input.expectedPlotVersion,
+        },
+        preview: {
+          resourceId: `resource:preview-${input.plotId}-${nextVersion}`,
+          kind: 'preview',
+          url: svgDataUrl(plotPreviewSvg(String(current.profile_id ?? 'K01'), input.sourcePlotVersion)),
+          mimeType: 'image/svg+xml',
+        },
+      }
+      plots.set(plotKey(input.projectId, input.plotId), restored)
+      return ok(restored)
+    },
     getPlot: async ({ projectId, plotId }) => {
       const plot = plots.get(plotKey(projectId, plotId))
       return plot ? ok(plot) : missing('界面预览中没有找到该图形。')

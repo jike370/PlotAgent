@@ -8,7 +8,13 @@ from typing import Annotated
 from pydantic import Field, StringConstraints, model_validator
 
 from plotagent.contracts.base import StrictModel
-from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
+from plotagent.engine.contracts import (
+    CreatePlot,
+    EngineDataView,
+    PlotDocument,
+    PlotEngineAction,
+    RestorePlotVersion,
+)
 from plotagent.engine.ports import EngineReadback, EngineRenderSource
 
 
@@ -26,8 +32,13 @@ class OriginWorkerRequest(StrictModel):
 
     @model_validator(mode="after")
     def coherent_history(self) -> OriginWorkerRequest:
-        if tuple(action.action_id for action in self.actions) != self.document.applied_action_ids:
-            raise ValueError("Origin worker action history differs from the plot document")
+        if not self.actions or not isinstance(self.actions[0], CreatePlot):
+            raise ValueError("Origin worker action history must start with create_plot")
+        if any(isinstance(action, RestorePlotVersion) for action in self.actions):
+            raise ValueError("Origin worker cannot receive history-only restore actions")
+        action_ids = tuple(action.action_id for action in self.actions)
+        if len(action_ids) != len(set(action_ids)):
+            raise ValueError("Origin worker action history contains duplicate action ids")
         if self.document.plot_version == 1 and self.previous_opju is not None:
             raise ValueError("the first Origin version cannot have a previous project")
         if self.document.plot_version > 1 and self.previous_opju is None:

@@ -17,6 +17,7 @@ import {
   parseEngineActionInput,
   parseOriginExportInput,
   parsePlotIdInput,
+  parsePlotRestoreInput,
   parsePngSvgExportInput,
   parseProjectCreateInput,
   parseProjectIdInput,
@@ -871,6 +872,19 @@ export function registerDesktopIpc({
     return input === null
       ? invalidDataArgument('项目 ID 无效。')
       : requestPlotList(supervisor, resources, input.projectId)
+  })
+  ipcMain.handle(IPC_CHANNELS.enginePlotRestore, (_event, value: unknown) => {
+    const input = parsePlotRestoreInput(value)
+    return input === null
+      ? invalidDataArgument('图形历史版本参数无效。')
+      : requestCoreData(supervisor, resources, 'engine.plots.restore', {
+        project_id: input.projectId,
+        expected_project_version: input.expectedProjectVersion,
+        plot_id: input.plotId,
+        expected_plot_version: input.expectedPlotVersion,
+        source_plot_version: input.sourcePlotVersion,
+        action_id: input.actionId,
+      }, 'preview')
   })
   ipcMain.handle(IPC_CHANNELS.workflowRun, (_event, value: unknown) => {
     const input = parseWorkflowRunInput(value)

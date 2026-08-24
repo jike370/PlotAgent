@@ -17,6 +17,7 @@ import {
   type OriginExportInput,
   type PlotAgentDesktopApi,
   type PlotIdInput,
+  type PlotRestoreInput,
   type PngSvgExportInput,
   type ProjectCreateInput,
   type ProjectIdInput,
@@ -98,6 +99,8 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.engineActionExecute, input),
   getPlot: (input: PlotIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotGet, input),
   listPlots: (input: ProjectIdInput) => ipcRenderer.invoke(IPC_CHANNELS.enginePlotList, input),
+  restorePlotVersion: (input: PlotRestoreInput) =>
+    ipcRenderer.invoke(IPC_CHANNELS.enginePlotRestore, input),
   runWorkflow: (input: WorkflowRunInput) => ipcRenderer.invoke(IPC_CHANNELS.workflowRun, input),
   getTaskPlan: (input: TaskPlanInput) =>
     ipcRenderer.invoke(IPC_CHANNELS.taskPlanGet, input),

@@ -18,6 +18,7 @@ from plotagent.engine import (
     PlotDocumentRepository,
     PlotEngineService,
     RemovedChartTypeError,
+    RestorePlotVersion,
     SetAxis,
     SetLegend,
     SetSeriesStyle,
@@ -214,6 +215,38 @@ def test_service_rejects_reusing_an_action_id_with_different_arguments(tmp_path:
         )
         with pytest.raises(EngineCommandError, match="already bound"):
             service.replay(conflicting)
+
+
+def test_service_prepares_a_linear_restore_without_exposing_renderer_defaults(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:engine") as project:
+        service = PlotEngineService(_catalog(), PlotDocumentRepository(project))
+        created = service.execute(_create(x="field:x", y="field:y"))
+        edited = service.execute(
+            SetAxis(
+                action_id="action:y-log",
+                target="axis:demo.y",
+                expected_plot_version=1,
+                scale="log10",
+            )
+        )
+        transition = service.prepare_restore(
+            RestorePlotVersion(
+                action_id="action:undo",
+                target="plot:demo",
+                expected_plot_version=edited.plot_version,
+                source_plot_version=created.plot_version,
+            )
+        )
+
+        assert transition.after.plot_version == 3
+        assert transition.after.parent_version == 2
+        assert transition.after.applied_action_ids == (
+            "action:create",
+            "action:y-log",
+            "action:undo",
+        )
 
 
 def test_catalog_is_not_bound_to_the_bundled_agent() -> None:

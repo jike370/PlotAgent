@@ -89,6 +89,14 @@ class PlotBackend(Protocol):
         source: EngineRenderSource,
     ) -> PlotBackendChange: ...
 
+    def stage_restore(
+        self,
+        document: PlotDocument,
+        source_document: PlotDocument,
+    ) -> PlotBackendChange:
+        """Copy an exact native snapshot into a new immutable plot version."""
+        ...
+
     def readback(self, document: PlotDocument) -> EngineReadback: ...
 
     def export(self, document: PlotDocument, destination: Path, format: str) -> EngineArtifact: ...

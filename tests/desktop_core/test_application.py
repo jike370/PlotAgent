@@ -2458,6 +2458,70 @@ def test_engine_rpc_uses_imported_data_and_restores_latest_document(
     assert Path(cast(str, latest["preview"]["path"])).is_file()
 
 
+def test_engine_rpc_restores_an_exact_plot_snapshot_and_can_redo_it(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="engine-history")
+    created = _create_line(
+        harness,
+        project_id,
+        imported,
+        plot_id="plot:history",
+        action_id="action:history.create",
+    )
+    edited = harness.call(
+        "engine.actions.execute",
+        {
+            "project_id": project_id,
+            "expected_project_version": created["project_version"],
+            "action": {
+                "operation": "set_title",
+                "action_id": "action:history.title",
+                "target": "plot:history",
+                "expected_plot_version": 1,
+                "text": "Edited title",
+            },
+        },
+    )
+    assert edited["plot_version"] == 2
+    created_document = cast(dict[str, Any], created["document"])
+    edited_document = cast(dict[str, Any], edited["document"])
+    assert cast(list[dict[str, Any]], edited["actions"])[-1]["text"] == "Edited title"
+    assert edited_document["applied_action_ids"] != created_document["applied_action_ids"]
+
+    undone = harness.call(
+        "engine.plots.restore",
+        {
+            "project_id": project_id,
+            "expected_project_version": edited["project_version"],
+            "plot_id": "plot:history",
+            "expected_plot_version": 2,
+            "source_plot_version": 1,
+            "action_id": "action:history.undo",
+        },
+    )
+    assert undone["plot_version"] == 3
+    undone_document = cast(dict[str, Any], undone["document"])
+    assert undone_document["bindings"] == created_document["bindings"]
+    assert undone["actions"] == created["actions"]
+    assert Path(cast(str, undone["preview"]["path"])).is_file()
+
+    redone = harness.call(
+        "engine.plots.restore",
+        {
+            "project_id": project_id,
+            "expected_project_version": undone["project_version"],
+            "plot_id": "plot:history",
+            "expected_plot_version": 3,
+            "source_plot_version": 2,
+            "action_id": "action:history.redo",
+        },
+    )
+    assert redone["plot_version"] == 4
+    assert redone["actions"] == edited["actions"]
+
+
 def test_historical_removed_plot_is_listed_as_a_tombstone(
     harness: ApplicationHarness,
 ) -> None:

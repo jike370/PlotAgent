@@ -135,6 +135,7 @@ function workflowPlanFixture(
       requiresUser?: boolean
       sideEffectState?: string
     }
+    visualActions?: JsonValue[]
   } = {},
 ): JsonValue {
   const planId = options.planId ?? 'plan:one'
@@ -164,7 +165,9 @@ function workflowPlanFixture(
         resolved_fields: [],
         data_operations: [],
         bindings: [],
-        visual_actions: [{ operation: 'set_title', target_alias: 'plot', text: '更新后的标题' }],
+        visual_actions: options.visualActions ?? [
+          { operation: 'set_title', target_alias: 'plot', text: '更新后的标题' },
+        ],
         depends_on: [],
         idempotency_key: 'workflow:test:item:one',
       }],
@@ -504,6 +507,12 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     }),
     getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion))),
     listPlots: vi.fn(async () => ok({ project_version: 1, plots: [] })),
+    restorePlotVersion: vi.fn(async (input) => ok(enginePlotFixture(
+      input.plotId,
+      input.expectedPlotVersion + 1,
+      'K01',
+      input.expectedProjectVersion + 1,
+    ))),
     runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
     getTaskPlan: vi.fn(async () => ok({})),
     listTaskPlans: vi.fn(async () => ok({ task_plans: [] })),
@@ -2411,7 +2420,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('button', { name: '散点图' })).toBeInTheDocument()
   })
 
-  it('undoes an Agent edit by creating a new inverse-action version', async () => {
+  it('undoes an Agent edit by restoring the exact prior plot snapshot', async () => {
     const user = userEvent.setup()
     let version = 0
     const api = fakeDesktop({
@@ -2430,13 +2439,15 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '确认并执行' }))
     await user.click(await screen.findByRole('button', { name: '撤销本轮' }))
 
-    expect(api.executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
-      action: expect.objectContaining({ operation: 'set_title', target: 'plot:one', text: '' }),
+    expect(api.restorePlotVersion).toHaveBeenLastCalledWith(expect.objectContaining({
+      plotId: 'plot:one',
+      expectedPlotVersion: 2,
+      sourcePlotVersion: 1,
     }))
     expect(await screen.findByText('已撤销本轮修改')).toBeInTheDocument()
   })
 
-  it('undoes and redoes an Agent data update with complete bind_fields snapshots', async () => {
+  it('undoes and redoes an Agent data update with exact version snapshots', async () => {
     const user = userEvent.setup()
     const preparedData = {
       kind: 'prepared', dataset_id: 'workflow:updated', version: 1,
@@ -2500,26 +2511,16 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(await screen.findByRole('button', { name: '确认并执行' }))
     await user.click(await screen.findByRole('button', { name: '撤销本轮' }))
 
-    expect(executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
-      action: expect.objectContaining({
-        operation: 'bind_fields',
-        target: 'plot:one',
-        data: expect.objectContaining({ dataset_id: 'source:temperature' }),
-        bindings: [
-          { role: 'x', field_id: 'field:time' },
-          { role: 'y', field_id: 'field:signal' },
-          { role: 'group', field_id: 'field:condition' },
-        ],
-      }),
+    expect(api.restorePlotVersion).toHaveBeenLastCalledWith(expect.objectContaining({
+      plotId: 'plot:one',
+      expectedPlotVersion: 2,
+      sourcePlotVersion: 1,
     }))
     await user.click(screen.getByRole('button', { name: '重做本轮修改' }))
-    expect(executePlotAction).toHaveBeenLastCalledWith(expect.objectContaining({
-      action: expect.objectContaining({
-        operation: 'bind_fields',
-        target: 'plot:one',
-        data: preparedData,
-        bindings: preparedBindings,
-      }),
+    expect(api.restorePlotVersion).toHaveBeenLastCalledWith(expect.objectContaining({
+      plotId: 'plot:one',
+      expectedPlotVersion: 3,
+      sourcePlotVersion: 2,
     }))
   })
 
@@ -2530,6 +2531,10 @@ describe('PlotAgent real desktop workflow', () => {
     const executePlotAction = vi.fn(async (input) => {
       version += 1
       actions.push(input.action)
+      return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
+    })
+    const restorePlotVersion = vi.fn(async () => {
+      version += 1
       return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
     })
     const listPlots = vi.fn(async () => ok({
@@ -2567,7 +2572,14 @@ describe('PlotAgent real desktop workflow', () => {
         size: 30_002,
       },
     }))
-    const api = fakeDesktop({ executePlotAction, listPlots, getPlot, exportPngSvg, exportOrigin })
+    const api = fakeDesktop({
+      executePlotAction,
+      restorePlotVersion,
+      listPlots,
+      getPlot,
+      exportPngSvg,
+      exportOrigin,
+    })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
@@ -2598,7 +2610,8 @@ describe('PlotAgent real desktop workflow', () => {
     expect(actions.map((action) => (
       typeof action === 'object' && action !== null && 'operation' in action
         ? action.operation : undefined
-    ))).toEqual(['create_plot', 'set_title', 'set_title', 'set_title'])
+    ))).toEqual(['create_plot', 'set_title'])
+    expect(restorePlotVersion.mock.calls.map(([input]) => input.sourcePlotVersion)).toEqual([1, 2])
     expect(exportPngSvg.mock.calls.map(([input]) => [input.format, input.target.version])).toEqual([
       ['png', 4], ['svg', 4],
     ])
@@ -2650,8 +2663,23 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getAllByText('plot:one · v2').length).toBeGreaterThan(0)
   })
 
-  it('records a confirmed Agent edit in the same undo history as panel edits', async () => {
+  it('records a compound Agent edit with implicit renderer defaults in exact snapshot history', async () => {
     const user = userEvent.setup()
+    const visualActions: JsonValue[] = [
+      { operation: 'set_title', target_alias: 'plot', text: '复合编辑验证' },
+      {
+        operation: 'set_axis', target_alias: 'x_axis', bounds_mode: 'fixed',
+        minimum: 9, maximum: 13,
+      },
+      { operation: 'set_axis', target_alias: 'y_axis', label: '治疗后数值' },
+      { operation: 'set_legend', target_alias: 'legend', visible: false },
+    ]
+    const pending = workflowPlanFixture('awaiting_confirmation', 'pending', { visualActions })
+    const ready = workflowPlanFixture('ready', 'ready', { visualActions })
+    const succeeded = workflowPlanFixture('succeeded', 'succeeded', {
+      plotVersion: 5,
+      visualActions,
+    })
     const api = fakeDesktop({
       executePlotAction: vi.fn(async (input) => ok(enginePlotFixture(
         'plot:one',
@@ -2660,28 +2688,37 @@ describe('PlotAgent real desktop workflow', () => {
         2,
         [input.action],
       ))),
-      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(workflowPlanFixture()))),
-      confirmTaskPlan: vi.fn(async () => ok(workflowPlanFixture('ready', 'ready'))),
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pending))),
+      confirmTaskPlan: vi.fn(async () => ok(ready)),
       runTaskPlan: vi.fn(async () => ok({
-        task_plan: workflowPlanFixture('succeeded', 'succeeded', { plotVersion: 2 }),
+        task_plan: succeeded,
       })),
       getPlot: vi.fn(async () => ok(enginePlotFixture(
         'plot:one',
-        2,
-        'K01',
-        3,
-        [{ operation: 'set_title', target: 'plot:one', text: '更新后的标题' }],
+        5,
+        'K03',
+        6,
+        visualActions,
       ))),
     })
     installApi(api)
     render(<App />)
     await openSampleAndCreatePlot(user)
 
-    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '@图1 把标题改成更新后的标题')
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '@图1 修改标题和坐标轴范围，隐藏图例',
+    )
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     await user.click(await screen.findByRole('button', { name: '确认并执行' }))
 
     await waitFor(() => expect(screen.getByRole('button', { name: '撤销本轮修改' })).toBeEnabled())
+    await user.click(screen.getByRole('button', { name: '撤销本轮修改' }))
+    expect(api.restorePlotVersion).toHaveBeenCalledWith(expect.objectContaining({
+      plotId: 'plot:one',
+      expectedPlotVersion: 5,
+      sourcePlotVersion: 1,
+    }))
   })
 
   it('sends a natural-language partial repair back to the same durable task', async () => {

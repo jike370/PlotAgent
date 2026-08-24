@@ -19,6 +19,7 @@ from plotagent.engine import (
     PlotDocumentRepository,
     PlotEngineRuntime,
     PlotEngineService,
+    RestorePlotVersion,
     SetTitle,
 )
 from plotagent.engine.repository import document_ref
@@ -92,6 +93,8 @@ class FakeBackend:
         self.fail_stage = fail_stage
         self.fail_publish = fail_publish
         self.changes: list[FakeChange] = []
+        self.readbacks: dict[int, EngineReadback] = {}
+        self.staged_action_ids: list[tuple[str, ...]] = []
 
     @property
     def backend_id(self) -> Literal["matplotlib", "origin"]:
@@ -111,13 +114,27 @@ class FakeBackend:
             fail_publish=self.fail_publish,
         )
         self.changes.append(change)
+        self.readbacks[document.plot_version] = change.readback
+        self.staged_action_ids.append(tuple(action.action_id for action in actions))
+        return change
+
+    def stage_restore(self, document, source_document) -> PlotBackendChange:
+        source_readback = self.readbacks[source_document.plot_version]
+        change = FakeChange(
+            readback=source_readback.model_copy(update={"document": document_ref(document)}),
+            fail_publish=self.fail_publish,
+        )
+        self.changes.append(change)
+        self.readbacks[document.plot_version] = change.readback
+        self.staged_action_ids.append(())
         return change
 
     def readback(self, document):
-        if not self.changes:
+        if document.plot_version not in self.readbacks:
             raise FileNotFoundError(document.plot_id)
-        assert self.changes[-1].readback.document == document_ref(document)
-        return self.changes[-1].readback
+        readback = self.readbacks[document.plot_version]
+        assert readback.document == document_ref(document)
+        return readback
 
     def export(self, document, destination, format):  # pragma: no cover
         raise NotImplementedError
@@ -270,3 +287,51 @@ def test_runtime_lazily_materializes_every_native_version_without_domain_mutatio
             == revision_before
         )
         assert runtime.service.repository.latest_version(created.plot_id) == 2
+
+
+def test_runtime_restores_an_exact_snapshot_then_appends_new_edits_to_that_state(
+    tmp_path: Path,
+) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    with project:
+        created = runtime.execute(_create()).document
+        edited = runtime.execute(
+            SetTitle(
+                action_id="action:title-old",
+                target=created.plot_id,
+                expected_plot_version=1,
+                text="Old edit",
+            )
+        ).document
+        restored = runtime.restore(
+            RestorePlotVersion(
+                action_id="action:undo",
+                target=created.plot_id,
+                expected_plot_version=edited.plot_version,
+                source_plot_version=created.plot_version,
+            )
+        ).document
+        final = runtime.execute(
+            SetTitle(
+                action_id="action:title-new",
+                target=created.plot_id,
+                expected_plot_version=restored.plot_version,
+                text="New edit",
+            )
+        ).document
+
+        assert restored.plot_version == 3
+        assert restored.applied_action_ids == (
+            "action:create",
+            "action:title-old",
+            "action:undo",
+        )
+        assert final.plot_version == 4
+        assert runtime.render_actions(final)[-1].action_id == "action:title-new"
+        assert matplotlib.staged_action_ids == [
+            ("action:create",),
+            ("action:create", "action:title-old"),
+            (),
+            ("action:create", "action:title-new"),
+        ]

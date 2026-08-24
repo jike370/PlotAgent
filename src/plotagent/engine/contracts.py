@@ -575,6 +575,21 @@ class ExportPlot(VersionedPlotAction):
     output_name: SafeOutputName
 
 
+class RestorePlotVersion(VersionedPlotAction):
+    """Internal desktop history command; deliberately absent from the Agent tool schema."""
+
+    operation: Literal["restore_plot_version"] = "restore_plot_version"
+    action_id: ActionId
+    target: PlotId
+    source_plot_version: VersionId
+
+    @model_validator(mode="after")
+    def valid_restore(self) -> RestorePlotVersion:
+        if self.source_plot_version >= self.expected_plot_version:
+            raise ValueError("restore source must precede the currently observed plot version")
+        return self
+
+
 PlotEngineAction = Annotated[
     CreatePlot
     | BindFields
@@ -592,8 +607,26 @@ PlotEngineAction = Annotated[
 ]
 
 
+PlotJournalAction = Annotated[
+    CreatePlot
+    | BindFields
+    | SetTitle
+    | SetAxis
+    | SetSeriesStyle
+    | SetLegend
+    | SetColorMap
+    | SetErrorStyle
+    | SetDataLabels
+    | SetChartParameter
+    | AddAnnotation
+    | ExportPlot
+    | RestorePlotVersion,
+    Field(discriminator="operation"),
+]
+
+
 class AppliedAction(StrictModel):
-    action: PlotEngineAction
+    action: PlotJournalAction
     document_before: PlotDocumentRef | None
     document_after: PlotDocumentRef
     applied_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]

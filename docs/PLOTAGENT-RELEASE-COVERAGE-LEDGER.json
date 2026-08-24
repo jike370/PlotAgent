@@ -174,7 +174,7 @@
           "windows_ui_case": "BB-RECOVERY-K01",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -373,7 +373,7 @@
           "windows_ui_case": "BB-RECOVERY-K02",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -567,7 +567,7 @@
           "windows_ui_case": "BB-RECOVERY-K03",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -780,7 +780,7 @@
           "windows_ui_case": "BB-RECOVERY-K04",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -996,7 +996,7 @@
           "windows_ui_case": "BB-RECOVERY-K06",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -1202,7 +1202,7 @@
           "windows_ui_case": "BB-RECOVERY-K07",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -1410,7 +1410,7 @@
           "windows_ui_case": "BB-RECOVERY-K08",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -1617,7 +1617,7 @@
           "windows_ui_case": "BB-RECOVERY-K09",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -1824,7 +1824,7 @@
           "windows_ui_case": "BB-RECOVERY-K10",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2031,7 +2031,7 @@
           "windows_ui_case": "BB-RECOVERY-K11",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2221,7 +2221,7 @@
           "windows_ui_case": "BB-RECOVERY-K12",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2415,7 +2415,7 @@
           "windows_ui_case": "BB-RECOVERY-K13",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2607,7 +2607,7 @@
           "windows_ui_case": "BB-RECOVERY-K14",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2788,7 +2788,7 @@
           "windows_ui_case": "BB-RECOVERY-K15",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -2992,7 +2992,7 @@
           "windows_ui_case": "BB-RECOVERY-K18",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -3189,7 +3189,7 @@
           "windows_ui_case": "BB-RECOVERY-K19",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -3391,7 +3391,7 @@
           "windows_ui_case": "BB-RECOVERY-K20",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -3596,7 +3596,7 @@
           "windows_ui_case": "BB-RECOVERY-K21",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -3784,7 +3784,7 @@
           "windows_ui_case": "BB-RECOVERY-K22",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -3967,7 +3967,7 @@
           "windows_ui_case": "BB-RECOVERY-K24",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -4169,7 +4169,7 @@
           "windows_ui_case": "BB-RECOVERY-S34",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -4375,7 +4375,7 @@
           "windows_ui_case": "BB-RECOVERY-S61",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -4574,7 +4574,7 @@
           "windows_ui_case": "BB-RECOVERY-X02",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -4774,7 +4774,7 @@
           "windows_ui_case": "BB-RECOVERY-X03",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -4964,7 +4964,7 @@
           "windows_ui_case": "BB-RECOVERY-X05",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -5173,7 +5173,7 @@
           "windows_ui_case": "BB-RECOVERY-X09",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -5376,7 +5376,7 @@
           "windows_ui_case": "BB-RECOVERY-X13",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -5571,7 +5571,7 @@
           "windows_ui_case": "BB-RECOVERY-X23",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -5772,7 +5772,7 @@
           "windows_ui_case": "BB-RECOVERY-X24",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -5976,7 +5976,7 @@
           "windows_ui_case": "BB-RECOVERY-X35",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -6188,7 +6188,7 @@
           "windows_ui_case": "BB-RECOVERY-X36",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -6377,7 +6377,7 @@
           "windows_ui_case": "BB-RECOVERY-X38",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -6570,7 +6570,7 @@
           "windows_ui_case": "BB-RECOVERY-X39",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"
@@ -6773,7 +6773,7 @@
           "windows_ui_case": "BB-RECOVERY-X40",
           "required_assertions": [
             "linear action history",
-            "undo creates an inverse version",
+            "undo creates a new exact snapshot version",
             "redo creates a forward version",
             "restart restores the same plot id and latest version",
             "no successful action is executed twice"

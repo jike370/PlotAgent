@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
-from plotagent.engine.contracts import EngineDataView, PlotDocument, PlotEngineAction
+from plotagent.engine.contracts import (
+    CreatePlot,
+    EngineDataView,
+    PlotDocument,
+    PlotEngineAction,
+    RestorePlotVersion,
+)
 from plotagent.engine.ports import (
     EngineDataProvider,
     EngineReadback,
@@ -64,17 +71,62 @@ class PlotEngineRuntime:
             )
         transition = self.service.prepare(action)
         source = self._materialize(transition.after)
-        prior_actions = tuple(
-            record.action for record in self.service.repository.actions(transition.after.plot_id)
+        prior_actions = (
+            () if transition.before is None else self.render_actions(transition.before)
         )
         actions = prior_actions + (action,)
-        if tuple(item.action_id for item in actions) != transition.after.applied_action_ids:
-            raise PlotRuntimeError("backend action replay differs from the plot document history")
         changes: list[PlotBackendChange] = []
         published: list[PlotBackendChange] = []
         try:
             for backend in self.backends:
                 change = backend.stage(transition.after, actions, source)
+                self._validate_readback(change.readback, transition.after, source)
+                changes.append(change)
+            for change in changes:
+                change.publish()
+                published.append(change)
+            document = self.service.commit(
+                transition,
+                expected_project_revision=expected_project_revision,
+            )
+        except Exception:
+            for change in reversed(published):
+                change.revert()
+            for change in changes[len(published) :]:
+                change.discard()
+            raise
+        for change in changes:
+            change.finalize()
+        return RuntimeResult(
+            document=document,
+            readbacks=tuple(change.readback for change in changes),
+        )
+
+    def restore(
+        self,
+        action: RestorePlotVersion,
+        *,
+        expected_project_revision: int | None = None,
+    ) -> RuntimeResult:
+        """Clone an earlier native snapshot into the next linear plot version."""
+
+        replay = self.service.replay(action)
+        if replay is not None:
+            return RuntimeResult(
+                document=replay,
+                readbacks=tuple(backend.readback(replay) for backend in self.backends),
+            )
+        transition = self.service.prepare_restore(action)
+        source_document = self.service.repository.get(
+            action.target, action.source_plot_version
+        ).document
+        source = self._materialize(transition.after)
+        changes: list[PlotBackendChange] = []
+        published: list[PlotBackendChange] = []
+        try:
+            for backend in self.backends:
+                self.materialize_backend(backend, source_document)
+                change = backend.stage_restore(transition.after, source_document)
                 self._validate_readback(change.readback, transition.after, source)
                 changes.append(change)
             for change in changes:
@@ -115,15 +167,24 @@ class PlotEngineRuntime:
             ).document
             self.materialize_backend(backend, previous)
         source = self._materialize(document)
-        applied = set(document.applied_action_ids)
-        actions = tuple(
-            record.action
-            for record in self.service.repository.actions(document.plot_id)
-            if record.action.action_id in applied
+        restore_record = next(
+            (
+                record for record in self.service.repository.actions(document.plot_id)
+                if record.document_after.plot_version == document.plot_version
+                and isinstance(record.action, RestorePlotVersion)
+            ),
+            None,
         )
-        if tuple(item.action_id for item in actions) != document.applied_action_ids:
-            raise PlotRuntimeError("backend materialization history differs from the document")
-        change = backend.stage(document, actions, source)
+        if restore_record is not None:
+            restore_action = cast(RestorePlotVersion, restore_record.action)
+            restored_source = self.service.repository.get(
+                document.plot_id, restore_action.source_plot_version
+            ).document
+            self.materialize_backend(backend, restored_source)
+            change = backend.stage_restore(document, restored_source)
+        else:
+            actions = self.render_actions(document)
+            change = backend.stage(document, actions, source)
         self._validate_readback(change.readback, document, source)
         try:
             change.publish()
@@ -132,6 +193,24 @@ class PlotEngineRuntime:
             raise
         change.finalize()
         return change.readback
+
+    def render_actions(self, document: PlotDocument) -> tuple[PlotEngineAction, ...]:
+        """Resolve the current render branch, skipping history-only restores."""
+
+        actions: list[PlotEngineAction] = []
+        for record in self.service.repository.actions(document.plot_id):
+            if record.document_after.plot_version > document.plot_version:
+                continue
+            if isinstance(record.action, RestorePlotVersion):
+                source = self.service.repository.get(
+                    document.plot_id, record.action.source_plot_version
+                ).document
+                actions = list(self.render_actions(source))
+                continue
+            actions.append(record.action)
+        if not actions or not isinstance(actions[0], CreatePlot):
+            raise PlotRuntimeError("backend render history does not start with create_plot")
+        return tuple(actions)
 
     def _materialize(self, document: PlotDocument) -> EngineRenderSource:
         return EngineRenderSource(data=self._materialize_data(document))

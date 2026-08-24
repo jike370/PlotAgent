@@ -18,11 +18,11 @@ from plotagent.engine.contracts import (
     CreatePlot,
     PlotDocument,
     PlotDocumentRef,
-    PlotEngineAction,
+    PlotJournalAction,
 )
 from plotagent.storage.project import ProjectStore
 
-_ACTION_ADAPTER: TypeAdapter[PlotEngineAction] = TypeAdapter(PlotEngineAction)
+_ACTION_ADAPTER: TypeAdapter[PlotJournalAction] = TypeAdapter(PlotJournalAction)
 
 
 def _document_from_json(value: str) -> PlotDocument:
@@ -40,7 +40,7 @@ def _document_from_json(value: str) -> PlotDocument:
         return PlotDocument.model_validate(payload)
 
 
-def _action_from_json(value: str) -> PlotEngineAction:
+def _action_from_json(value: str) -> PlotJournalAction:
     try:
         return _ACTION_ADAPTER.validate_json(value)
     except ValidationError:
@@ -210,7 +210,7 @@ class PlotDocumentRepository:
     def commit(
         self,
         document: PlotDocument,
-        action: PlotEngineAction,
+        action: PlotJournalAction,
         *,
         expected_project_revision: int | None = None,
     ) -> AppliedAction:

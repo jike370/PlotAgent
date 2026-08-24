@@ -19,6 +19,8 @@ from plotagent.engine.contracts import (
     ExportPlot,
     PlotDocument,
     PlotEngineAction,
+    PlotJournalAction,
+    RestorePlotVersion,
     SetAxis,
     SetChartParameter,
     SetColorMap,
@@ -248,7 +250,7 @@ class EngineCatalog:
 class PlotTransition:
     before: PlotDocument | None
     after: PlotDocument
-    action: PlotEngineAction
+    action: PlotJournalAction
 
 
 class PlotEngineService:
@@ -307,6 +309,34 @@ class PlotEngineService:
             action=action,
         )
 
+    def prepare_restore(self, action: RestorePlotVersion) -> PlotTransition:
+        """Create a new linear version whose render state is an exact earlier snapshot."""
+
+        latest = self.repository.get(action.target)
+        if action.expected_plot_version != latest.document.plot_version:
+            raise EngineVersionConflict(
+                f"plot document version is stale: expected {action.expected_plot_version}, "
+                f"latest is {latest.document.plot_version}"
+            )
+        try:
+            source = self.repository.get(action.target, action.source_plot_version).document
+        except KeyError as error:
+            raise EngineCommandError(
+                "restore source plot version was not found: "
+                f"{action.target}@{action.source_plot_version}"
+            ) from error
+        return PlotTransition(
+            before=latest.document,
+            after=source.model_copy(
+                update={
+                    "plot_version": latest.document.plot_version + 1,
+                    "parent_version": latest.document.plot_version,
+                    "applied_action_ids": latest.document.applied_action_ids + (action.action_id,),
+                }
+            ),
+            action=action,
+        )
+
     def commit(
         self,
         transition: PlotTransition,
@@ -336,7 +366,7 @@ class PlotEngineService:
             expected_project_revision=expected_project_revision,
         )
 
-    def replay(self, action: PlotEngineAction) -> PlotDocument | None:
+    def replay(self, action: PlotJournalAction) -> PlotDocument | None:
         """Return an already committed action without executing it twice."""
 
         applied = self.repository.find_action(action.action_id)

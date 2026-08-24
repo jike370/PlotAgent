@@ -173,6 +173,7 @@ class DesktopApplication:
             "engine.exports.execute": self._engine_exports_execute,
             "engine.plots.list": self._engine_plots_list,
             "engine.plots.get": self._engine_plots_get,
+            "engine.plots.restore": self._engine_plots_restore,
             "agent.tasks.create": self._agent_task_create,
             "agent.tasks.get": self._agent_task_get,
             "agent.tasks.latest_yield": self._agent_task_latest_yield,
@@ -623,6 +624,52 @@ class DesktopApplication:
                     values["expected_project_version"],
                     "expected_project_version",
                     minimum=0,
+                ),
+            )
+            context.tasks.transition(task_id, "committing")
+            context.tasks.transition(task_id, "succeeded")
+            return cast(
+                RpcJsonValue,
+                {
+                    "task_id": task_id,
+                    "project_id": session.project_id,
+                    "project_version": session.domain.revision,
+                    **payload,
+                },
+            )
+        except Exception as error:
+            self._fail_task(context.tasks, task_id, error)
+            raise
+
+    def _engine_plots_restore(
+        self, context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(
+            params,
+            required={
+                "project_id",
+                "expected_project_version",
+                "plot_id",
+                "expected_plot_version",
+                "source_plot_version",
+                "action_id",
+            },
+        )
+        session = self._session(_text(values["project_id"], "project_id"))
+        task_id = self._begin_task(context, "engine-history", label="恢复图形版本")
+        try:
+            context.tasks.transition(task_id, "running")
+            payload = session.engine.restore(
+                plot_id=_text(values["plot_id"], "plot_id"),
+                expected_plot_version=_integer(
+                    values["expected_plot_version"], "expected_plot_version", minimum=1
+                ),
+                source_plot_version=_integer(
+                    values["source_plot_version"], "source_plot_version", minimum=1
+                ),
+                action_id=_text(values["action_id"], "action_id"),
+                expected_project_revision=_integer(
+                    values["expected_project_version"], "expected_project_version", minimum=0
                 ),
             )
             context.tasks.transition(task_id, "committing")

@@ -9,7 +9,7 @@
 
 - `WORKFLOW_NON_ISOMORPHIC` 返修必须逐项对齐字段名、逻辑/物理类型和单位；若单位或字段语义缺少证据，Agent 应精确追问，不能重复必然失败的合并方案。
 - 一次自动返修仍失败且零成功项时，task/item 进入 `failed`；任务中心不再显示“进行中”或“停止任务”，对话明确说明返修耗尽且项目未修改。
-- 固定轴范围必须能通过显式 `bounds_mode=automatic` 完整撤销，复合编辑不能因范围没有精确逆动作而只撤销一部分。
+- 复合编辑的撤销/重做必须在新候选正式 UI 中证明；实现已改为来源/结果 PlotDocument 快照恢复，不再依赖前端猜测模板默认值。
 - 所有 `WORKFLOW_*` 数据/结构错误必须交回 Agent 修订或追问；确定性技术故障的同参数重试最多一次。
 - 日期文本只有在显式格式和 `ordinal_day` 模式下才能转换为 numeric；X38 的 X 绑定不再接受 text/datetime 直接进入 renderer。
 
@@ -45,6 +45,6 @@
 ## 最终发布证据缺口
 
 - `4469072` 的全量确定性门禁与打包通过，中文标题、`@图N` 编辑撤销/重做、Core 自动恢复和首轮计划结构自动返修已通过正式 UI；返修耗尽后的任务中心终态失败，因此该候选作废。
-- 当前修复的 Python `853/853`、Ruff、mypy、contracts codegen、TypeScript、ESLint、Vitest `286/286`、production build 与 Windows 打包工具测试已通过；仍需提交和重新打包，并在正式 Windows UI 中复测非同构缺失事实追问/修订、零成功项返修耗尽终态、复合轴范围撤销、工作流失败分流和日期数值整理。
+- 当前修复的 Python `853/853`、Ruff、mypy、contracts codegen、TypeScript、ESLint、Vitest `286/286`、production build 与 Windows 打包工具测试已通过；快照历史修复后需重新提交、重新打包，并在正式 Windows UI 中复测复合编辑撤销/重做、工作流失败分流、日期数值整理和重启恢复。
 - 定向复测通过后，仍需按发布账本完成同一冻结候选的完整黑盒和唯一一次最终 SEQ-70。
 - SEQ-70 完成前不作发布通过结论，也不得通过重复运行挑选较好结果。

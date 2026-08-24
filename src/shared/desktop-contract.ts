@@ -36,6 +36,7 @@ export const IPC_CHANNELS = {
   engineActionExecute: 'plotagent:engine:actions:execute',
   enginePlotGet: 'plotagent:engine:plots:get',
   enginePlotList: 'plotagent:engine:plots:list',
+  enginePlotRestore: 'plotagent:engine:plots:restore',
   providerClear: 'plotagent:provider:clear',
   providerConfigure: 'plotagent:provider:configure',
   providerStatus: 'plotagent:provider:status',
@@ -226,6 +227,14 @@ export interface PlotIdInput extends ProjectIdInput {
   readonly plotVersion: number
 }
 
+export interface PlotRestoreInput extends ProjectIdInput {
+  readonly expectedProjectVersion: number
+  readonly plotId: string
+  readonly expectedPlotVersion: number
+  readonly sourcePlotVersion: number
+  readonly actionId: string
+}
+
 export interface WorkflowPlotSelection {
   readonly plotId: string
   readonly plotVersion: number
@@ -333,6 +342,7 @@ export interface PlotAgentDesktopApi {
   executePlotAction(input: EngineActionInput): Promise<DesktopDataResult>
   getPlot(input: PlotIdInput): Promise<DesktopDataResult>
   listPlots(input: ProjectIdInput): Promise<DesktopDataResult>
+  restorePlotVersion(input: PlotRestoreInput): Promise<DesktopDataResult>
   runWorkflow(input: WorkflowRunInput): Promise<DesktopDataResult>
   getTaskPlan(input: TaskPlanInput): Promise<DesktopDataResult>
   listTaskPlans(input: ProjectIdInput): Promise<DesktopDataResult>
@@ -588,6 +598,38 @@ export function parsePlotIdInput(value: unknown): PlotIdInput | null {
   const plotId = parsed === null ? null : parseId(parsed.plotId)
   const plotVersion = parsed === null ? null : parseVersion(parsed.plotVersion, 1)
   return parsed === null || plotId === null || plotVersion === null ? null : { projectId: parsed.projectId as string, plotId, plotVersion }
+}
+
+export function parsePlotRestoreInput(value: unknown): PlotRestoreInput | null {
+  const parsed = parseProjectIdRecord(value, [
+    'expectedProjectVersion',
+    'plotId',
+    'expectedPlotVersion',
+    'sourcePlotVersion',
+    'actionId',
+  ])
+  const expectedProjectVersion = parsed === null ? null : parseVersion(parsed.expectedProjectVersion)
+  const plotId = parsed === null ? null : parseId(parsed.plotId)
+  const expectedPlotVersion = parsed === null ? null : parseVersion(parsed.expectedPlotVersion, 1)
+  const sourcePlotVersion = parsed === null ? null : parseVersion(parsed.sourcePlotVersion, 1)
+  const actionId = parsed === null ? null : parseId(parsed.actionId)
+  if (
+    parsed === null
+    || expectedProjectVersion === null
+    || plotId === null
+    || expectedPlotVersion === null
+    || sourcePlotVersion === null
+    || actionId === null
+    || sourcePlotVersion >= expectedPlotVersion
+  ) return null
+  return {
+    projectId: parsed.projectId as string,
+    expectedProjectVersion,
+    plotId,
+    expectedPlotVersion,
+    sourcePlotVersion,
+    actionId,
+  }
 }
 
 export function parseWorkflowRunInput(value: unknown): WorkflowRunInput | null {
