@@ -21,9 +21,12 @@ from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
     ContextToolContract,
+    SelectedPlotBindingContext,
+    SelectedPlotContext,
     UntrustedSourceContext,
 )
 from plotagent.contracts.workflows import (
+    DeclareUnit,
     RowPage,
     WorkflowField,
     WorkflowScalar,
@@ -367,6 +370,54 @@ def test_selected_creation_profile_keeps_its_card_and_exposes_the_closed_catalog
     )
     assert tuple(item.profile_id for item in plot_only_context.chart_catalog) == ("K01",)
     assert plot_only_context.tools == ()
+
+
+def test_existing_prepared_plot_authorizes_declared_unit_output_binding() -> None:
+    """A confirmed operation output remains authorized when the plot is edited."""
+
+    task_budget = budget()
+    selected_plot = SelectedPlotRef(
+        plot_id="plot:prepared",
+        plot_version=1,
+        profile_id="K03",
+    )
+    context = ContextBuilder().build(
+        context_snapshot_id="context:prepared-edit",
+        context_version=1,
+        envelope=envelope(selected_plots=(selected_plot,)),
+        checkpoint=checkpoint(task_budget=task_budget),
+        activation=activation(task_budget=task_budget),
+        source_contexts=(source_context(),),
+        tools=tool_contracts(),
+        selected_plot_contexts=(
+            SelectedPlotContext(
+                plot_alias="plot_1",
+                plot_id=selected_plot.plot_id,
+                plot_version=selected_plot.plot_version,
+                profile_id=selected_plot.profile_id,
+                source_aliases=("data_1",),
+                data_operations=(
+                    DeclareUnit(
+                        source_alias="data_1",
+                        field_alias="data_1_value",
+                        target_unit="mV",
+                        output_field_alias="declared_value",
+                        output_name="Response_mV",
+                        evidence_ref="decision:unit.mv",
+                    ),
+                ),
+                bindings=(
+                    SelectedPlotBindingContext(
+                        role="y",
+                        source_alias="data_1",
+                        field_alias="declared_value",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    assert context.selected_plot_contexts[0].bindings[0].field_alias == "declared_value"
 
 
 @pytest.mark.parametrize("reason", ["user_answered", "external_blocker_cleared"])

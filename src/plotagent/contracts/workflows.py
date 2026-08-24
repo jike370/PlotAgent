@@ -627,6 +627,63 @@ DataOperation = Annotated[
 ]
 
 
+def data_operation_field_aliases(
+    operation: DataOperation,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the exact input and newly produced field aliases for one operation.
+
+    Context authorization and workflow compilation must agree on this lineage.
+    Keeping the operation union in one exhaustive function prevents an output
+    (for example ``declare_unit.output_field_alias``) from being executable but
+    later rejected when an existing prepared plot is edited.
+    """
+
+    if operation.operation == "select_fields":
+        return operation.field_aliases, ()
+    if operation.operation == "filter_rows":
+        return tuple(item.field_alias for item in operation.predicates), ()
+    if operation.operation == "sort_rows":
+        return tuple(item.field_alias for item in operation.keys), ()
+    if operation.operation == "exclude_rows":
+        return (), ()
+    if operation.operation == "drop_empty_fields":
+        return operation.field_aliases, ()
+    if operation.operation == "convert_type":
+        return (operation.field_alias,), (operation.output_field_alias,)
+    if operation.operation == "reshape_wide_to_long":
+        return (
+            operation.id_field_aliases + operation.value_field_aliases,
+            (operation.output_name, operation.output_value),
+        )
+    if operation.operation == "reshape_long_to_wide":
+        return (
+            operation.index_field_aliases
+            + (operation.name_field_alias, operation.value_field_alias),
+            tuple(item.field_alias for item in operation.output_fields),
+        )
+    if operation.operation == "concatenate_sources":
+        return (), (operation.source_label_field,)
+    if operation.operation == "align_sources_on_x":
+        return (
+            operation.x_field_aliases + operation.value_field_aliases,
+            (
+                operation.output_x_field_alias,
+                *(field.field_alias for field in operation.output_series_fields),
+            ),
+        )
+    if operation.operation == "rename_field":
+        return (operation.field_alias,), (operation.output_field_alias,)
+    if operation.operation == "derive_column":
+        return operation.input_field_aliases, (operation.output_field_alias,)
+    if operation.operation == "convert_unit":
+        return (operation.field_alias,), (operation.output_field_alias,)
+    if operation.operation == "declare_unit":
+        return (operation.field_alias,), (operation.output_field_alias,)
+    if operation.operation == "bucketize_numeric":
+        return (operation.field_alias,), (operation.output_field_alias,)
+    raise TypeError(f"Unsupported data operation: {operation!r}")
+
+
 class DraftFieldBinding(StrictModel):
     role: Token
     source_alias: Annotated[

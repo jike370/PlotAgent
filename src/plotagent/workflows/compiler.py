@@ -19,6 +19,7 @@ from plotagent.contracts.workflows import (
     TaskPlan,
     WorkflowContext,
     WorkflowField,
+    data_operation_field_aliases,
 )
 from plotagent.engine import EngineCatalog, EngineProfile
 from plotagent.units import resolve_unit
@@ -649,48 +650,7 @@ class DraftCompiler:
 
     @staticmethod
     def _operation_fields(operation: DataOperation) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        if operation.operation == "select_fields":
-            return operation.field_aliases, ()
-        if operation.operation == "filter_rows":
-            return tuple(item.field_alias for item in operation.predicates), ()
-        if operation.operation == "sort_rows":
-            return tuple(item.field_alias for item in operation.keys), ()
-        if operation.operation == "exclude_rows":
-            return (), ()
-        if operation.operation == "drop_empty_fields":
-            return operation.field_aliases, ()
-        if operation.operation == "convert_type":
-            return (operation.field_alias,), (operation.output_field_alias,)
-        if operation.operation == "reshape_wide_to_long":
-            return (
-                operation.id_field_aliases + operation.value_field_aliases,
-                (operation.output_name, operation.output_value),
-            )
-        if operation.operation == "reshape_long_to_wide":
-            return (
-                operation.index_field_aliases
-                + (operation.name_field_alias, operation.value_field_alias),
-                tuple(item.field_alias for item in operation.output_fields),
-            )
-        if operation.operation == "rename_field":
-            return (operation.field_alias,), (operation.output_field_alias,)
-        if operation.operation == "derive_column":
-            return operation.input_field_aliases, (operation.output_field_alias,)
-        if operation.operation == "convert_unit":
-            return (operation.field_alias,), (operation.output_field_alias,)
-        if operation.operation == "declare_unit":
-            return (operation.field_alias,), (operation.output_field_alias,)
-        if operation.operation == "bucketize_numeric":
-            return (operation.field_alias,), (operation.output_field_alias,)
-        if operation.operation == "align_sources_on_x":
-            return (
-                operation.x_field_aliases + operation.value_field_aliases,
-                (
-                    operation.output_x_field_alias,
-                    *(field.field_alias for field in operation.output_series_fields),
-                ),
-            )
-        return (), (operation.source_label_field,)
+        return data_operation_field_aliases(operation)
 
     @staticmethod
     def _validate_visual_actions(
