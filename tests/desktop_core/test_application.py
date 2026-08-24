@@ -930,6 +930,9 @@ def _accept_scoped_retry(
     repair_prompt = cast(str, repair_environment["system_prompt"])
     assert "return intent_ready with the same intent_id" in repair_prompt
     assert "WORKFLOW_SOURCES_NOT_COMBINED" in repair_prompt
+    assert "WORKFLOW_NON_ISOMORPHIC" in repair_prompt
+    assert "field names, logical/physical types, and units identical" in repair_prompt
+    assert "return needs_input for that exact fact" in repair_prompt
     assert "shown to the user for reconfirmation" in repair_prompt
     validated = harness.call(
         "agent.yields.validate",

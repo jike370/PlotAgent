@@ -920,6 +920,7 @@ ALLOWED_TASK_TRANSITIONS: dict[TaskState, frozenset[TaskState]] = {
             "repairing",
             "cancelling",
             "completed_verified",
+            "failed",
         }
     ),
     "blocked": frozenset(

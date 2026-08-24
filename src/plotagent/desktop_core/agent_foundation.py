@@ -1148,6 +1148,14 @@ class DurableAgentCoreHost:
                 "the necessary correction to unfinished items. For example, a multi-source item "
                 "rejected with WORKFLOW_SOURCES_NOT_COMBINED must declare concatenate_sources or "
                 "align_sources_on_x as appropriate and bind the operation outputs. The revised "
+                "item must resolve every reported structural mismatch rather than merely changing "
+                "the final binding. For WORKFLOW_NON_ISOMORPHIC, inspect or compare every input "
+                "schema and make field names, logical/physical types, and units identical before "
+                "concatenation, using the available reshape, rename, type-conversion, or unit-"
+                "conversion operations only when authorized evidence supports them. If a missing "
+                "or conflicting unit, type, or field meaning cannot be resolved from the source "
+                "context and instrument metadata, return needs_input for that exact fact instead "
+                "of repeating a plan that will fail the same validation. The revised "
                 "intent will be shown to the user for reconfirmation; never execute it silently. "
                 "Return needs_input only when a genuinely missing semantic fact prevents that "
                 "revision. Return blocked or unsupported only when their typed conditions hold; "
@@ -1367,6 +1375,20 @@ class DurableTaskCoordinator:
                     next_state="failed",
                     reason_code="REPAIR_NO_PROGRESS",
                     error=item.last_error,
+                )
+            if (
+                checkpoint.items
+                and not any(item.state == "succeeded" for item in checkpoint.items)
+                and all(
+                    item.state in {"failed", "cancelled"}
+                    for item in checkpoint.items
+                )
+            ):
+                checkpoint = self._ledger.advance(
+                    task_id,
+                    expected_task_version=checkpoint.task_version,
+                    next_state="failed",
+                    reason_code="REPAIR_EXHAUSTED_WITHOUT_SUCCESS",
                 )
         if checkpoint.state == "partial" and any(
             item.state == "repairable_failed" for item in checkpoint.items

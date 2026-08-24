@@ -137,6 +137,7 @@
 | SM-65 | 数据更新完整撤销与重做 | 已有图版本 N → `update_data` 生成 N+1 → 撤销生成 N+2 → 重做生成 N+3 | 历史项保存更新前后完整不可变 `data` 与 `bindings`；撤销先逆转同轮视觉动作再恢复旧绑定，重做先恢复新绑定再重放视觉动作；禁止只恢复部分字段 | `src/renderer/src/data/plotHistory.test.ts::restores the complete previous data reference and bindings before redoing a data update`、`src/renderer/src/App.test.tsx::undoes and redoes an Agent data update with complete bind_fields snapshots` |
 | SM-66 | 语义部分失败分流 | `partial` + 完整失败证据 + `known_none` + 不需用户事实 → 自动 scoped repair；否则保持 `partial/awaiting_input` | 不按旧计划重试、不重复成功项；证据充分时 Agent 修订并重新确认，缺少语义事实时才交还用户 | `src/main/agent/agent-foundation-runtime.test.ts` 中 `automatically asks the Agent to revise an invalid partial plan before returning to the user`；`tests/desktop_core/test_application.py::test_agent_v2_scoped_repair_can_request_missing_semantic_input` |
 | SM-67 | 规划中即时停止 | active planning pump → 用户停止 → provider abort → Core cancel checkpoint | 必须先中止模型流，再等待串行 Core 状态；停止请求不能排在其要终止的长模型调用之后 | `src/main/agent/agent-foundation-runtime.test.ts::aborts the active planning pump before waiting for the serialized Core checkpoint` |
+| SM-68 | 零成功项返修耗尽终态 | `partial` + 第一次修订仍失败 + 0 succeeded → item `failed` → task `failed` | 不继续占用“进行中”任务，不显示停止或原地重试；明确告知自动返修仍未通过、项目未修改。非同构修订必须逐项核对字段名、类型和单位；缺失语义事实时精确追问 | `tests/desktop_core/test_agent_foundation.py::test_exhausted_repair_without_any_success_becomes_terminal_failed`、`src/main/agent/agent-foundation-runtime.test.ts` 中 `surfaces an exhausted zero-success repair as a terminal failure`、`tests/desktop_core/test_application.py` 的返修提示合同断言 |
 
 ## 4. 一次性缺口审计结论
 
@@ -171,6 +172,7 @@
 27. JSON RPC 边界统一按 JSON 模式校验严格不可变合同；多来源、多图和多 profile 的数组不得以 Python `list`/合同 `tuple` 的表示差异被误拒绝，并以真实多问题续答链路做跨层回归。
 28. 将语义部分失败按证据充分性分流：完整、无副作用且不缺用户事实的失败自动进入受限 Agent 修订；缺少语义事实或副作用不确定时才停在用户决策边界。两者都不得把旧计划当作确定性重试直接重放。
 29. 规划中停止先中止当前 provider 流，再读取 Core 检查点并提交取消事件；避免串行通道把停止排到长调用之后。
+30. 一次修订后仍失败且没有任何成功项时，任务从 `partial` 明确进入 `failed`；任务中心不再将其误算为进行中。`WORKFLOW_NON_ISOMORPHIC` 的返修提示要求逐项消除字段名、逻辑/物理类型与单位差异；证据不足时必须追问，不得重复一个必然失败的合并方案。
 
 ## 5. 冻结门禁
 

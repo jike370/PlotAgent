@@ -1601,6 +1601,69 @@ describe('AgentFoundationRuntime', () => {
     expect(core.calls).not.toContain('agent.tasks.execute')
   })
 
+  it('surfaces an exhausted zero-success repair as a terminal failure', async () => {
+    const failedItem = {
+      item_id: 'item:repair-exhausted.1',
+      state: 'repairable_failed',
+      attempt_count: 1,
+      last_error: {
+        code: 'WORKFLOW_NON_ISOMORPHIC',
+        category: 'semantic_conflict',
+        retryable: false,
+        requires_user: false,
+        side_effect_state: 'known_none',
+      },
+    }
+    const core = {
+      request: async (method: string): Promise<unknown> => {
+        if (method === 'agent.tasks.list') {
+          return {
+            tasks: [{
+              task_id: 'task:repair-exhausted',
+              state: 'partial',
+              intent: { intent_id: 'intent:repair-exhausted' },
+            }],
+          }
+        }
+        if (method === 'agent.tasks.plan.get') {
+          return {
+            task: {
+              task_id: 'task:repair-exhausted',
+              task_version: 8,
+              state: 'partial',
+              items: [failedItem],
+            },
+            plan: { plan_id: 'plan:repair-exhausted', items: [] },
+            plan_hash: 'b'.repeat(64),
+            confirmation_state: 'confirmed',
+          }
+        }
+        if (method === 'agent.tasks.get') {
+          return {
+            task_id: 'task:repair-exhausted',
+            task_version: 8,
+            state: 'partial',
+            items: [failedItem],
+          }
+        }
+        if (method === 'agent.tasks.pump.next') {
+          return { kind: 'wait', reason: 'terminal', task_state: 'failed' }
+        }
+        throw new Error(`Unexpected method ${method}`)
+      },
+    }
+    const runtime = new AgentFoundationRuntime({ core, emit: () => undefined })
+
+    await runtime.list('project:test')
+    await expect(runtime.execute({
+      projectId: 'project:test',
+      planId: 'plan:repair-exhausted',
+    })).rejects.toMatchObject({
+      code: 'AGENT_V2_REPAIR_EXHAUSTED',
+      message: '自动返修后的计划仍未通过验证，项目未修改。请补充或修改要求后重新生成计划。',
+    })
+  })
+
   it('treats an already verified revised plan as an idempotent execution success', async () => {
     const calls: string[] = []
     const view = {

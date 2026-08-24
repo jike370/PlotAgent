@@ -495,6 +495,7 @@ def test_complete_task_transition_matrix_is_frozen() -> None:
         },
         "partial": {
             "investigating", "executing", "repairing", "cancelling", "completed_verified",
+            "failed",
         },
         "blocked": {
             "investigating", "repairing", "cancelling", "failed",

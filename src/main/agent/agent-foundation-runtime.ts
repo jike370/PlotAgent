@@ -257,6 +257,12 @@ function stoppedBeforeConfirmation(result: TaskPumpResult): AgentFoundationRunti
   if (yielded?.outcome === 'cancelled') {
     return new AgentFoundationRuntimeError('AGENT_V2_CANCELLED', '本轮 Agent 任务已取消，项目未修改。')
   }
+  if (result.taskState === 'failed') {
+    return new AgentFoundationRuntimeError(
+      'AGENT_V2_REPAIR_EXHAUSTED',
+      '自动返修后的计划仍未通过验证，项目未修改。请补充或修改要求后重新生成计划。',
+    )
+  }
   return new AgentFoundationRuntimeError(
     'AGENT_V2_PLAN_NOT_READY',
     'Agent 未生成可确认计划，项目未修改。请重试。',

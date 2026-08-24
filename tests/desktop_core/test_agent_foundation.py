@@ -482,6 +482,108 @@ def test_repair_can_stage_a_revised_intent_without_an_extra_question(tmp_path: P
         }
 
 
+def test_exhausted_repair_without_any_success_becomes_terminal_failed(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        ledger = TaskLedgerRepository(project)
+        ledger.create_task(envelope())
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        repair = prepare_repair_activation(ledger, coordinator)
+        repair_id = str(repair["activation_id"])
+        repair_version = int(cast(int, repair["task_version"]))
+        ledger.mark_activation_running(repair_id)
+        ledger.accept_yield(
+            AgentIntentReady(
+                activation_id=repair_id,
+                task_id="task:test",
+                task_version=repair_version,
+                intent=intent(
+                    repair_id,
+                    intent_version=2,
+                    task_version=repair_version,
+                ),
+            )
+        )
+        assert coordinator.next_action("task:test")["reason"] == "awaiting_reconfirmation"
+        checkpoint = ledger.get_task("task:test")
+        checkpoint = ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="executing",
+            reason_code="TEST_REPAIR_RECONFIRMED",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="staged",
+            next_state="running",
+            reason_code="TEST_REPAIR_STARTED",
+        )
+        failure = TaskError(
+            code="WORKFLOW_NON_ISOMORPHIC",
+            category="semantic_conflict",
+            message="Concatenated schemas still differ.",
+            retryable=False,
+            requires_user=False,
+            side_effect_state="known_none",
+        )
+        checkpoint = ledger.transition_item(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            item_id="item:test.1",
+            expected_item_state="running",
+            next_state="repairable_failed",
+            reason_code="TEST_REPAIR_FAILED_AGAIN",
+            error=failure,
+        )
+        report = VerificationReport(
+            report_id="verification:test-repair-attempt-2",
+            task_id="task:test",
+            task_version=checkpoint.task_version,
+            intent=checkpoint.intent,
+            item_id="item:test.1",
+            status="failed",
+            claims=(
+                VerificationClaim(
+                    claim_id="claim:test-repair-attempt-2",
+                    status="failed",
+                    expected="Concatenated inputs are isomorphic.",
+                    observed="The second confirmed plan retained a schema mismatch.",
+                    repair_scope=("item:test.1",),
+                    error=failure,
+                ),
+            ),
+            content_hash="0" * 64,
+            verified_at="2026-08-18T10:02:00Z",
+        )
+        report = report.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    report.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        checkpoint = ledger.record_verification_report(report)
+        ledger.advance(
+            "task:test",
+            expected_task_version=checkpoint.task_version,
+            next_state="partial",
+            reason_code="TEST_REPAIR_PARTIAL",
+        )
+
+        assert coordinator.next_action("task:test") == {
+            "kind": "wait",
+            "reason": "terminal",
+            "task_state": "failed",
+        }
+        terminal = ledger.get_task("task:test")
+        assert terminal.state == "failed"
+        assert terminal.items[0].state == "failed"
+        assert terminal.items[0].attempt_count == 2
+
+
 def test_repair_host_requires_the_next_intent_version_and_preserves_item_scope(
     tmp_path: Path,
 ) -> None:
