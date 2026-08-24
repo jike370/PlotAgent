@@ -54,11 +54,11 @@
 
 ## 7. 集中施工记录（关闭前证据）
 
-以下内容已在当前施工工作树实现，但在全量确定性门禁和正式 Electron 定向测试完成前，第一节问题仍保持打开，不提前写成发布通过：
+以下内容已由 `56397de` 实现并通过全量确定性门禁。第一节问题仍保持打开，直到正式 Electron 定向测试取得当前提交的用户可见证据，不提前写成发布通过：
 
 | 问题族 | 已实现的纵切 | 当前确定性证据 | 尚需关闭证据 |
 | --- | --- | --- | --- |
-| `AGENT-DATA-01` | 新增有语义决定证据约束的 `declare_unit`；单位只附着到缺失单位的数值派生字段，值不变；宽转长保留真实逻辑类型和单位；派生字段可继续 rename/type/select；TaskIntent 编译后在展示确认卡前执行同源 PreparedDataView 预演，非同构结果直接退回 Agent，不留到确认后失败。 | 正反例覆盖无证据、非数值、已有单位、未知单位；宽表与长表经 declare/reshape/rename/type/select/concat 后形成 6 行×4 列同构数据，预演与正式注册 hash 相同，原始数据单位保持不变。 | 全量数据/状态门禁；正式 Electron 从零完成项目 143 等价任务，并核对零原样重试、零副作用失败。 |
-| `UI-DATA-01` | 新增 `PreparedDataPreview` 合同与 Schema；Core 使用正式执行同一数据程序投影输入/输出行列、输出字段名/类型/单位、前三行、来源和内容 hash；前端从 `draft_ready → task_plan` 和 durable plan 两种包装读取，不复算数据。 | Core API 集成测试证明确认前项目 revision 不变；解析和组件测试覆盖结构、单位、样本、角色徽标以及逐项结构化预演错误。 | 日期序数、align 等全量投影门禁；正式 Electron 确认卡人工读回。 |
-| `UX-PROGRESS-01` | 运行事件增加稳定 `startedAt` 与逐事件 `occurredAt`；活动行展示真实阶段和已用时；继续、自动修订与失败证据修订使用不同文案，不伪造百分比。 | 假时钟证明一次运行的开始时间稳定、事件时间单调；自动修订不退回普通规划文案；组件测试证明忙碌状态显示阶段和秒级耗时。 | 全量状态矩阵；正式 Electron 长调用、停止和任务中心一致性。 |
-| `UX-SOURCE-COUNT-01` | 文案改为“已选 N 个来源”；仅在 28–32 个来源时补充“最多 32 个”；第 33 个来源不能加入当前 32 项选择。 | 2、9、32/33 来源组件边界已覆盖；Main 既有 33 来源拒绝测试继续保留。 | 前端全量门禁与正式 Electron 定向读回。 |
+| `AGENT-DATA-01` | 新增有语义决定证据约束的 `declare_unit`；单位只附着到缺失单位的数值派生字段，值不变；宽转长保留真实逻辑类型和单位；派生字段可继续 rename/type/select；TaskIntent 编译后在展示确认卡前执行同源 PreparedDataView 预演，非同构结果直接退回 Agent，不留到确认后失败。 | 正反例覆盖无证据、非数值、已有单位、未知单位；宽表与长表经 declare/reshape/rename/type/select/concat 后形成 6 行×4 列同构数据，预演与正式注册 hash 相同，原始数据单位保持不变；全量 Python `872 passed`。 | 正式 Electron 从零完成项目 143 等价任务，并核对零原样重试、零副作用失败。 |
+| `UI-DATA-01` | 新增 `PreparedDataPreview` 合同与 Schema；Core 使用正式执行同一数据程序投影输入/输出行列、输出字段名/类型/单位、前三行、来源和内容 hash；前端从 `draft_ready → task_plan` 和 durable plan 两种包装读取，不复算数据。 | Core API 集成测试证明确认前项目 revision 不变；解析和组件测试覆盖结构、单位、样本、角色徽标以及逐项结构化预演错误；contracts/codegen 与 Vitest `30 files / 289 tests` 全绿。 | 正式 Electron 确认卡人工读回。 |
+| `UX-PROGRESS-01` | 运行事件增加稳定 `startedAt` 与逐事件 `occurredAt`；活动行展示真实阶段和已用时；继续、自动修订与失败证据修订使用不同文案，不伪造百分比。 | 假时钟证明一次运行的开始时间稳定、事件时间单调；自动修订不退回普通规划文案；全量任务状态、Vitest、typecheck、ESLint 与 production build 全绿。 | 正式 Electron 长调用、停止和任务中心一致性。 |
+| `UX-SOURCE-COUNT-01` | 文案改为“已选 N 个来源”；仅在 28–32 个来源时补充“最多 32 个”；第 33 个来源不能加入当前 32 项选择。 | 2、9、32/33 来源组件边界、Main 拒绝、全量前端与构建门禁全绿。 | 正式 Electron 定向读回。 |
