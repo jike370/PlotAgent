@@ -10,13 +10,17 @@ from plotagent.contracts.workflows import (
     ConcatenateSources,
     ConvertType,
     ConvertUnit,
+    DeclareUnit,
     DeriveColumn,
     DraftFieldBinding,
     DraftSetAxis,
     DraftSetTitle,
     ExcludeRows,
+    RenameField,
     ReshapeLongToWide,
+    ReshapeWideToLong,
     SchemaComparison,
+    SelectFields,
     TaskDraft,
     TaskDraftItem,
     WorkflowBudget,
@@ -142,7 +146,9 @@ def test_compiler_accepts_x38_numeric_axis_bounds() -> None:
     draft = _draft(context).model_copy(
         update={
             "items": (
-                _draft(context).items[0].model_copy(
+                _draft(context)
+                .items[0]
+                .model_copy(
                     update={
                         "profile_id": "X38",
                         "bindings": (
@@ -191,11 +197,7 @@ def test_compiler_rejects_incompatible_field_types_before_confirmation() -> None
         }
     )
     draft = _draft(context).model_copy(
-        update={
-            "items": (
-                _draft(context).items[0].model_copy(update={"profile_id": "K03"}),
-            )
-        }
+        update={"items": (_draft(context).items[0].model_copy(update={"profile_id": "K03"}),)}
     )
 
     validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
@@ -211,7 +213,9 @@ def test_datetime_profile_rejects_numeric_time_before_confirmation() -> None:
     draft = _draft(context).model_copy(
         update={
             "items": (
-                _draft(context).items[0].model_copy(
+                _draft(context)
+                .items[0]
+                .model_copy(
                     update={
                         "profile_id": "K19",
                         "bindings": (
@@ -335,8 +339,7 @@ def test_compiler_accepts_agent_declared_concatenate_identity_field() -> None:
     assert plan.items[0].data_operations[0].operation == "concatenate_sources"
     assert plan.items[0].bindings[-1].field_id.startswith("field:workflow_")
     assert {
-        (item.role, item.source_alias, item.field_id)
-        for item in plan.items[0].binding_evidence
+        (item.role, item.source_alias, item.field_id) for item in plan.items[0].binding_evidence
     } >= {
         ("x", "data_1", "field:data_1_time"),
         ("x", "data_2", "field:data_2_time"),
@@ -366,9 +369,7 @@ def test_compiler_rejects_uncombined_multi_source_item_before_confirmation() -> 
                 profile_id="X38",
                 source_aliases=("data_1", "data_2"),
                 bindings=(
-                    DraftFieldBinding(
-                        role="x", source_alias="data_1", field_alias="data_1_time"
-                    ),
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_time"),
                     DraftFieldBinding(
                         role="series_1",
                         source_alias="data_1",
@@ -434,13 +435,9 @@ def test_compiler_rejects_combine_operation_that_omits_a_declared_source() -> No
                 plot_alias="plot_1",
                 profile_id="K02",
                 source_aliases=("data_1", "data_2", "data_3"),
-                data_operations=(
-                    ConcatenateSources(source_aliases=("data_1", "data_2")),
-                ),
+                data_operations=(ConcatenateSources(source_aliases=("data_1", "data_2")),),
                 bindings=(
-                    DraftFieldBinding(
-                        role="x", source_alias="data_1", field_alias="data_1_time"
-                    ),
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_time"),
                     DraftFieldBinding(
                         role="y", source_alias="data_1", field_alias="data_1_response"
                     ),
@@ -489,9 +486,7 @@ def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series(
                     ),
                 ),
                 bindings=(
-                    DraftFieldBinding(
-                        role="x", source_alias="data_1", field_alias="shared_x"
-                    ),
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
                     DraftFieldBinding(
                         role="series_1", source_alias="data_1", field_alias="series_a"
                     ),
@@ -513,8 +508,7 @@ def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series(
     ]
     assert all(binding.field_id.startswith("field:workflow_") for binding in plan.items[0].bindings)
     assert [
-        (item.role, item.source_alias, item.field_id)
-        for item in plan.items[0].binding_evidence
+        (item.role, item.source_alias, item.field_id) for item in plan.items[0].binding_evidence
     ] == [
         ("x", "data_1", "field:data_1_time"),
         ("x", "data_2", "field:data_2_time"),
@@ -586,12 +580,8 @@ def test_compiler_can_convert_legacy_text_sources_before_strict_x_alignment() ->
         data_operations=operations,
         bindings=(
             DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
-            DraftFieldBinding(
-                role="series_1", source_alias="data_1", field_alias="series_a"
-            ),
-            DraftFieldBinding(
-                role="series_2", source_alias="data_1", field_alias="series_b"
-            ),
+            DraftFieldBinding(role="series_1", source_alias="data_1", field_alias="series_a"),
+            DraftFieldBinding(role="series_2", source_alias="data_1", field_alias="series_b"),
         ),
     )
     draft = TaskDraft(
@@ -736,6 +726,178 @@ def test_compiler_supports_ordered_agent_tool_chains_and_rejects_future_fields()
     validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(invalid, context)
     assert not validation.valid
     assert validation.error_code == "FIELD_ALIAS_INVALID"
+
+
+def test_unit_declaration_requires_current_semantic_evidence_and_preserves_type() -> None:
+    context = _context()
+    operation = DeclareUnit(
+        source_alias="data_1",
+        field_alias="data_1_response",
+        target_unit="mV",
+        output_field_alias="response_mv",
+        output_name="Response",
+        evidence_ref="decision:unit-response",
+    )
+    item = (
+        _draft(context)
+        .items[0]
+        .model_copy(
+            update={
+                "data_operations": (operation,),
+                "bindings": (
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_time"),
+                    DraftFieldBinding(role="y", source_alias="data_1", field_alias="response_mv"),
+                ),
+            }
+        )
+    )
+    draft = _draft(context).model_copy(update={"items": (item,)})
+    compiler = DraftCompiler(EngineCatalog(ENGINE_PROFILES))
+
+    plan = compiler.compile(
+        draft,
+        context,
+        unit_decision_ids={"decision:unit-response"},
+    )
+
+    response = next(
+        field for field in plan.items[0].resolved_fields if field.field_alias == "response_mv"
+    )
+    assert (response.logical_type, response.unit_label) == ("numeric", "mV")
+
+    missing_evidence = compiler.validate(draft, context)
+    assert not missing_evidence.valid
+    assert missing_evidence.error_code == "WORKFLOW_UNIT_EVIDENCE_INVALID"
+
+
+@pytest.mark.parametrize(
+    ("field_update", "target_unit", "expected_code"),
+    [
+        ({"logical_type": "text"}, "mV", "WORKFLOW_UNIT_TYPE_INVALID"),
+        ({"unit_label": "V"}, "mV", "WORKFLOW_UNIT_ALREADY_DECLARED"),
+        ({}, "definitely-not-a-unit", "WORKFLOW_UNIT_UNKNOWN"),
+    ],
+)
+def test_unit_declaration_rejects_unsafe_overrides(
+    field_update: dict[str, str], target_unit: str, expected_code: str
+) -> None:
+    base = _context()
+    context = base.model_copy(
+        update={
+            "fields": tuple(
+                field.model_copy(update=field_update)
+                if field.field_alias == "data_1_response"
+                else field
+                for field in base.fields
+            )
+        }
+    )
+    operation = DeclareUnit(
+        source_alias="data_1",
+        field_alias="data_1_response",
+        target_unit=target_unit,
+        output_field_alias="response_declared",
+        output_name="Response",
+        evidence_ref="decision:unit-response",
+    )
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(update={"data_operations": (operation,)}),
+            )
+        }
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(
+        draft,
+        context,
+        unit_decision_ids={"decision:unit-response"},
+    )
+
+    assert not validation.valid
+    assert validation.error_code == expected_code
+
+
+def test_wide_to_long_preserves_value_unit_and_supports_post_reshape_tools() -> None:
+    base = _context()
+    context = base.model_copy(
+        update={
+            "selected_profile_ids": ("K03",),
+            "fields": tuple(
+                field.model_copy(update={"unit_label": "mV"})
+                if field.field_alias == "data_1_response"
+                else field
+                for field in base.fields
+            )
+            + (
+                WorkflowField(
+                    field_alias="data_1_response_b",
+                    source_alias="data_1",
+                    field_id="field:data_1_response_b",
+                    name="Response B",
+                    logical_type="numeric",
+                    unit_label="mV",
+                ),
+            ),
+        }
+    )
+    operations = (
+        ReshapeWideToLong(
+            source_alias="data_1",
+            id_field_aliases=("data_1_time",),
+            value_field_aliases=("data_1_response", "data_1_response_b"),
+            output_name="series_name",
+            output_value="response_long",
+        ),
+        RenameField(
+            source_alias="data_1",
+            field_alias="response_long",
+            output_field_alias="response_final",
+            output_name="Response",
+        ),
+        SelectFields(
+            source_alias="data_1",
+            field_aliases=("data_1_time", "series_name", "response_final"),
+        ),
+    )
+    draft = TaskDraft(
+        draft_id="draft:wide-long",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="把宽表整理为分组散点图",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:wide-long.1",
+                plot_alias="plot_1",
+                profile_id="K03",
+                source_aliases=("data_1",),
+                data_operations=operations,
+                bindings=(
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_time"),
+                    DraftFieldBinding(
+                        role="y", source_alias="data_1", field_alias="response_final"
+                    ),
+                    DraftFieldBinding(
+                        role="group", source_alias="data_1", field_alias="series_name"
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    fields = {field.field_alias: field for field in plan.items[0].resolved_fields}
+
+    assert (fields["response_long"].logical_type, fields["response_long"].unit_label) == (
+        "numeric",
+        "mV",
+    )
+    assert (fields["response_final"].logical_type, fields["response_final"].unit_label) == (
+        "numeric",
+        "mV",
+    )
 
 
 @dataclass(frozen=True)

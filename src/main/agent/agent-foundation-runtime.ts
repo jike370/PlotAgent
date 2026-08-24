@@ -41,6 +41,8 @@ export interface AgentFoundationRuntimeEvent {
   readonly projectId: string
   readonly taskId?: string
   readonly sequence: number
+  readonly startedAt: string
+  readonly occurredAt: string
   readonly stage:
     | 'preparing_context'
     | 'inspecting_data'
@@ -286,6 +288,8 @@ export class AgentFoundationRuntime {
   private readonly authorityByTask = new Map<string, string>()
   private readonly activePumps = new Map<string, AgentTaskPump>()
   private readonly activeExecutions = new Set<string>()
+  private readonly startedAtByRunId = new Map<string, string>()
+  private readonly modeByRunId = new Map<string, 'planning' | 'continuing' | 'repairing'>()
   private readonly executionCancellationSignals = new Map<string, {
     promise: Promise<boolean>
     resolve: (cancelled: boolean) => void
@@ -551,6 +555,7 @@ export class AgentFoundationRuntime {
     }, 15_000)
     const runId = `workflow:continue:${taskId.replace(/^task:/, '')}`
     this.taskByRunId.set(runId, taskId)
+    this.modeByRunId.set(runId, action === 'corrected' ? 'repairing' : 'continuing')
     this.emit(runId, input.projectId, 'preparing_context', '正在继续这项任务…')
     const host = new CorePiRuntimeHostV2(this.core, input.projectId)
     const runtime = this.createRuntime(
@@ -862,6 +867,10 @@ export class AgentFoundationRuntime {
     }
     const runId = `workflow:resume:${taskId.replace(/^task:/, '')}`
     this.taskByRunId.set(runId, taskId)
+    this.modeByRunId.set(
+      runId,
+      automaticSemanticRepair || state === 'repairing' ? 'repairing' : 'continuing',
+    )
     this.emit(runId, projectId, 'preparing_context', '正在从保存的任务检查点继续…')
     const host = new CorePiRuntimeHostV2(this.core, projectId)
     const runtime = this.createRuntime(
@@ -978,11 +987,18 @@ export class AgentFoundationRuntime {
   }
 
   private forwardRuntime(runId: string, projectId: string, event: PiRuntimeV2Event): void {
+    const mode = this.modeByRunId.get(runId) ?? 'planning'
     const details: Record<PiRuntimeV2Event['stage'], [AgentFoundationRuntimeEvent['stage'], string]> = {
       preparing_context: ['preparing_context', '正在准备 Agent 上下文…'],
-      model_turn: ['planning', 'Agent 正在检查数据并规划…'],
+      model_turn: ['planning', mode === 'repairing'
+        ? 'Agent 正在根据失败证据修订计划…'
+        : mode === 'continuing'
+          ? 'Agent 正在根据补充信息更新计划…'
+          : 'Agent 正在检查数据并规划…'],
       tool_started: ['inspecting_data', 'Agent 正在读取数据证据…'],
-      tool_finished: ['planning', '数据证据已返回，继续规划…'],
+      tool_finished: ['planning', mode === 'repairing'
+        ? '数据证据已返回，继续修订计划…'
+        : '数据证据已返回，继续规划…'],
       yielded: ['validating_draft', '正在校验字段绑定与图形合同…'],
       cancelled: ['cancelled', 'Agent 任务已取消'],
       failed: ['failed', 'Agent 运行失败'],
@@ -993,7 +1009,14 @@ export class AgentFoundationRuntime {
 
   private forwardPump(runId: string, projectId: string, event: TaskPumpEvent): void {
     if (event.stage === 'activation_started') {
-      this.emit(runId, projectId, 'planning', 'Agent 正在生成结构化任务意图…')
+      this.emit(
+        runId,
+        projectId,
+        'planning',
+        this.modeByRunId.get(runId) === 'repairing'
+          ? 'Agent 正在生成修订后的结构化任务意图…'
+          : 'Agent 正在生成结构化任务意图…',
+      )
     } else if (event.stage === 'activation_yielded') {
       this.emit(runId, projectId, 'saving_plan', '正在生成可确认计划…')
     } else if (event.stage === 'failed') {
@@ -1008,6 +1031,9 @@ export class AgentFoundationRuntime {
     label: string,
   ): void {
     this.sequence += 1
+    const occurredAt = this.clock().toISOString()
+    const startedAt = this.startedAtByRunId.get(runId) ?? occurredAt
+    this.startedAtByRunId.set(runId, startedAt)
     this.emitEvent({
       schemaVersion: '1.0',
       runId,
@@ -1016,6 +1042,8 @@ export class AgentFoundationRuntime {
         ? {}
         : { taskId: this.taskByRunId.get(runId) }),
       sequence: this.sequence,
+      startedAt,
+      occurredAt,
       stage,
       label,
     })

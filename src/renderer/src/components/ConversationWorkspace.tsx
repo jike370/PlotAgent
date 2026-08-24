@@ -31,6 +31,7 @@ import {
 import type {
   CoreStatus,
   FieldMappingInput,
+  JsonValue,
   TaskEvent,
   WorkflowPlotSelection,
 } from '../../../shared/desktop-contract'
@@ -97,6 +98,7 @@ interface ConversationWorkspaceProps {
   busyAction?: string
   agentRuntimeLabel?: string
   agentRuntimeTaskId?: string
+  agentRuntimeStartedAt?: string
   workflowOutcome?: WorkflowOutcome
   workflowPlan?: WorkflowPlanView
   agentConfigured: boolean
@@ -244,10 +246,11 @@ function mappingRoles(chart: ChartType): MappingRole[] {
   ]
 }
 
-function previewValue(value: string | number | boolean | null | undefined): string {
+function previewValue(value: JsonValue | undefined): string {
   if (value === null) return '空值'
   if (value === undefined) return '—'
   if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
 
@@ -364,7 +367,7 @@ function DatasetObject({
         </div>
       </section>
       {datasets.length > 1 && <details className="agent-dataset-context">
-        <summary>本次任务数据 <span>{selectedWorkflowSourceIds.length}/{MAX_WORKFLOW_SOURCES}</span></summary>
+        <summary>已选 {selectedWorkflowSourceIds.length} 个来源 {selectedWorkflowSourceIds.length >= MAX_WORKFLOW_SOURCES - 4 && <span>最多 {MAX_WORKFLOW_SOURCES} 个</span>}</summary>
         <div>
           {datasets.map((dataset) => {
             const active = dataset.datasetId === activeDataset.datasetId
@@ -896,7 +899,7 @@ function WorkflowPlanObject({
         </article>
       </div>
       {previewSources.map(({ dataset: previewDataset, roles: previewRoles }) => <section key={previewDataset.datasetId} className="agent-plan__data-preview" aria-label="计划字段绑定与数据样本">
-        <header><strong>{previewDataset.displayName}</strong><span>原始数据 · 前 3 行</span></header>
+        <header><strong>{previewDataset.displayName}</strong><span>来源数据 · 前 3 行</span></header>
         <div className="mapping-preview-scroll" tabIndex={0} aria-label="计划字段绑定和数据预览，可横向滚动">
           <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, previewDataset.fields.length * 138)}px` }}>
             <thead><tr>{previewDataset.fields.map((field) => <th key={field.fieldId} scope="col">
@@ -915,6 +918,39 @@ function WorkflowPlanObject({
           </table>
         </div>
       </section>)}
+      {plan.steps.flatMap((step) => {
+        const prepared = step.preparedPreview
+        if (prepared === undefined && step.preparedPreviewError === undefined) return []
+        if (prepared === undefined) return [<section key={`prepared-error:${step.taskItemId}`} className="agent-plan__data-preview agent-plan__data-preview--error" role="alert">
+          <header><strong>整理后数据预览不可用</strong><span>{step.preparedPreviewError?.code}</span></header>
+          <p>{step.preparedPreviewError?.message}</p>
+        </section>]
+        const roles = new Map(step.bindings.map((binding) => [binding.fieldId, binding.role]))
+        const sourceNames = prepared.sources.map((source) => source.displayName).join('、')
+        return [<section key={`prepared:${step.taskItemId}`} className="agent-plan__data-preview agent-plan__data-preview--prepared" aria-label={`${step.title} 整理后用于绘图的数据`}>
+          <header>
+            <div><strong>整理后用于绘图</strong><small title={sourceNames}>{sourceNames}</small></div>
+            <span>输入 {prepared.inputRowCount} 行 · {prepared.inputFieldCount} 列 → 输出 {prepared.outputRowCount} 行 · {prepared.outputFieldCount} 列</span>
+          </header>
+          <div className="mapping-preview-scroll" tabIndex={0} aria-label="整理后用于绘图的数据，可横向滚动">
+            <table className="mapping-preview-table mapping-preview-table--readonly" style={{ minWidth: `${Math.max(620, prepared.fields.length * 138)}px` }}>
+              <thead><tr>{prepared.fields.map((field) => <th key={field.fieldId} scope="col">
+                <div className="mapping-column-head">
+                  <span className="mapping-role-badge" data-empty={!roles.has(field.fieldId)}>{roles.has(field.fieldId) ? displayWorkflowRole(roles.get(field.fieldId)!) : <span aria-label="未绑定">—</span>}</span>
+                  <strong title={field.name}>{displayFieldName(field.name)}</strong>
+                  <small className="field-meta"><span>{displayLogicalType(field.logicalType)}</span>{field.unit !== undefined && <span>{field.unit}</span>}</small>
+                </div>
+              </th>)}</tr></thead>
+              <tbody>{prepared.rows.length === 0
+                ? <tr><td className="mapping-preview-empty" colSpan={prepared.fields.length}>整理后数据没有可预览行。</td></tr>
+                : prepared.rows.map((row, rowIndex) => <tr key={`prepared-row:${rowIndex}`}>{prepared.fields.map((field, columnIndex) => {
+                  const value = previewValue(row[columnIndex])
+                  return <td key={field.fieldId} title={value}>{value}</td>
+                })}</tr>)}</tbody>
+            </table>
+          </div>
+        </section>]
+      })}
       <ol className="agent-plan__steps">
         {plan.steps.map((step) => (
           <li className={`agent-plan-step agent-plan-step--${step.state}`} key={step.taskItemId}>
@@ -976,15 +1012,23 @@ function ActivityMessage({
   busyAction,
   agentRuntimeLabel,
   agentRuntimeTaskId,
+  agentRuntimeStartedAt,
   tasks,
   onCancel,
 }: {
   busyAction?: string
   agentRuntimeLabel?: string
   agentRuntimeTaskId?: string
+  agentRuntimeStartedAt?: string
   tasks: TaskEvent[]
   onCancel: (taskId: string) => void
 }): React.JSX.Element | null {
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    if (busyAction === undefined || agentRuntimeStartedAt === undefined) return undefined
+    const timer = window.setInterval(() => setClock(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [agentRuntimeStartedAt, busyAction])
   if (busyAction === undefined) return null
   const task = [...tasks]
     .filter((event) => !terminalTaskStates.has(event.state))
@@ -1005,8 +1049,17 @@ function ActivityMessage({
   const progressLabel = task?.progress?.total
     ? `${task.progress.completed}/${task.progress.total} ${task.progress.unit}`
     : undefined
+  const startedAtMs = agentRuntimeStartedAt === undefined ? Number.NaN : Date.parse(agentRuntimeStartedAt)
+  const elapsedSeconds = Number.isFinite(startedAtMs)
+    ? Math.max(0, Math.floor((clock - startedAtMs) / 1_000))
+    : undefined
+  const elapsedLabel = elapsedSeconds === undefined
+    ? undefined
+    : elapsedSeconds < 60
+      ? `已用时 ${elapsedSeconds} 秒`
+      : `已用时 ${Math.floor(elapsedSeconds / 60)} 分 ${elapsedSeconds % 60} 秒`
   return <AgentMessage className="conversation-activity" live>
-    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong><span className="activity-message__stage" key={label}>{label}</span>{progressLabel ? ` · ${progressLabel}` : ''}</strong></div>
+    <div className="activity-message"><span className="activity-pulse" aria-hidden="true"><i /><i /><i /></span><div className="activity-message__copy"><strong><span className="activity-message__stage" key={label}>{label}</span>{progressLabel ? ` · ${progressLabel}` : ''}</strong>{elapsedLabel && <small>{elapsedLabel}</small>}</div>
       {(task?.state !== 'committing' && (task?.taskId ?? agentRuntimeTaskId)) && <button type="button" onClick={() => onCancel((task?.taskId ?? agentRuntimeTaskId) as string)}><StopCircle size={14} />停止</button>}
     </div>
   </AgentMessage>
@@ -1214,7 +1267,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               return <ExportResult className={motionClass} key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
-            <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} tasks={props.taskEvents} onCancel={props.onCancelTask} />
+            <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} agentRuntimeStartedAt={props.agentRuntimeStartedAt} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
             {planRevisionOpen && <AgentMessage><p>请在输入框说明要修改的字段绑定，例如“X 改为 Time”。我会基于当前计划生成修订版，再请你确认。</p></AgentMessage>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}

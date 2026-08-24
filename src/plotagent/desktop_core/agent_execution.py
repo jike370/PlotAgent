@@ -96,9 +96,7 @@ def _now() -> str:
 
 
 def _hashed_model(model: BaseModel) -> str:
-    return canonical_hash(
-        cast(JsonValue, model.model_dump(mode="json", exclude={"content_hash"}))
-    )
+    return canonical_hash(cast(JsonValue, model.model_dump(mode="json", exclude={"content_hash"})))
 
 
 @dataclass(slots=True)
@@ -115,14 +113,30 @@ class DurableTaskExecutionService:
     def plan_view(self, task_id: str) -> dict[str, object]:
         checkpoint = self.ledger.get_task(task_id)
         plan, plan_hash = self.ledger.get_plan_with_hash(task_id)
+        prepared_previews: list[dict[str, object]] = []
+        prepared_preview_errors: list[dict[str, str]] = []
+        for item in plan.items:
+            if item.task_kind == "edit":
+                continue
+            try:
+                prepared_previews.append(self.workflow.preview_compiled_item(item, limit=3))
+            except ValueError as error:
+                prepared_preview_errors.append(
+                    {
+                        "item_id": item.item_id,
+                        "code": str(getattr(error, "code", "WORKFLOW_PREVIEW_FAILED")),
+                        "message": str(getattr(error, "message", str(error))),
+                    }
+                )
         return {
             "task": checkpoint.model_dump(mode="json"),
             "plan": plan.model_dump(mode="json"),
             "plan_hash": plan_hash,
+            "prepared_previews": prepared_previews,
+            "prepared_preview_errors": prepared_preview_errors,
             "confirmation_state": (
                 "pending"
-                if checkpoint.state
-                in {"awaiting_confirmation", "awaiting_reconfirmation"}
+                if checkpoint.state in {"awaiting_confirmation", "awaiting_reconfirmation"}
                 else "confirmed"
                 if checkpoint.state
                 in {"executing", "verifying", "delivering", "completed_verified"}
@@ -236,9 +250,7 @@ class DurableTaskExecutionService:
         if checkpoint.state in {"verifying", "delivering"}:
             return self._complete_verified_task(task_id, checkpoint)
         if checkpoint.state != "executing":
-            raise DurableExecutionError(
-                "TASK_NOT_EXECUTABLE", "Only a confirmed task can execute."
-            )
+            raise DurableExecutionError("TASK_NOT_EXECUTABLE", "Only a confirmed task can execute.")
         plan = self.ledger.get_plan(task_id)
         checkpoint = self._reconcile_interrupted_items(task_id, checkpoint, plan.items)
         if checkpoint.state == "partial":
@@ -272,14 +284,11 @@ class DurableTaskExecutionService:
             raise DurableExecutionError(
                 "EXECUTION_GRANT_STALE", "Execution authority no longer matches the task."
             )
-        if (
-            not reconciled_all
-            and (
-                grant.expected_project_revision > checkpoint.project_revision
-                or (
-                    not execution_started
-                    and grant.expected_project_revision != checkpoint.project_revision
-                )
+        if not reconciled_all and (
+            grant.expected_project_revision > checkpoint.project_revision
+            or (
+                not execution_started
+                and grant.expected_project_revision != checkpoint.project_revision
             )
         ):
             raise DurableExecutionError(
@@ -287,9 +296,7 @@ class DurableTaskExecutionService:
             )
         self.domain.require_revision(checkpoint.project_revision)
         scopes = {scope.item_id: scope for scope in grant.scopes}
-        if not reconciled_all and tuple(scopes) != tuple(
-            item.item_id for item in plan.items
-        ):
+        if not reconciled_all and tuple(scopes) != tuple(item.item_id for item in plan.items):
             raise DurableExecutionError(
                 "EXECUTION_SCOPE_INVALID", "Execution grant does not match the batch plan."
             )
@@ -331,9 +338,7 @@ class DurableTaskExecutionService:
                 next_state="running",
                 reason_code="CONFIRMED_EXECUTION_STARTED",
             )
-            running_item = next(
-                entry for entry in running.items if entry.item_id == item.item_id
-            )
+            running_item = next(entry for entry in running.items if entry.item_id == item.item_id)
             before = running.project_revision
             started_at = _now()
             try:
@@ -436,19 +441,13 @@ class DurableTaskExecutionService:
         plots = self._completed_plots(current)
         failures = self._current_failures(current)
         if failures:
-            retryable_failure = any(
-                item.state == "repairable_failed" for item in current.items
-            )
-            target_state: TaskState = (
-                "partial" if plots or retryable_failure else "failed"
-            )
+            retryable_failure = any(item.state == "repairable_failed" for item in current.items)
+            target_state: TaskState = "partial" if plots or retryable_failure else "failed"
             stopped = self.ledger.advance(
                 task_id,
                 expected_task_version=current.task_version,
                 next_state=target_state,
-                reason_code=(
-                    "BATCH_PARTIALLY_SUCCEEDED" if plots else "BATCH_EXECUTION_FAILED"
-                ),
+                reason_code=("BATCH_PARTIALLY_SUCCEEDED" if plots else "BATCH_EXECUTION_FAILED"),
                 project_revision=current.project_revision,
             )
             return {
@@ -572,8 +571,7 @@ class DurableTaskExecutionService:
         )
         plots = self._completed_plots(completed)
         reports = [
-            self.ledger.get_verification_report(report_id)
-            for report_id in required_report_ids
+            self.ledger.get_verification_report(report_id) for report_id in required_report_ids
         ]
         result: dict[str, object] = {
             "task": completed.model_dump(mode="json"),
@@ -652,9 +650,7 @@ class DurableTaskExecutionService:
                     task_id=task_id,
                     task_version=current.task_version,
                     item_id=item.item_id,
-                    tool_call_id=(
-                        f"execute:{item.idempotency_key}:{snapshot.attempt_count}"
-                    ),
+                    tool_call_id=(f"execute:{item.idempotency_key}:{snapshot.attempt_count}"),
                     tool_name="execute_confirmed_plan_item",
                     permission_phase="p2_confirmed",
                     outcome="succeeded",
@@ -693,8 +689,10 @@ class DurableTaskExecutionService:
                 attempt_count=snapshot.attempt_count,
             )
             current = self.ledger.record_verification_report(report)
-        if current.state != "cancelling" and interrupted and any(
-            item.state == "repairable_failed" for item in current.items
+        if (
+            current.state != "cancelling"
+            and interrupted
+            and any(item.state == "repairable_failed" for item in current.items)
         ):
             current = self.ledger.advance(
                 task_id,
@@ -982,9 +980,7 @@ class DurableTaskExecutionService:
                         ),
                     ),
                     repair_scope=(
-                        (item.item_id, "execute_confirmed_plan_item")
-                        if error.retryable
-                        else ()
+                        (item.item_id, "execute_confirmed_plan_item") if error.retryable else ()
                     ),
                     error=error,
                 ),

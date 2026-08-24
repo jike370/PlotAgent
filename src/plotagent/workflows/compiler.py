@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -20,6 +21,7 @@ from plotagent.contracts.workflows import (
     WorkflowField,
 )
 from plotagent.engine import EngineCatalog, EngineProfile
+from plotagent.units import resolve_unit
 
 
 class WorkflowCompileError(ValueError):
@@ -42,14 +44,26 @@ class DraftCompiler:
     def __init__(self, catalog: EngineCatalog) -> None:
         self._catalog = catalog
 
-    def validate(self, draft: TaskDraft, context: WorkflowContext) -> DraftValidation:
+    def validate(
+        self,
+        draft: TaskDraft,
+        context: WorkflowContext,
+        *,
+        unit_decision_ids: Collection[str] = (),
+    ) -> DraftValidation:
         try:
-            self.compile(draft, context)
+            self.compile(draft, context, unit_decision_ids=unit_decision_ids)
         except WorkflowCompileError as error:
             return DraftValidation(False, error.code, error.message)
         return DraftValidation(True)
 
-    def compile(self, draft: TaskDraft, context: WorkflowContext) -> TaskPlan:
+    def compile(
+        self,
+        draft: TaskDraft,
+        context: WorkflowContext,
+        *,
+        unit_decision_ids: Collection[str] = (),
+    ) -> TaskPlan:
         if draft.workflow_run_id != context.workflow_run_id:
             raise WorkflowCompileError("WORKFLOW_CONTEXT_MISMATCH", "草稿不属于当前任务。")
         sources = {item.source_alias: item for item in context.sources}
@@ -172,6 +186,23 @@ class DraftCompiler:
                         raise WorkflowCompileError(
                             "FIELD_ALIAS_DUPLICATED", "派生字段别名必须互不重复。"
                         )
+                    value_fields = tuple(
+                        synthetic_fields.get(alias) or fields.get(alias)
+                        for alias in operation.value_field_aliases
+                    )
+                    if any(field is None for field in value_fields):
+                        raise WorkflowCompileError("FIELD_ALIAS_INVALID", "宽转长数值字段不可用。")
+                    value_signatures = {
+                        (field.logical_type, field.unit_label or "")
+                        for field in value_fields
+                        if field is not None
+                    }
+                    if len(value_signatures) != 1:
+                        raise WorkflowCompileError(
+                            "WORKFLOW_RESHAPE_VALUE_MISMATCH",
+                            "宽转长数值字段必须具有相同类型和单位。",
+                        )
+                    value_type, value_unit = next(iter(value_signatures))
                     synthetic_fields[operation.output_name] = ResolvedWorkflowField(
                         field_alias=operation.output_name,
                         source_alias=operation.source_alias,
@@ -184,7 +215,8 @@ class DraftCompiler:
                         source_alias=operation.source_alias,
                         field_id=(f"field:workflow_{token}_{position}_{operation.output_value}"),
                         name=operation.output_value,
-                        logical_type="numeric",
+                        logical_type=cast(Any, value_type),
+                        unit_label=value_unit or None,
                     )
                 elif operation.operation == "reshape_long_to_wide":
                     value_field = fields.get(operation.value_field_alias)
@@ -208,6 +240,7 @@ class DraftCompiler:
                     "derive_column",
                     "convert_type",
                     "convert_unit",
+                    "declare_unit",
                     "bucketize_numeric",
                 }:
                     derived_operation = cast(Any, operation)
@@ -219,7 +252,9 @@ class DraftCompiler:
                     logical_type = "numeric"
                     unit_label = getattr(derived_operation, "target_unit", None)
                     if operation.operation == "rename_field":
-                        original = fields.get(derived_operation.field_alias)
+                        original = synthetic_fields.get(
+                            derived_operation.field_alias
+                        ) or fields.get(derived_operation.field_alias)
                         if (
                             original is None
                             or original.source_alias != derived_operation.source_alias
@@ -230,19 +265,55 @@ class DraftCompiler:
                         logical_type = original.logical_type
                         unit_label = original.unit_label
                     elif operation.operation == "derive_column":
-                        original = fields.get(derived_operation.input_field_aliases[0])
+                        original = synthetic_fields.get(
+                            derived_operation.input_field_aliases[0]
+                        ) or fields.get(derived_operation.input_field_aliases[0])
                         unit_label = original.unit_label if original is not None else None
                     elif operation.operation == "bucketize_numeric":
                         logical_type = "categorical"
                         unit_label = None
                     elif operation.operation == "convert_type":
                         logical_type = derived_operation.target_type
-                        original = fields.get(derived_operation.field_alias)
+                        original = synthetic_fields.get(
+                            derived_operation.field_alias
+                        ) or fields.get(derived_operation.field_alias)
                         unit_label = (
                             original.unit_label
                             if original is not None and logical_type == "numeric"
                             else None
                         )
+                    elif operation.operation == "declare_unit":
+                        original = synthetic_fields.get(
+                            derived_operation.field_alias
+                        ) or fields.get(derived_operation.field_alias)
+                        if (
+                            original is None
+                            or original.source_alias != derived_operation.source_alias
+                        ):
+                            raise WorkflowCompileError(
+                                "FIELD_ALIAS_INVALID", "单位声明字段不属于所选数据表。"
+                            )
+                        if original.logical_type != "numeric":
+                            raise WorkflowCompileError(
+                                "WORKFLOW_UNIT_TYPE_INVALID", "单位声明只接受数值字段。"
+                            )
+                        if original.unit_label is not None and original.unit_label.strip():
+                            raise WorkflowCompileError(
+                                "WORKFLOW_UNIT_ALREADY_DECLARED",
+                                "已有单位的字段必须使用单位换算，不能覆盖原单位。",
+                            )
+                        if derived_operation.evidence_ref not in unit_decision_ids:
+                            raise WorkflowCompileError(
+                                "WORKFLOW_UNIT_EVIDENCE_INVALID",
+                                "缺失单位只能依据当前任务中明确记录的单位决定进行声明。",
+                            )
+                        target_definition = resolve_unit(derived_operation.target_unit)
+                        if target_definition is None:
+                            raise WorkflowCompileError(
+                                "WORKFLOW_UNIT_UNKNOWN", "声明单位不在注册表中。"
+                            )
+                        logical_type = "numeric"
+                        unit_label = target_definition.symbol
                     synthetic_fields[alias] = ResolvedWorkflowField(
                         field_alias=alias,
                         source_alias=derived_operation.source_alias,
@@ -421,11 +492,7 @@ class DraftCompiler:
 
         def merged(*aliases: str) -> tuple[tuple[str, str], ...]:
             return tuple(
-                dict.fromkeys(
-                    origin
-                    for alias in aliases
-                    for origin in lineage.get(alias, ())
-                )
+                dict.fromkeys(origin for alias in aliases for origin in lineage.get(alias, ()))
             )
 
         for operation in item.data_operations:
@@ -474,6 +541,7 @@ class DraftCompiler:
                 "rename_field",
                 "convert_type",
                 "convert_unit",
+                "declare_unit",
                 "bucketize_numeric",
             }:
                 derived_operation = cast(Any, operation)
@@ -609,6 +677,8 @@ class DraftCompiler:
         if operation.operation == "derive_column":
             return operation.input_field_aliases, (operation.output_field_alias,)
         if operation.operation == "convert_unit":
+            return (operation.field_alias,), (operation.output_field_alias,)
+        if operation.operation == "declare_unit":
             return (operation.field_alias,), (operation.output_field_alias,)
         if operation.operation == "bucketize_numeric":
             return (operation.field_alias,), (operation.output_field_alias,)

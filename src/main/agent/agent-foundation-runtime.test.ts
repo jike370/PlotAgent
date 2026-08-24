@@ -143,6 +143,7 @@ describe('AgentFoundationRuntime', () => {
 
   it('returns a verified read-only answer without requiring a confirmation plan', async () => {
     let nextCalls = 0
+    let clockTick = 0
     const calls: { method: string; params: unknown }[] = []
     const events: AgentFoundationRuntimeEvent[] = []
     const core = {
@@ -176,6 +177,7 @@ describe('AgentFoundationRuntime', () => {
     const runtime = new AgentFoundationRuntime({
       core,
       emit: (event) => events.push(event),
+      clock: () => new Date(Date.UTC(2026, 7, 25, 0, 0, clockTick++)),
       id: () => 'fixed',
       createRuntime: () => ({
         abort: () => false,
@@ -204,6 +206,12 @@ describe('AgentFoundationRuntime', () => {
     expect(events).toContainEqual(expect.objectContaining({
       stage: 'completed', label: '只读检查已完成',
     }))
+    expect(new Set(events.map((event) => event.startedAt))).toEqual(new Set([
+      '2026-08-25T00:00:00.000Z',
+    ]))
+    expect(events.map((event) => event.occurredAt)).toEqual(
+      [...events.map((event) => event.occurredAt)].sort(),
+    )
   })
 
   it('returns a typed question and continues the same durable task after the reply', async () => {
@@ -1569,28 +1577,41 @@ describe('AgentFoundationRuntime', () => {
       }
     }
     const core = new RevisionCore()
+    const events: AgentFoundationRuntimeEvent[] = []
     const runtime = new AgentFoundationRuntime({
       core,
-      emit: () => undefined,
-      createRuntime: () => ({
+      emit: (event) => events.push(event),
+      createRuntime: (_host, emit) => ({
         abort: () => false,
-        run: async (activation: AgentActivation): Promise<AgentYieldContract> => ({
-          outcome: 'intent_ready',
-          activation_id: activation.activation_id,
-          task_id: activation.task_id,
-          task_version: activation.task_version,
-          intent: {
-            intent_id: 'intent:revise',
-            intent_version: 2,
+        run: async (activation: AgentActivation): Promise<AgentYieldContract> => {
+          emit({
+            schemaVersion: '2.0', activationId: activation.activation_id,
+            taskId: activation.task_id, taskVersion: activation.task_version,
+            sequence: 1, stage: 'model_turn',
+          })
+          emit({
+            schemaVersion: '2.0', activationId: activation.activation_id,
+            taskId: activation.task_id, taskVersion: activation.task_version,
+            sequence: 2, stage: 'tool_finished', toolName: 'compare_schemas',
+          })
+          return {
+            outcome: 'intent_ready',
+            activation_id: activation.activation_id,
             task_id: activation.task_id,
             task_version: activation.task_version,
-            created_by_activation_id: activation.activation_id,
-            summary: '按共同 X 对齐六个来源后创建 X38。',
-            items: [],
-            context_hash: 'a'.repeat(64),
-            content_hash: 'b'.repeat(64),
-          },
-        }),
+            intent: {
+              intent_id: 'intent:revise',
+              intent_version: 2,
+              task_id: activation.task_id,
+              task_version: activation.task_version,
+              created_by_activation_id: activation.activation_id,
+              summary: '按共同 X 对齐六个来源后创建 X38。',
+              items: [],
+              context_hash: 'a'.repeat(64),
+              content_hash: 'b'.repeat(64),
+            },
+          }
+        },
       }),
     })
 
@@ -1599,6 +1620,14 @@ describe('AgentFoundationRuntime', () => {
       .resolves.toMatchObject({ task: { state: 'awaiting_reconfirmation' } })
     expect(core.calls).toContain('agent.tasks.yield.accept')
     expect(core.calls).not.toContain('agent.tasks.execute')
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Agent 正在根据失败证据修订计划…' }),
+      expect.objectContaining({ label: '数据证据已返回，继续修订计划…' }),
+      expect.objectContaining({ label: 'Agent 正在生成修订后的结构化任务意图…' }),
+    ]))
+    expect(events).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Agent 正在检查数据并规划…' }),
+    ]))
   })
 
   it('surfaces an exhausted zero-success repair as a terminal failure', async () => {

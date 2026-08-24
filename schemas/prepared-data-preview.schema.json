@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "PreparedPreviewField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "PreparedPreviewField",
+      "type": "object"
+    },
+    "PreparedPreviewSource": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "display_name",
+        "row_count"
+      ],
+      "title": "PreparedPreviewSource",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.plotagent.local/v2/prepared-data-preview.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Bounded, deterministic presentation of the exact pre-render data view.",
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/PreparedPreviewField"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Fields",
+      "type": "array"
+    },
+    "input_field_count": {
+      "minimum": 1,
+      "title": "Input Field Count",
+      "type": "integer"
+    },
+    "input_row_count": {
+      "minimum": 0,
+      "title": "Input Row Count",
+      "type": "integer"
+    },
+    "item_id": {
+      "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "title": "Item Id",
+      "type": "string"
+    },
+    "output_field_count": {
+      "minimum": 1,
+      "title": "Output Field Count",
+      "type": "integer"
+    },
+    "output_row_count": {
+      "minimum": 1,
+      "title": "Output Row Count",
+      "type": "integer"
+    },
+    "rows": {
+      "items": {
+        "items": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": "array"
+      },
+      "maxItems": 3,
+      "title": "Rows",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/PreparedPreviewSource"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "item_id",
+    "sources",
+    "input_row_count",
+    "input_field_count",
+    "output_row_count",
+    "output_field_count",
+    "fields",
+    "rows",
+    "content_hash"
+  ],
+  "title": "PreparedDataPreview",
+  "type": "object"
+}

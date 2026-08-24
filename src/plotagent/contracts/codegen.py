@@ -57,6 +57,7 @@ from plotagent.contracts.domain_knowledge import (
 )
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorRegistry, ErrorResponse
 from plotagent.contracts.workflows import (
+    PreparedDataPreview,
     TaskDraft,
     TaskPlan,
     TaskPlanSnapshot,
@@ -127,6 +128,7 @@ SCHEMA_EXPORTS: tuple[tuple[str, SchemaModel], ...] = (
     ("workflow-context", WorkflowContext),
     ("task-draft", TaskDraft),
     ("task-plan", TaskPlan),
+    ("prepared-data-preview", PreparedDataPreview),
     ("task-plan-snapshot", TaskPlanSnapshot),
     ("workflow-run-snapshot", WorkflowRunSnapshot),
     ("workflow-recipe", WorkflowRecipe),

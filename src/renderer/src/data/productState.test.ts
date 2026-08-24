@@ -648,6 +648,91 @@ describe('product plot state', () => {
     })
   })
 
+  it('reads the exact prepared schema, units, samples, and structured preview failure', () => {
+    const plan = readWorkflowPlan({
+      task: {
+        task_id: 'task:prepared',
+        task_version: 2,
+        state: 'awaiting_confirmation',
+        items: [
+          { item_id: 'item:prepared.1', state: 'staged', attempt_count: 0 },
+          { item_id: 'item:prepared.2', state: 'staged', attempt_count: 0 },
+        ],
+      },
+      plan: {
+        plan_id: 'plan:prepared',
+        items: [
+          {
+            item_id: 'item:prepared.1',
+            task_kind: 'create',
+            profile_id: 'K03',
+            sources: [{ source_alias: 'data_1', source_dataset_id: 'source:wide' }],
+            bindings: [
+              { role: 'x', source_alias: 'data_1', field_id: 'field:time' },
+              { role: 'y', source_alias: 'data_1', field_id: 'field:value' },
+            ],
+            visual_actions: [],
+          },
+          {
+            item_id: 'item:prepared.2',
+            task_kind: 'create',
+            profile_id: 'K03',
+            sources: [{ source_alias: 'data_2', source_dataset_id: 'source:invalid' }],
+            bindings: [],
+            visual_actions: [],
+          },
+        ],
+      },
+      prepared_previews: [{
+        item_id: 'item:prepared.1',
+        sources: [{
+          source_dataset_id: 'source:wide', source_version: 1,
+          display_name: 'wide.xlsx > Data', row_count: 2,
+        }],
+        input_row_count: 2,
+        input_field_count: 3,
+        output_row_count: 4,
+        output_field_count: 3,
+        fields: [
+          { field_id: 'field:time', name: 'Time', logical_type: 'numeric', unit_label: 's' },
+          { field_id: 'field:series', name: 'Series', logical_type: 'categorical', unit_label: null },
+          { field_id: 'field:value', name: 'Value', logical_type: 'numeric', unit_label: 'mV' },
+        ],
+        rows: [[1, 'A', 10], [1, 'B', 30], [2, 'A', 20]],
+        content_hash: 'c'.repeat(64),
+      }],
+      prepared_preview_errors: [{
+        item_id: 'item:prepared.2',
+        code: 'WORKFLOW_NON_ISOMORPHIC',
+        message: '整理后的字段仍不一致。',
+      }],
+      plan_hash: 'a'.repeat(64),
+      confirmation_state: 'pending',
+    })
+
+    expect(plan?.steps[0]?.preparedPreview).toEqual({
+      inputRowCount: 2,
+      inputFieldCount: 3,
+      outputRowCount: 4,
+      outputFieldCount: 3,
+      sources: [{
+        datasetId: 'source:wide', sourceVersion: 1,
+        displayName: 'wide.xlsx > Data', rowCount: 2,
+      }],
+      fields: [
+        { fieldId: 'field:time', name: 'Time', logicalType: 'numeric', unit: 's' },
+        { fieldId: 'field:series', name: 'Series', logicalType: 'categorical' },
+        { fieldId: 'field:value', name: 'Value', logicalType: 'numeric', unit: 'mV' },
+      ],
+      rows: [[1, 'A', 10], [1, 'B', 30], [2, 'A', 20]],
+      contentHash: 'c'.repeat(64),
+    })
+    expect(plan?.steps[1]?.preparedPreviewError).toEqual({
+      code: 'WORKFLOW_NON_ISOMORPHIC',
+      message: '整理后的字段仍不一致。',
+    })
+  })
+
   it('reads durable task progress, retained outputs, and safe diagnostics without inferring them from chat', () => {
     const tasks = readDurableTasks({
       durable_tasks: [{

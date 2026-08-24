@@ -48,6 +48,7 @@ from plotagent.workflows.data_ops import (
     WorkflowDataError,
     prepare_task_data,
     preview_data_operation,
+    preview_task_data,
 )
 from plotagent.workflows.executor import TaskPlanExecutor
 from plotagent.workflows.inspection import DataInspectionService
@@ -425,6 +426,21 @@ class DesktopWorkflowService:
             "preview": result.model_dump(mode="json"),
             "audit": audit.model_dump(mode="json"),
         }
+
+    def preview_compiled_item(
+        self,
+        item: CompiledTaskItem,
+        *,
+        limit: int = 3,
+    ) -> dict[str, object]:
+        """Return the exact bounded pre-render view without registering derived data."""
+
+        preview = preview_task_data(
+            item,
+            ProjectEngineDataProvider(self.store),
+            limit=limit,
+        )
+        return cast(dict[str, object], preview.model_dump(mode="json"))
 
     def confirm(self, plan_id: str, accept: bool) -> dict[str, object]:
         snapshot = self.repository.confirm(plan_id) if accept else self.repository.reject(plan_id)

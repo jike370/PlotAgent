@@ -12,6 +12,9 @@ from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DataOperation,
     FilterPredicate,
+    PreparedDataPreview,
+    PreparedPreviewField,
+    PreparedPreviewSource,
     RowPage,
     WorkflowContext,
     WorkflowScalar,
@@ -181,6 +184,14 @@ def preview_data_operation(
             _preview_field_id(operation.output_field_alias),
             operation.output_name,
         )
+    elif operation.operation == "declare_unit":
+        result = _declare_unit(
+            views[operation.source_alias],
+            _preview_field_id(operation.field_alias),
+            operation.target_unit,
+            _preview_field_id(operation.output_field_alias),
+            operation.output_name,
+        )
     elif operation.operation == "bucketize_numeric":
         result = _bucketize_numeric(
             views[operation.source_alias],
@@ -239,6 +250,66 @@ def prepare_task_data(
 ) -> tuple[EngineDataRef, tuple[FieldBinding, ...]]:
     """Execute the item's closed data program and return immutable engine data."""
 
+    view, bindings, transformed, _input_rows, _input_fields = _prepare_task_data_view(
+        item, provider
+    )
+    if transformed:
+        view = registrar.register(view)
+    return view.data, bindings
+
+
+def preview_task_data(
+    item: CompiledTaskItem,
+    provider: WorkflowDataProvider,
+    *,
+    limit: int = 3,
+) -> PreparedDataPreview:
+    """Project the exact pre-render data program without registering or mutating it."""
+
+    if not 1 <= limit <= 3:
+        raise WorkflowDataError("INSPECTION_RANGE_INVALID", "整理后数据预览行数无效。")
+    view, _bindings, _transformed, input_rows, input_fields = _prepare_task_data_view(
+        item, provider
+    )
+    rows = tuple(
+        tuple(column.values[index] for column in view.columns)
+        for index in range(min(limit, len(view.row_ids)))
+    )
+    return PreparedDataPreview(
+        item_id=item.item_id,
+        sources=tuple(
+            PreparedPreviewSource(
+                source_dataset_id=source.source_dataset_id,
+                source_version=source.source_version,
+                display_name=source.display_name,
+                row_count=source.row_count,
+            )
+            for source in item.sources
+        ),
+        input_row_count=input_rows,
+        input_field_count=input_fields,
+        output_row_count=len(view.row_ids),
+        output_field_count=len(view.columns),
+        fields=tuple(
+            PreparedPreviewField(
+                field_id=column.field.field_id,
+                name=column.field.name,
+                logical_type=column.field.logical_type,
+                unit_label=column.field.unit_label,
+            )
+            for column in view.columns
+        ),
+        rows=rows,
+        content_hash=view.data.content_hash,
+    )
+
+
+def _prepare_task_data_view(
+    item: CompiledTaskItem,
+    provider: WorkflowDataProvider,
+) -> tuple[EngineDataView, tuple[FieldBinding, ...], bool, int, int]:
+    """Execute once and retain the materialized view for preview or registration."""
+
     fields_by_source: dict[str, list[str]] = {source.source_alias: [] for source in item.sources}
     for field in item.resolved_fields:
         if field.field_id.startswith("field:workflow_"):
@@ -261,6 +332,9 @@ def prepare_task_data(
             ),
             field_ids,
         )
+
+    input_row_count = sum(len(view.row_ids) for view in views.values())
+    input_field_count = sum(len(view.columns) for view in views.values())
 
     transformed = False
     for operation in item.data_operations:
@@ -353,6 +427,14 @@ def prepare_task_data(
                 _field_id(item, operation.output_field_alias),
                 operation.output_name,
             )
+        elif operation.operation == "declare_unit":
+            views[operation.source_alias] = _declare_unit(
+                views[operation.source_alias],
+                _field_id(item, operation.field_alias),
+                operation.target_unit,
+                _field_id(item, operation.output_field_alias),
+                operation.output_name,
+            )
         elif operation.operation == "bucketize_numeric":
             views[operation.source_alias] = _bucketize_numeric(
                 views[operation.source_alias],
@@ -393,13 +475,11 @@ def prepare_task_data(
     if len(views) != 1:
         raise WorkflowDataError(
             "WORKFLOW_SOURCES_NOT_COMBINED",
-            "同一任务项的多个数据来源必须通过 concatenate_sources 或 "
-            "align_sources_on_x 明确合并。",
+            "同一任务项的多个数据来源必须通过 concatenate_sources 或 align_sources_on_x 明确合并。",
         )
     view = next(iter(views.values()))
     if transformed:
         view = _derived_view(item, view)
-        view = registrar.register(view)
     bindings = tuple(
         FieldBinding(role=binding.role, field_id=binding.field_id) for binding in item.bindings
     )
@@ -410,7 +490,7 @@ def prepare_task_data(
             "WORKFLOW_BINDING_OUTPUT_MISSING",
             f"数据处理结果缺少已确认字段：{missing!r}",
         )
-    return view.data, bindings
+    return view, bindings, transformed, input_row_count, input_field_count
 
 
 def _field_id(item: CompiledTaskItem, alias: str) -> str:
@@ -563,9 +643,7 @@ def _drop_empty_fields(view: EngineDataView, field_ids: tuple[str, ...]) -> Engi
                 "WORKFLOW_FIELD_NOT_EMPTY",
                 f"字段 {column.field.name} 含有有效数据，不能作为空字段删除。",
             )
-    remaining = tuple(
-        column for column in view.columns if column.field.field_id not in requested
-    )
+    remaining = tuple(column for column in view.columns if column.field.field_id not in requested)
     if not remaining:
         raise WorkflowDataError("WORKFLOW_EMPTY_RESULT", "删除空字段后没有可绘制字段。")
     return view.model_copy(update={"columns": remaining})
@@ -650,9 +728,7 @@ def _convert_type(
                 else:
                     text = str(value)
                     normalized = text if case_sensitive else text.casefold()
-                    true_set = {
-                        item if case_sensitive else item.casefold() for item in true_values
-                    }
+                    true_set = {item if case_sensitive else item.casefold() for item in true_values}
                     false_set = {
                         item if case_sensitive else item.casefold() for item in false_values
                     }
@@ -678,7 +754,9 @@ def _convert_type(
             unit_label=(
                 "day"
                 if datetime_numeric_mode == "ordinal_day"
-                else source.field.unit_label if target_type == "numeric" else None
+                else source.field.unit_label
+                if target_type == "numeric"
+                else None
             ),
         ),
         values=tuple(converted),
@@ -820,6 +898,40 @@ def _convert_unit(
     return view.model_copy(update={"columns": view.columns + (derived,)})
 
 
+def _declare_unit(
+    view: EngineDataView,
+    field_id: str,
+    target_unit: str,
+    output_field_id: str,
+    output_name: str,
+) -> EngineDataView:
+    column = next((item for item in view.columns if item.field.field_id == field_id), None)
+    if column is None:
+        raise WorkflowDataError("FIELD_ALIAS_INVALID", "单位声明字段不属于数据表。")
+    if column.field.logical_type != "numeric":
+        raise WorkflowDataError("WORKFLOW_UNIT_TYPE_INVALID", "单位声明只接受数值字段。")
+    if column.field.unit_label is not None and column.field.unit_label.strip():
+        raise WorkflowDataError("WORKFLOW_UNIT_ALREADY_DECLARED", "已有单位的字段不能覆盖原单位。")
+    target_definition = resolve_unit(target_unit)
+    if target_definition is None:
+        raise WorkflowDataError("WORKFLOW_UNIT_UNKNOWN", "声明单位不在注册表中。")
+    if any(
+        value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)))
+        for value in column.values
+    ):
+        raise WorkflowDataError("WORKFLOW_UNIT_TYPE_INVALID", "单位声明只接受数值字段。")
+    derived = EngineColumn(
+        field=EngineField(
+            field_id=output_field_id,
+            name=output_name,
+            logical_type="numeric",
+            unit_label=target_definition.symbol,
+        ),
+        values=column.values,
+    )
+    return view.model_copy(update={"columns": view.columns + (derived,)})
+
+
 def _bucketize_numeric(
     view: EngineDataView,
     field_id: str,
@@ -865,6 +977,14 @@ def _wide_to_long(
         values = tuple(columns[field_id] for field_id in value_fields)
     except KeyError as error:
         raise WorkflowDataError("FIELD_ALIAS_INVALID", "宽转长字段不属于数据表。") from error
+    value_signatures = {
+        (column.field.logical_type, column.field.unit_label or "") for column in values
+    }
+    if len(value_signatures) != 1:
+        raise WorkflowDataError(
+            "WORKFLOW_RESHAPE_VALUE_MISMATCH", "宽转长数值字段必须具有相同类型和单位。"
+        )
+    value_type, value_unit = next(iter(value_signatures))
     row_ids: list[str] = []
     output_columns: list[list[WorkflowScalar]] = [[] for _ in ids]
     names: list[WorkflowScalar] = []
@@ -896,7 +1016,8 @@ def _wide_to_long(
                 field=EngineField(
                     field_id=output_value_id,
                     name="Value",
-                    logical_type="numeric",
+                    logical_type=cast(Any, value_type),
+                    unit_label=value_unit or None,
                 ),
                 values=tuple(output_values),
             ),
@@ -995,18 +1116,11 @@ def _align_sources_on_x(
     output_series: tuple[tuple[str, str], ...],
     numeric_tolerance: float,
 ) -> EngineDataView:
-    if not (
-        len(views)
-        == len(x_field_ids)
-        == len(value_field_ids)
-        == len(output_series)
-    ):
+    if not (len(views) == len(x_field_ids) == len(value_field_ids) == len(output_series)):
         raise WorkflowDataError("WORKFLOW_ALIGNMENT_INVALID", "多源对齐参数数量不一致。")
     x_columns: list[EngineColumn] = []
     value_columns: list[EngineColumn] = []
-    for view, x_field_id, value_field_id in zip(
-        views, x_field_ids, value_field_ids, strict=True
-    ):
+    for view, x_field_id, value_field_id in zip(views, x_field_ids, value_field_ids, strict=True):
         by_id = {column.field.field_id: column for column in view.columns}
         try:
             x_columns.append(by_id[x_field_id])
@@ -1058,9 +1172,7 @@ def _align_sources_on_x(
             ),
             values=source.values,
         )
-        for source, (output_field_id, output_name) in zip(
-            value_columns, output_series, strict=True
-        )
+        for source, (output_field_id, output_name) in zip(value_columns, output_series, strict=True)
     )
     return EngineDataView(
         data=views[0].data,

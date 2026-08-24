@@ -268,6 +268,8 @@ export interface WorkflowRuntimeEvent {
   readonly projectId: string
   readonly taskId?: string
   readonly sequence: number
+  readonly startedAt: string
+  readonly occurredAt: string
   readonly stage: WorkflowRuntimeStage
   readonly label: string
 }

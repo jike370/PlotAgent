@@ -2943,6 +2943,7 @@
                 "concatenate_sources": "#/$defs/ConcatenateSources",
                 "convert_type": "#/$defs/ConvertType",
                 "convert_unit": "#/$defs/ConvertUnit",
+                "declare_unit": "#/$defs/DeclareUnit",
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
@@ -2994,6 +2995,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/DeclareUnit"
               },
               {
                 "$ref": "#/$defs/BucketizeNumeric"
@@ -4593,6 +4597,60 @@
         "has_more"
       ],
       "title": "DataViewPreview",
+      "type": "object"
+    },
+    "DeclareUnit": {
+      "additionalProperties": false,
+      "description": "Attach a confirmed unit to a numeric field whose source unit is missing.\n\nThis operation never converts values.  Core accepts it only when the\nreferenced unit decision belongs to the current durable TaskIntent.",
+      "properties": {
+        "evidence_ref": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Ref",
+          "type": "string"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "declare_unit",
+          "default": "declare_unit",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "target_unit": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "target_unit",
+        "output_field_alias",
+        "output_name",
+        "evidence_ref"
+      ],
+      "title": "DeclareUnit",
       "type": "object"
     },
     "DeduplicateRowsOperation": {
@@ -9608,6 +9666,108 @@
       "title": "PreparationSpecRef",
       "type": "object"
     },
+    "PreparedDataPreview": {
+      "additionalProperties": false,
+      "description": "Bounded, deterministic presentation of the exact pre-render data view.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/PreparedPreviewField"
+          },
+          "maxItems": 128,
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "input_field_count": {
+          "minimum": 1,
+          "title": "Input Field Count",
+          "type": "integer"
+        },
+        "input_row_count": {
+          "minimum": 0,
+          "title": "Input Row Count",
+          "type": "integer"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "output_field_count": {
+          "minimum": 1,
+          "title": "Output Field Count",
+          "type": "integer"
+        },
+        "output_row_count": {
+          "minimum": 1,
+          "title": "Output Row Count",
+          "type": "integer"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "maxItems": 3,
+          "title": "Rows",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/PreparedPreviewSource"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_id",
+        "sources",
+        "input_row_count",
+        "input_field_count",
+        "output_row_count",
+        "output_field_count",
+        "fields",
+        "rows",
+        "content_hash"
+      ],
+      "title": "PreparedDataPreview",
+      "type": "object"
+    },
     "PreparedDataset": {
       "additionalProperties": false,
       "properties": {
@@ -9751,6 +9911,87 @@
         "content_hash"
       ],
       "title": "PreparedDatasetRef",
+      "type": "object"
+    },
+    "PreparedPreviewField": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "logical_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "datetime",
+            "boolean",
+            "text"
+          ],
+          "title": "Logical Type",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit_label": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Label"
+        }
+      },
+      "required": [
+        "field_id",
+        "name",
+        "logical_type"
+      ],
+      "title": "PreparedPreviewField",
+      "type": "object"
+    },
+    "PreparedPreviewSource": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "row_count": {
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "source_dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Source Dataset Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_dataset_id",
+        "source_version",
+        "display_name",
+        "row_count"
+      ],
+      "title": "PreparedPreviewSource",
       "type": "object"
     },
     "ProjectMetadataLabelSpec": {
@@ -11031,6 +11272,7 @@
                 "concatenate_sources": "#/$defs/ConcatenateSources",
                 "convert_type": "#/$defs/ConvertType",
                 "convert_unit": "#/$defs/ConvertUnit",
+                "declare_unit": "#/$defs/DeclareUnit",
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
@@ -11082,6 +11324,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/DeclareUnit"
               },
               {
                 "$ref": "#/$defs/BucketizeNumeric"
@@ -14190,6 +14435,7 @@
                 "concatenate_sources": "#/$defs/ConcatenateSources",
                 "convert_type": "#/$defs/ConvertType",
                 "convert_unit": "#/$defs/ConvertUnit",
+                "declare_unit": "#/$defs/DeclareUnit",
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
@@ -14241,6 +14487,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/DeclareUnit"
               },
               {
                 "$ref": "#/$defs/BucketizeNumeric"
@@ -17555,6 +17804,9 @@
     },
     "preparation-spec": {
       "$ref": "#/$defs/PreparationSpecContract"
+    },
+    "prepared-data-preview": {
+      "$ref": "#/$defs/PreparedDataPreview"
     },
     "prepared-dataset": {
       "$ref": "#/$defs/PreparedDataset"

@@ -262,6 +262,8 @@ export interface WorkflowPlanStep {
   dataOperations: string[]
   bindings: WorkflowBindingView[]
   sourceFieldRoles: WorkflowSourceFieldRoleView[]
+  preparedPreview?: WorkflowPreparedPreviewView
+  preparedPreviewError?: WorkflowPreparedPreviewErrorView
   changes: string[]
   state: string
   attemptCount: number
@@ -282,6 +284,36 @@ export interface WorkflowBindingView {
   fieldId: string
   sourceDatasetId?: string
   fieldName?: string
+}
+
+export interface WorkflowPreparedFieldView {
+  fieldId: string
+  name: string
+  logicalType: string
+  unit?: string
+}
+
+export interface WorkflowPreparedSourceView {
+  datasetId: string
+  sourceVersion: number
+  displayName: string
+  rowCount: number
+}
+
+export interface WorkflowPreparedPreviewView {
+  inputRowCount: number
+  inputFieldCount: number
+  outputRowCount: number
+  outputFieldCount: number
+  sources: WorkflowPreparedSourceView[]
+  fields: WorkflowPreparedFieldView[]
+  rows: JsonValue[][]
+  contentHash: string
+}
+
+export interface WorkflowPreparedPreviewErrorView {
+  code: string
+  message: string
 }
 
 export interface WorkflowSourceFieldRoleView {
@@ -932,6 +964,9 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
     && Array.isArray(record.item_progress)
   )).at(0)
   if (snapshot === undefined || !isJsonRecord(snapshot.plan)) return undefined
+  const presentation = root !== undefined && (
+    Array.isArray(root.prepared_previews) || Array.isArray(root.prepared_preview_errors)
+  ) ? root : snapshot
   const plan = snapshot.plan
   if (typeof plan.plan_id !== 'string' || !Array.isArray(plan.items)) return undefined
   const progressValues = snapshot.item_progress as JsonValue[]
@@ -951,6 +986,73 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
   )
   const bindings: WorkflowBindingView[] = []
   const boundActions: JsonValue[] = []
+  const preparedPreviews = new Map<string, WorkflowPreparedPreviewView>()
+  if (Array.isArray(presentation.prepared_previews)) {
+    for (const preview of presentation.prepared_previews) {
+      if (!isJsonRecord(preview) || typeof preview.item_id !== 'string') continue
+      const sources = Array.isArray(preview.sources) ? preview.sources.flatMap((source): WorkflowPreparedSourceView[] => {
+        if (!isJsonRecord(source)) return []
+        const datasetId = stringValue(source, 'source_dataset_id')
+        const sourceVersion = numberValue(source, 'source_version')
+        const displayName = stringValue(source, 'display_name')
+        const rowCount = numberValue(source, 'row_count')
+        return datasetId === undefined || sourceVersion === undefined || displayName === undefined || rowCount === undefined
+          ? []
+          : [{ datasetId, sourceVersion, displayName, rowCount }]
+      }) : []
+      const fields = Array.isArray(preview.fields) ? preview.fields.flatMap((field): WorkflowPreparedFieldView[] => {
+        if (!isJsonRecord(field)) return []
+        const fieldId = stringValue(field, 'field_id')
+        const name = stringValue(field, 'name')
+        const logicalType = stringValue(field, 'logical_type')
+        const unit = stringValue(field, 'unit_label')
+        return fieldId === undefined || name === undefined || logicalType === undefined
+          ? []
+          : [{ fieldId, name, logicalType, ...(unit === undefined ? {} : { unit }) }]
+      }) : []
+      const rows = Array.isArray(preview.rows)
+        ? preview.rows.flatMap((row): JsonValue[][] => Array.isArray(row) ? [[...row]] : [])
+        : []
+      const inputRowCount = numberValue(preview, 'input_row_count')
+      const inputFieldCount = numberValue(preview, 'input_field_count')
+      const outputRowCount = numberValue(preview, 'output_row_count')
+      const outputFieldCount = numberValue(preview, 'output_field_count')
+      const contentHash = stringValue(preview, 'content_hash')
+      if (
+        sources.length === 0
+        || fields.length === 0
+        || inputRowCount === undefined
+        || inputFieldCount === undefined
+        || outputRowCount === undefined
+        || outputFieldCount === undefined
+        || contentHash === undefined
+        || fields.length !== outputFieldCount
+        || rows.some((row) => row.length !== fields.length)
+      ) continue
+      preparedPreviews.set(preview.item_id, {
+        inputRowCount,
+        inputFieldCount,
+        outputRowCount,
+        outputFieldCount,
+        sources,
+        fields,
+        rows,
+        contentHash,
+      })
+    }
+  }
+  const preparedPreviewErrors = new Map<string, WorkflowPreparedPreviewErrorView>()
+  if (Array.isArray(presentation.prepared_preview_errors)) {
+    for (const failure of presentation.prepared_preview_errors) {
+      if (!isJsonRecord(failure)) continue
+      const itemId = stringValue(failure, 'item_id')
+      const code = stringValue(failure, 'code')
+      const message = stringValue(failure, 'message')
+      if (itemId !== undefined && code !== undefined && message !== undefined) {
+        preparedPreviewErrors.set(itemId, { code, message })
+      }
+    }
+  }
   const steps = plan.items.flatMap((item): WorkflowPlanStep[] => {
     if (!isJsonRecord(item) || typeof item.item_id !== 'string') return []
     const itemProgress: JsonRecord = progress.get(item.item_id) ?? {}
@@ -1061,6 +1163,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       ...(dataOperations.length > 0 ? [`${dataOperations.length} 项数据处理`] : []),
       ...(taskKind === 'update_data' && changes.length > 0 ? [`${changes.length} 项视觉修改`] : []),
     ]
+    const preparedPreview = preparedPreviews.get(item.item_id)
+    const preparedPreviewError = preparedPreviewErrors.get(item.item_id)
     return [{
       taskItemId: item.item_id,
       actionType: 'workflow_item',
@@ -1074,6 +1178,8 @@ export function readWorkflowPlan(value: JsonValue): WorkflowPlanView | undefined
       dataOperations,
       bindings: stepBindings,
       sourceFieldRoles,
+      ...(preparedPreview === undefined ? {} : { preparedPreview }),
+      ...(preparedPreviewError === undefined ? {} : { preparedPreviewError }),
       changes,
       state,
       attemptCount: numberValue(itemProgress, 'attempt_count') ?? 0,
@@ -1276,7 +1382,9 @@ function workflowDataOperationSummary(value: JsonValue, fieldNames: ReadonlyMap<
     concatenate_sources: '合并数据表',
     rename_field: '重命名字段',
     derive_column: '计算派生列',
+    convert_type: '转换字段类型',
     convert_unit: '单位换算',
+    declare_unit: '声明缺失单位',
     bucketize_numeric: '数值分组',
   }
   return operation === undefined ? [] : [labels[operation] ?? operation]

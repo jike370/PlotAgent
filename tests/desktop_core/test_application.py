@@ -706,6 +706,17 @@ def test_agent_v2_confirmed_plan_executes_and_verifies_one_plot(
     )
     assert view["confirmation_state"] == "pending"
     assert view["plan"]["items"][0]["profile_id"] == "K01"
+    assert view["prepared_preview_errors"] == []
+    assert len(view["prepared_previews"]) == 1
+    prepared_preview = view["prepared_previews"][0]
+    assert prepared_preview["item_id"] == "item:confirmed-execution-api.1"
+    assert prepared_preview["input_row_count"] == prepared_preview["output_row_count"]
+    assert prepared_preview["input_field_count"] == prepared_preview["output_field_count"]
+    assert 1 <= len(prepared_preview["rows"]) <= 3
+    assert all(
+        len(row) == prepared_preview["output_field_count"]
+        for row in prepared_preview["rows"]
+    )
     assert harness.call("engine.plots.list", {"project_id": project_id})[
         "project_version"
     ] == imported["project_version"]

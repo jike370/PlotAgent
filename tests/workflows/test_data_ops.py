@@ -11,10 +11,13 @@ from plotagent.contracts.workflows import (
     ConcatenateSources,
     ConvertType,
     ConvertUnit,
+    DeclareUnit,
     DropEmptyFields,
     ExcludeRows,
     FilterPredicate,
     FilterRows,
+    RenameField,
+    ReshapeWideToLong,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
     SelectFields,
@@ -22,7 +25,11 @@ from plotagent.contracts.workflows import (
     WorkflowSource,
 )
 from plotagent.engine import EngineColumn, EngineDataRef, EngineDataView, EngineField
-from plotagent.workflows.data_ops import WorkflowDataError, prepare_task_data
+from plotagent.workflows.data_ops import (
+    WorkflowDataError,
+    prepare_task_data,
+    preview_task_data,
+)
 
 
 @dataclass(frozen=True)
@@ -307,6 +314,284 @@ def test_agent_can_request_a_registered_unit_conversion_before_concatenation() -
     assert registrar.registered.columns[1].values == (2.0, 3.0, 5.0, 8.0)
 
 
+def test_nonisomorphic_wide_and_long_sources_are_explicitly_normalized_before_concat() -> None:
+    sources = (
+        WorkflowSource(
+            source_alias="data_wide",
+            source_dataset_id="source:wide",
+            source_version=1,
+            content_hash="a" * 64,
+            display_name="wide.xlsx > Data",
+            row_count=2,
+        ),
+        WorkflowSource(
+            source_alias="data_long",
+            source_dataset_id="source:long",
+            source_version=1,
+            content_hash="b" * 64,
+            display_name="long.csv",
+            row_count=2,
+        ),
+    )
+    resolved = (
+        ResolvedWorkflowField(
+            field_alias="wide_time",
+            source_alias="data_wide",
+            field_id="field:wide_time",
+            name="Time",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_a",
+            source_alias="data_wide",
+            field_id="field:wide_a",
+            name="A",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_b",
+            source_alias="data_wide",
+            field_id="field:wide_b",
+            name="B",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_time",
+            source_alias="data_long",
+            field_id="field:long_time",
+            name="Elapsed",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_value",
+            source_alias="data_long",
+            field_id="field:long_value",
+            name="Response",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_series",
+            source_alias="data_long",
+            field_id="field:long_series",
+            name="Condition",
+            logical_type="text",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_a_mv",
+            source_alias="data_wide",
+            field_id="field:workflow_wide_a_mv",
+            name="A",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_b_mv",
+            source_alias="data_wide",
+            field_id="field:workflow_wide_b_mv",
+            name="B",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_series",
+            source_alias="data_wide",
+            field_id="field:workflow_wide_series",
+            name="Series",
+            logical_type="categorical",
+        ),
+        ResolvedWorkflowField(
+            field_alias="wide_value",
+            source_alias="data_wide",
+            field_id="field:workflow_wide_value",
+            name="Value",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_time_named",
+            source_alias="data_long",
+            field_id="field:workflow_long_time_named",
+            name="Time",
+            logical_type="numeric",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_value_mv",
+            source_alias="data_long",
+            field_id="field:workflow_long_value_mv",
+            name="Value",
+            logical_type="numeric",
+            unit_label="mV",
+        ),
+        ResolvedWorkflowField(
+            field_alias="long_series_cat",
+            source_alias="data_long",
+            field_id="field:workflow_long_series_cat",
+            name="Series",
+            logical_type="categorical",
+        ),
+        ResolvedWorkflowField(
+            field_alias="source_group",
+            source_alias="data_wide",
+            field_id="field:workflow_source_group",
+            name="Source",
+            logical_type="categorical",
+        ),
+    )
+    operations = (
+        DeclareUnit(
+            source_alias="data_wide",
+            field_alias="wide_a",
+            target_unit="mV",
+            output_field_alias="wide_a_mv",
+            output_name="A",
+            evidence_ref="decision:wide-unit",
+        ),
+        DeclareUnit(
+            source_alias="data_wide",
+            field_alias="wide_b",
+            target_unit="mV",
+            output_field_alias="wide_b_mv",
+            output_name="B",
+            evidence_ref="decision:wide-unit",
+        ),
+        ReshapeWideToLong(
+            source_alias="data_wide",
+            id_field_aliases=("wide_time",),
+            value_field_aliases=("wide_a_mv", "wide_b_mv"),
+            output_name="wide_series",
+            output_value="wide_value",
+        ),
+        SelectFields(
+            source_alias="data_wide",
+            field_aliases=("wide_time", "wide_series", "wide_value"),
+        ),
+        RenameField(
+            source_alias="data_long",
+            field_alias="long_time",
+            output_field_alias="long_time_named",
+            output_name="Time",
+        ),
+        DeclareUnit(
+            source_alias="data_long",
+            field_alias="long_value",
+            target_unit="mV",
+            output_field_alias="long_value_mv",
+            output_name="Value",
+            evidence_ref="decision:long-unit",
+        ),
+        ConvertType(
+            source_alias="data_long",
+            field_alias="long_series",
+            target_type="categorical",
+            output_field_alias="long_series_cat",
+            output_name="Series",
+        ),
+        SelectFields(
+            source_alias="data_long",
+            field_aliases=("long_time_named", "long_series_cat", "long_value_mv"),
+        ),
+        ConcatenateSources(
+            source_aliases=("data_wide", "data_long"),
+            source_label_field="source_group",
+            source_labels=("Wide", "Long"),
+        ),
+    )
+    item = CompiledTaskItem(
+        task_kind="create",
+        item_id="item:normalized.1",
+        plot_alias="plot_1",
+        plot_id="plot:normalized",
+        profile_id="K03",
+        sources=sources,
+        resolved_fields=resolved,
+        data_operations=operations,
+        bindings=(
+            ResolvedFieldBinding(role="x", source_alias="data_wide", field_id="field:wide_time"),
+            ResolvedFieldBinding(
+                role="y", source_alias="data_wide", field_id="field:workflow_wide_value"
+            ),
+            ResolvedFieldBinding(
+                role="group",
+                source_alias="data_wide",
+                field_id="field:workflow_wide_series",
+            ),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.normalized.1",
+    )
+    wide = EngineDataView(
+        data=EngineDataRef(
+            kind="source", dataset_id="source:wide", version=1, content_hash="a" * 64
+        ),
+        row_ids=("row:wide.1", "row:wide.2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(field_id="field:wide_time", name="Time", logical_type="numeric"),
+                values=(1.0, 2.0),
+            ),
+            EngineColumn(
+                field=EngineField(field_id="field:wide_a", name="A", logical_type="numeric"),
+                values=(10.0, 20.0),
+            ),
+            EngineColumn(
+                field=EngineField(field_id="field:wide_b", name="B", logical_type="numeric"),
+                values=(30.0, 40.0),
+            ),
+        ),
+    )
+    long = EngineDataView(
+        data=EngineDataRef(
+            kind="source", dataset_id="source:long", version=1, content_hash="b" * 64
+        ),
+        row_ids=("row:long.1", "row:long.2"),
+        columns=(
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:long_time", name="Elapsed", logical_type="numeric"
+                ),
+                values=(3.0, 4.0),
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:long_value", name="Response", logical_type="numeric"
+                ),
+                values=(50.0, 60.0),
+            ),
+            EngineColumn(
+                field=EngineField(
+                    field_id="field:long_series", name="Condition", logical_type="text"
+                ),
+                values=("C", "D"),
+            ),
+        ),
+    )
+    provider = _Provider({"source:wide": wide, "source:long": long})
+
+    preview = preview_task_data(item, provider)
+    registrar = _Registrar()
+    data_ref, _bindings = prepare_task_data(item, provider, registrar)
+
+    assert registrar.registered is not None
+    assert preview.input_row_count == 4
+    assert preview.input_field_count == 6
+    assert (preview.output_row_count, preview.output_field_count) == (6, 4)
+    assert [(field.name, field.logical_type, field.unit_label) for field in preview.fields] == [
+        ("Time", "numeric", None),
+        ("Series", "categorical", None),
+        ("Value", "numeric", "mV"),
+        ("Source", "categorical", None),
+    ]
+    assert preview.rows == (
+        (1.0, "A", 10.0, "Wide"),
+        (1.0, "B", 30.0, "Wide"),
+        (2.0, "A", 20.0, "Wide"),
+    )
+    assert data_ref.content_hash == preview.content_hash == registrar.registered.data.content_hash
+    assert registrar.registered.columns[2].values == (10.0, 30.0, 20.0, 40.0, 50.0, 60.0)
+    assert wide.columns[1].field.unit_label is None
+    assert long.columns[1].field.unit_label is None
+
+
 def test_agent_can_bucketize_an_explicit_numeric_field_with_confirmed_thresholds() -> None:
     source = WorkflowSource(
         source_alias="data_1",
@@ -452,9 +737,7 @@ def _text_view(*, invalid: bool = False) -> EngineDataView:
         row_ids=("row:header", "row:1", "row:2"),
         columns=(
             EngineColumn(
-                field=EngineField(
-                    field_id="field:angle_text", name="Angle", logical_type="text"
-                ),
+                field=EngineField(field_id="field:angle_text", name="Angle", logical_type="text"),
                 values=("Angle", "0.1", "bad" if invalid else "0.2"),
             ),
             EngineColumn(
@@ -565,9 +848,7 @@ def test_workflow_date_conversion_uses_explicit_ordinal_day_mode() -> None:
     source = base.model_copy(
         update={
             "columns": (
-                base.columns[0].model_copy(
-                    update={"values": ("Date", "2026-01-04", "2026-01-05")}
-                ),
+                base.columns[0].model_copy(update={"values": ("Date", "2026-01-04", "2026-01-05")}),
                 base.columns[1],
             )
         }
@@ -618,9 +899,7 @@ def _series_view(
                 values=x,
             ),
             EngineColumn(
-                field=EngineField(
-                    field_id=f"field:{prefix}_y", name="PSD", logical_type="numeric"
-                ),
+                field=EngineField(field_id=f"field:{prefix}_y", name="PSD", logical_type="numeric"),
                 values=y,
             ),
         ),

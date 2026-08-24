@@ -47,13 +47,14 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.domain.context import ContextBuilder
 from plotagent.domain.knowledge import DOMAIN_KNOWLEDGE
-from plotagent.engine import EngineCatalog, PlotDocument
+from plotagent.engine import EngineCatalog, PlotDocument, ProjectEngineDataProvider
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.storage import ProjectDomainRepository, ProjectStore, SourceDatasetRecord
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 from plotagent.tasking import TaskLedgerRepository
 from plotagent.tooling import ToolGateway, register_domain_tools, register_inspection_tools
 from plotagent.workflows import DraftCompiler, WorkflowCompileError
+from plotagent.workflows.data_ops import WorkflowDataError, preview_task_data
 from plotagent.workflows.inspection import DataInspectionService
 
 _INVESTIGATION_TOOLS = (
@@ -265,9 +266,7 @@ class DurableAgentCoreHost:
             )
             yielded = yielded.model_copy(
                 update={
-                    "intent": yielded.intent.model_copy(
-                        update={"content_hash": normalized_hash}
-                    )
+                    "intent": yielded.intent.model_copy(update={"content_hash": normalized_hash})
                 }
             )
         activation = runtime.activation
@@ -326,8 +325,7 @@ class DurableAgentCoreHost:
                     )
                 state_by_id = dict(activation.item_states)
                 if any(
-                    state_by_id.get(item_id) == "succeeded"
-                    and revised_by_id[item_id] != prior_item
+                    state_by_id.get(item_id) == "succeeded" and revised_by_id[item_id] != prior_item
                     for item_id, prior_item in prior_by_id.items()
                 ):
                     raise AgentFoundationError(
@@ -338,14 +336,19 @@ class DurableAgentCoreHost:
                 raise AgentFoundationError(
                     "YIELD_CONTEXT_STALE", "The Agent intent was built from another context."
                 )
-            expected_hash = canonical_hash(
-                intent.model_dump(mode="json", exclude={"content_hash"})
-            )
+            expected_hash = canonical_hash(intent.model_dump(mode="json", exclude={"content_hash"}))
             if intent.content_hash != expected_hash:
                 raise AgentFoundationError(
                     "YIELD_CONTENT_HASH_INVALID", "The Agent intent content hash is invalid."
                 )
-            self._compile_intent(intent, runtime.workflow_context)
+            plan = self._compile_intent(intent, runtime.workflow_context)
+            provider = ProjectEngineDataProvider(self.store)
+            try:
+                for item in plan.items:
+                    if item.task_kind != "edit":
+                        preview_task_data(item, provider, limit=3)
+            except WorkflowDataError as error:
+                raise AgentFoundationError(error.code, error.message) from error
         elif yielded.outcome == "technical_repair_ready":
             if activation.reason != "verification_failed":
                 raise AgentFoundationError(
@@ -361,19 +364,14 @@ class DurableAgentCoreHost:
                     "REPAIR_HASH_INVALID", "The repair proposal content hash is invalid."
                 )
             repairable_ids = {
-                item_id
-                for item_id, state in activation.item_states
-                if state == "repairable_failed"
+                item_id for item_id, state in activation.item_states if state == "repairable_failed"
             }
             checkpoint = self.ledger.get_task(activation.task_id)
             affected_items = tuple(
-                item
-                for item in checkpoint.items
-                if item.item_id in set(proposal.affected_item_ids)
+                item for item in checkpoint.items if item.item_id in set(proposal.affected_item_ids)
             )
             if (
-                not set(proposal.failed_report_ids)
-                <= set(activation.verification_report_ids)
+                not set(proposal.failed_report_ids) <= set(activation.verification_report_ids)
                 or not set(proposal.affected_item_ids) <= repairable_ids
                 or tuple(proposal.repair_operations) != ("retry_execution",)
             ):
@@ -412,13 +410,9 @@ class DurableAgentCoreHost:
             raw_proposal = normalized.get("proposal")
             if isinstance(raw_proposal, dict):
                 payload = {
-                    key: value
-                    for key, value in raw_proposal.items()
-                    if key != "proposal_hash"
+                    key: value for key, value in raw_proposal.items() if key != "proposal_hash"
                 }
-                raw_proposal["proposal_hash"] = canonical_hash(
-                    cast(JsonValue, payload)
-                )
+                raw_proposal["proposal_hash"] = canonical_hash(cast(JsonValue, payload))
             return normalized
         if normalized.get("outcome") != "intent_ready":
             return normalized
@@ -557,8 +551,7 @@ class DurableAgentCoreHost:
                         "The Agent intent changed the authorized plot target.",
                     )
                 if item.task_kind == "update_data" and (
-                    not item.source_aliases
-                    or not set(item.source_aliases) <= selected_sources
+                    not item.source_aliases or not set(item.source_aliases) <= selected_sources
                 ):
                     raise AgentFoundationError(
                         "INTENT_SELECTION_MISMATCH",
@@ -579,14 +572,20 @@ class DurableAgentCoreHost:
             confidence=1,
         )
         try:
-            plan = DraftCompiler(self.catalog).compile(draft, workflow_context)
+            plan = DraftCompiler(self.catalog).compile(
+                draft,
+                workflow_context,
+                unit_decision_ids={
+                    decision.decision_id
+                    for decision in validated.semantic_decisions
+                    if decision.kind == "unit"
+                },
+            )
         except WorkflowCompileError as error:
             raise AgentFoundationError(error.code, error.message) from error
         if validated.intent_version == 1:
             return plan
-        return plan.model_copy(
-            update={"plan_id": f"{plan.plan_id}.v{validated.intent_version}"}
-        )
+        return plan.model_copy(update={"plan_id": f"{plan.plan_id}.v{validated.intent_version}"})
 
     def _envelope_with_plot_sources(self, envelope: TaskEnvelope) -> TaskEnvelope:
         """Authorize the immutable inputs of a user-selected plot for this activation.
@@ -798,9 +797,7 @@ class DurableAgentCoreHost:
             )
         explicitly_selected = tuple(envelope.selected_profile_ids)
         plot_profiles = tuple(plot.profile_id for plot in plots)
-        effective_profiles = tuple(
-            dict.fromkeys((*explicitly_selected, *plot_profiles))
-        )
+        effective_profiles = tuple(dict.fromkeys((*explicitly_selected, *plot_profiles)))
         if not effective_profiles and sources:
             # No chart was selected in the UI. The Agent may resolve an explicitly named
             # supported chart from the catalog, but must ask when the instruction is ambiguous.
@@ -809,9 +806,7 @@ class DurableAgentCoreHost:
             workflow_run_id=f"workflow:{envelope.task_id.removeprefix('task:')}",
             project_id=envelope.project_id,
             project_revision=(
-                envelope.project_revision
-                if project_revision is None
-                else project_revision
+                envelope.project_revision if project_revision is None else project_revision
             ),
             instruction=envelope.original_instruction,
             locale=envelope.locale,
@@ -843,11 +838,14 @@ class DurableAgentCoreHost:
         document: PlotDocument,
         sources: tuple[WorkflowSource, ...],
         fields: tuple[WorkflowField, ...],
-    ) -> tuple[
-        tuple[str, ...],
-        tuple[DataOperation, ...],
-        tuple[SelectedPlotBindingContext, ...],
-    ] | None:
+    ) -> (
+        tuple[
+            tuple[str, ...],
+            tuple[DataOperation, ...],
+            tuple[SelectedPlotBindingContext, ...],
+        ]
+        | None
+    ):
         """Rebind the latest durable workflow program to this activation's aliases.
 
         A prepared plot does not share the identity of any raw source.  Its latest
@@ -972,13 +970,13 @@ class DurableAgentCoreHost:
                 for child_key, child_value in value.items()
             }
         if isinstance(value, tuple):
-            return tuple(
-                cls._translate_alias_payload(item, alias_map, key=key) for item in value
-            )
+            return tuple(cls._translate_alias_payload(item, alias_map, key=key) for item in value)
         if isinstance(value, list):
             return [cls._translate_alias_payload(item, alias_map, key=key) for item in value]
-        if isinstance(value, str) and key is not None and (
-            key.endswith("_alias") or key.endswith("_aliases")
+        if (
+            isinstance(value, str)
+            and key is not None
+            and (key.endswith("_alias") or key.endswith("_aliases"))
         ):
             return alias_map.get(value, value)
         return value
@@ -1001,9 +999,7 @@ class DurableAgentCoreHost:
     @staticmethod
     def _system_prompt(context: AgentContextSnapshot) -> str:
         next_intent_version = (
-            1
-            if context.confirmed_intent is None
-            else context.confirmed_intent.intent_version + 1
+            1 if context.confirmed_intent is None else context.confirmed_intent.intent_version + 1
         )
         scaffold = {
             "task_id": context.task_id,
@@ -1085,6 +1081,14 @@ class DurableAgentCoreHost:
             "or negative infinity, use is_finite to keep only finite observations; is_not_missing "
             "does not remove infinity. Preserve the user's operation order and use exact opaque "
             "aliases. "
+            "When a selected numeric field has no source unit and the user has explicitly supplied "
+            "the missing unit, record one SemanticDecision with kind unit, then emit declare_unit "
+            "with evidence_ref equal to that decision_id. declare_unit copies values unchanged and "
+            "must create a new output alias. It is forbidden for a field that already has a unit; "
+            "use convert_unit only for a known compatible source unit. Before concatenating a wide "
+            "source reshaped to long with an existing long source, make the value name, logical "
+            "type and unit identical, convert a text group field to categorical when required, "
+            "select the final common columns, and only then emit concatenate_sources. "
             "Use convert_type only after inspecting enough rows to establish an explicit, strict "
             "conversion; a failed token must remain an error rather than becoming missing data. "
             "Numeric conversion accepts numeric scalars or numeric strings. For an explicitly "
@@ -1154,8 +1158,10 @@ class DurableAgentCoreHost:
                 "item must resolve every reported structural mismatch rather than merely changing "
                 "the final binding. For WORKFLOW_NON_ISOMORPHIC, inspect or compare every input "
                 "schema and make field names, logical/physical types, and units identical before "
-                "concatenation, using the available reshape, rename, type-conversion, or unit-"
-                "conversion operations only when authorized evidence supports them. If a missing "
+                "concatenation, using the available reshape, rename, type-conversion, unit-"
+                "declaration, or unit-conversion operations only when authorized evidence supports "
+                "them. A unit supplied by the user's durable answer requires a kind=unit semantic "
+                "decision and a declare_unit operation that cites that decision. If a missing "
                 "or conflicting unit, type, or field meaning cannot be resolved from the source "
                 "context and instrument metadata, return needs_input for that exact fact instead "
                 "of repeating a plan that will fail the same validation. The revised "
@@ -1228,8 +1234,7 @@ class DurableAgentCoreHost:
                 variant
                 for variant in one_of
                 if not (
-                    isinstance(variant, dict)
-                    and variant.get("$ref") == "#/$defs/AgentCancelled"
+                    isinstance(variant, dict) and variant.get("$ref") == "#/$defs/AgentCancelled"
                 )
             ]
         discriminator = schema.get("discriminator")
@@ -1303,21 +1308,15 @@ class DurableTaskCoordinator:
         if checkpoint.state == "intent_staged":
             if self._plan_stager is not None:
                 self._plan_stager(task_id)
-            intent_version = (
-                1 if checkpoint.intent is None else checkpoint.intent.intent_version
-            )
+            intent_version = 1 if checkpoint.intent is None else checkpoint.intent.intent_version
             checkpoint = self._ledger.advance(
                 task_id,
                 expected_task_version=checkpoint.task_version,
                 next_state=(
-                    "awaiting_confirmation"
-                    if intent_version == 1
-                    else "awaiting_reconfirmation"
+                    "awaiting_confirmation" if intent_version == 1 else "awaiting_reconfirmation"
                 ),
                 reason_code=(
-                    "INTENT_PRESENTED"
-                    if intent_version == 1
-                    else "REVISED_INTENT_PRESENTED"
+                    "INTENT_PRESENTED" if intent_version == 1 else "REVISED_INTENT_PRESENTED"
                 ),
             )
         if checkpoint.state == "investigating":
@@ -1325,9 +1324,7 @@ class DurableTaskCoordinator:
             if latest is not None and latest.action in {"answered", "corrected"}:
                 activation = self._continuation_activation(
                     checkpoint,
-                    reason=(
-                        "user_answered" if latest.action == "answered" else "user_corrected"
-                    ),
+                    reason=("user_answered" if latest.action == "answered" else "user_corrected"),
                     message=latest.message or "",
                 )
                 self._ledger.start_activation(activation)
@@ -1336,9 +1333,7 @@ class DurableTaskCoordinator:
                     "activation": activation.model_dump(mode="json"),
                 }
             if latest is not None and latest.action == "resumed":
-                activation = self._resume_activation(
-                    checkpoint, reason="external_blocker_cleared"
-                )
+                activation = self._resume_activation(checkpoint, reason="external_blocker_cleared")
                 self._ledger.start_activation(activation)
                 return {
                     "kind": "run_activation",
@@ -1382,10 +1377,7 @@ class DurableTaskCoordinator:
             if (
                 checkpoint.items
                 and not any(item.state == "succeeded" for item in checkpoint.items)
-                and all(
-                    item.state in {"failed", "cancelled"}
-                    for item in checkpoint.items
-                )
+                and all(item.state in {"failed", "cancelled"} for item in checkpoint.items)
             ):
                 checkpoint = self._ledger.advance(
                     task_id,
@@ -1419,8 +1411,7 @@ class DurableTaskCoordinator:
                     "resume_after_restart"
                     if resumed_after_restart
                     else "external_blocker_cleared"
-                    if latest_user_event is not None
-                    and latest_user_event.action == "resumed"
+                    if latest_user_event is not None and latest_user_event.action == "resumed"
                     else "verification_failed"
                 ),
             )
@@ -1458,20 +1449,14 @@ class DurableTaskCoordinator:
         *,
         reason: Literal[
             "verification_failed", "external_blocker_cleared", "resume_after_restart"
-        ] = (
-            "verification_failed"
-        ),
+        ] = ("verification_failed"),
     ) -> AgentActivation:
         envelope = self._ledger.get_effective_envelope(checkpoint.task_id)
         now = self._clock().astimezone(UTC)
         budget = ActivationBudget()
-        repairable = tuple(
-            item for item in checkpoint.items if item.state == "repairable_failed"
-        )
+        repairable = tuple(item for item in checkpoint.items if item.state == "repairable_failed")
         report_ids = tuple(
-            report_id
-            for item in repairable
-            for report_id in item.verification_report_ids[-1:]
+            report_id for item in repairable for report_id in item.verification_report_ids[-1:]
         )
         if not report_ids:
             raise AgentFoundationError(
@@ -1489,9 +1474,7 @@ class DurableTaskCoordinator:
             item_states=tuple((item.item_id, item.state) for item in checkpoint.items),
             verification_report_ids=report_ids,
             prior_receipt_ids=tuple(
-                receipt_id
-                for item in checkpoint.items
-                for receipt_id in item.receipt_ids
+                receipt_id for item in checkpoint.items for receipt_id in item.receipt_ids
             ),
             allowed_tools=self._allowed_tools(envelope),
             permission_phase="p0_read",

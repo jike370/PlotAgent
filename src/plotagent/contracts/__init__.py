@@ -26,6 +26,7 @@ from plotagent.contracts.datasets import (
 )
 from plotagent.contracts.errors import STABLE_ERROR_REGISTRY, ErrorResponse
 from plotagent.contracts.workflows import (
+    PreparedDataPreview,
     TaskDraft,
     TaskPlan,
     TaskPlanSnapshot,
@@ -45,6 +46,7 @@ __all__ = [
     "PlotCalculationResult",
     "PlotCalculationSpec",
     "PreparationSpec",
+    "PreparedDataPreview",
     "PreparedDataset",
     "STABLE_ERROR_REGISTRY",
     "SourceDataset",

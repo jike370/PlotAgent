@@ -376,7 +376,7 @@ export type CompiledTaskItem = {
   readonly target_plot_version?: number | null;
   readonly sources?: ReadonlyArray<WorkflowSource>;
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
-  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
   readonly binding_evidence?: ReadonlyArray<SourceFieldBindingEvidence>;
   readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
@@ -585,6 +585,16 @@ export type DataViewPreview = {
   readonly offset: number;
   readonly rows: ReadonlyArray<ReadonlyArray<boolean | number | string | null>>;
   readonly has_more: boolean;
+}
+
+export type DeclareUnit = {
+  readonly operation?: "declare_unit";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly target_unit: string;
+  readonly output_field_alias: string;
+  readonly output_name: string;
+  readonly evidence_ref: string;
 }
 
 export type DeduplicateRowsOperation = {
@@ -1254,6 +1264,18 @@ export type PreparationSpecRef = {
   readonly content_hash: string;
 }
 
+export type PreparedDataPreview = {
+  readonly item_id: string;
+  readonly sources: ReadonlyArray<PreparedPreviewSource>;
+  readonly input_row_count: number;
+  readonly input_field_count: number;
+  readonly output_row_count: number;
+  readonly output_field_count: number;
+  readonly fields: ReadonlyArray<PreparedPreviewField>;
+  readonly rows: ReadonlyArray<ReadonlyArray<boolean | number | string | null>>;
+  readonly content_hash: string;
+}
+
 export type PreparedDataset = {
   readonly schema_version?: "1.0";
   readonly prepared_dataset_id: string;
@@ -1280,6 +1302,20 @@ export type PreparedDatasetRef = {
   readonly prepared_dataset_id: string;
   readonly prepared_version: number;
   readonly content_hash: string;
+}
+
+export type PreparedPreviewField = {
+  readonly field_id: string;
+  readonly name: string;
+  readonly logical_type: "numeric" | "categorical" | "datetime" | "boolean" | "text";
+  readonly unit_label?: string | null;
+}
+
+export type PreparedPreviewSource = {
+  readonly source_dataset_id: string;
+  readonly source_version: number;
+  readonly display_name: string;
+  readonly row_count: number;
 }
 
 export type ProjectMetadataLabelSpec = {
@@ -1490,7 +1526,7 @@ export type SelectedPlotContext = {
   readonly plot_version: number;
   readonly profile_id: string;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<SelectedPlotBindingContext>;
 }
 
@@ -1863,7 +1899,7 @@ export type TaskDraftItem = {
   readonly profile_id: string;
   readonly target_plot_alias?: string | null;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | BucketizeNumeric>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
   readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
 }

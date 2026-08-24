@@ -16,6 +16,8 @@ describe('TaskDrawer', () => {
         projectId: 'project:test',
         taskId: 'task:test',
         sequence: 3,
+        startedAt: '2026-08-25T00:00:00.000Z',
+        occurredAt: '2026-08-25T00:00:01.000Z',
         stage: 'planning',
         label: 'Agent 正在检查数据并规划…',
       }}

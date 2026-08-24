@@ -557,6 +557,28 @@ class ConvertUnit(StrictModel):
     output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
 
 
+class DeclareUnit(StrictModel):
+    """Attach a confirmed unit to a numeric field whose source unit is missing.
+
+    This operation never converts values.  Core accepts it only when the
+    referenced unit decision belongs to the current durable TaskIntent.
+    """
+
+    operation: Literal["declare_unit"] = "declare_unit"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    target_unit: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    evidence_ref: Token
+
+    @model_validator(mode="after")
+    def declaration_creates_a_field(self) -> DeclareUnit:
+        if self.output_field_alias == self.field_alias:
+            raise ValueError("unit declaration must create a new field identity")
+        return self
+
+
 class BucketizeNumeric(StrictModel):
     """Create a categorical field from explicit ordered numeric boundaries."""
 
@@ -576,8 +598,7 @@ class BucketizeNumeric(StrictModel):
         if len(self.labels) != len(self.boundaries) + 1:
             raise ValueError("bucket labels must have exactly one more value than boundaries")
         if any(
-            left >= right
-            for left, right in zip(self.boundaries, self.boundaries[1:], strict=False)
+            left >= right for left, right in zip(self.boundaries, self.boundaries[1:], strict=False)
         ):
             raise ValueError("bucket boundaries must be strictly increasing")
         normalized = tuple(label.strip().casefold() for label in self.labels)
@@ -600,6 +621,7 @@ DataOperation = Annotated[
     | RenameField
     | DeriveColumn
     | ConvertUnit
+    | DeclareUnit
     | BucketizeNumeric,
     Field(discriminator="operation"),
 ]
@@ -685,9 +707,7 @@ class DraftSetAxis(StrictModel):
             self.minimum is not None or self.maximum is not None
         ):
             raise ValueError("automatic axis bounds cannot include fixed limits")
-        if self.bounds_mode == "fixed" and (
-            self.minimum is None or self.maximum is None
-        ):
+        if self.bounds_mode == "fixed" and (self.minimum is None or self.maximum is None):
             raise ValueError("fixed axis bounds require minimum and maximum")
         if (self.minimum is None) != (self.maximum is None):
             raise ValueError("axis bounds must be both fixed or both automatic")
@@ -982,6 +1002,42 @@ class ResolvedWorkflowField(StrictModel):
     name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
     logical_type: Literal["numeric", "categorical", "datetime", "boolean", "text"]
     unit_label: Annotated[str, StringConstraints(max_length=128, strict=True)] | None = None
+
+
+class PreparedPreviewSource(StrictModel):
+    source_dataset_id: Token
+    source_version: VersionId
+    display_name: WorkflowDisplayLabel
+    row_count: Annotated[int, Field(ge=0)]
+
+
+class PreparedPreviewField(StrictModel):
+    field_id: FieldId
+    name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    logical_type: Literal["numeric", "categorical", "datetime", "boolean", "text"]
+    unit_label: Annotated[str, StringConstraints(max_length=128, strict=True)] | None = None
+
+
+class PreparedDataPreview(StrictModel):
+    """Bounded, deterministic presentation of the exact pre-render data view."""
+
+    item_id: TaskItemId
+    sources: Annotated[tuple[PreparedPreviewSource, ...], Field(min_length=1, max_length=32)]
+    input_row_count: Annotated[int, Field(ge=0)]
+    input_field_count: Annotated[int, Field(ge=1)]
+    output_row_count: Annotated[int, Field(ge=1)]
+    output_field_count: Annotated[int, Field(ge=1)]
+    fields: Annotated[tuple[PreparedPreviewField, ...], Field(min_length=1, max_length=128)]
+    rows: Annotated[tuple[tuple[WorkflowScalar, ...], ...], Field(max_length=3)]
+    content_hash: Sha256
+
+    @model_validator(mode="after")
+    def preview_is_rectangular(self) -> PreparedDataPreview:
+        if self.output_field_count != len(self.fields):
+            raise ValueError("prepared preview output field count must match fields")
+        if any(len(row) != len(self.fields) for row in self.rows):
+            raise ValueError("prepared preview rows must match output fields")
+        return self
 
 
 class CompiledTaskItem(StrictModel):

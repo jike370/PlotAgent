@@ -1162,6 +1162,60 @@
       "title": "ConvertUnit",
       "type": "object"
     },
+    "DeclareUnit": {
+      "additionalProperties": false,
+      "description": "Attach a confirmed unit to a numeric field whose source unit is missing.\n\nThis operation never converts values.  Core accepts it only when the\nreferenced unit decision belongs to the current durable TaskIntent.",
+      "properties": {
+        "evidence_ref": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Evidence Ref",
+          "type": "string"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "declare_unit",
+          "default": "declare_unit",
+          "title": "Operation",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        },
+        "target_unit": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Target Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "target_unit",
+        "output_field_alias",
+        "output_name",
+        "evidence_ref"
+      ],
+      "title": "DeclareUnit",
+      "type": "object"
+    },
     "DeriveColumn": {
       "additionalProperties": false,
       "properties": {
@@ -2023,6 +2077,7 @@
                 "concatenate_sources": "#/$defs/ConcatenateSources",
                 "convert_type": "#/$defs/ConvertType",
                 "convert_unit": "#/$defs/ConvertUnit",
+                "declare_unit": "#/$defs/DeclareUnit",
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
@@ -2074,6 +2129,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertUnit"
+              },
+              {
+                "$ref": "#/$defs/DeclareUnit"
               },
               {
                 "$ref": "#/$defs/BucketizeNumeric"

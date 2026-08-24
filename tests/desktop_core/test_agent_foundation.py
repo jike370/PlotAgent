@@ -12,6 +12,7 @@ from plotagent.contracts.agent_tasks import (
     AgentIntentReady,
     AgentNeedsInput,
     SelectedPlotRef,
+    SemanticDecision,
     TaskBudgetLimits,
     TaskContextUpdate,
     TaskEnvelope,
@@ -25,6 +26,7 @@ from plotagent.contracts.base import SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.workflows import (
     AlignSourcesOnX,
+    DeclareUnit,
     DraftFieldBinding,
     DraftSetTitle,
     FilterPredicate,
@@ -33,7 +35,11 @@ from plotagent.contracts.workflows import (
     SortKey,
     SortRows,
     TaskDraftItem,
+    WorkflowBudget,
+    WorkflowContext,
+    WorkflowField,
     WorkflowOutputField,
+    WorkflowSource,
 )
 from plotagent.desktop_core.agent_foundation import (
     AgentFoundationError,
@@ -90,12 +96,8 @@ def intent(
         profile_id="K01",
         source_aliases=("data_1",),
         bindings=(
-            DraftFieldBinding(
-                role="x", source_alias="data_1", field_alias="data_1_field_1"
-            ),
-            DraftFieldBinding(
-                role="y", source_alias="data_1", field_alias="data_1_field_2"
-            ),
+            DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_field_1"),
+            DraftFieldBinding(role="y", source_alias="data_1", field_alias="data_1_field_2"),
         ),
     )
     draft = TaskIntent(
@@ -181,11 +183,11 @@ def prepare_repair_activation(
         content_hash="0" * 64,
         verified_at="2026-08-18T10:01:00Z",
     )
-    report = report.model_copy(update={
-        "content_hash": canonical_hash(
-            report.model_dump(mode="json", exclude={"content_hash"})
-        )
-    })
+    report = report.model_copy(
+        update={
+            "content_hash": canonical_hash(report.model_dump(mode="json", exclude={"content_hash"}))
+        }
+    )
     checkpoint = ledger.record_verification_report(report)
     ledger.advance(
         "task:test",
@@ -231,9 +233,9 @@ def test_inflight_activation_is_aborted_and_resumed_after_restart(tmp_path: Path
 
         recovered = ledger.recover_inflight_activations()
         assert recovered == ("task:test",)
-        restarted = DurableTaskCoordinator(
-            ledger, recovered_task_ids=recovered
-        ).next_action("task:test")
+        restarted = DurableTaskCoordinator(ledger, recovered_task_ids=recovered).next_action(
+            "task:test"
+        )
         assert restarted["kind"] == "run_activation"
         assert restarted["activation"]["reason"] == "resume_after_restart"
         assert restarted["activation"]["activation_id"] != first_id
@@ -318,11 +320,13 @@ def test_inflight_repair_activation_restarts_with_the_same_failure_evidence(
             content_hash="0" * 64,
             verified_at="2026-08-18T10:01:00Z",
         )
-        report = report.model_copy(update={
-            "content_hash": canonical_hash(
-                report.model_dump(mode="json", exclude={"content_hash"})
-            )
-        })
+        report = report.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    report.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
         checkpoint = ledger.record_verification_report(report)
         checkpoint = ledger.advance(
             "task:test",
@@ -446,9 +450,7 @@ def test_blocked_repair_resumes_in_repair_scope_with_failure_evidence(tmp_path: 
         continuation = coordinator.next_action("task:test")
         assert continuation["kind"] == "run_activation"
         assert continuation["activation"]["reason"] == "external_blocker_cleared"
-        assert continuation["activation"]["item_states"] == [
-            ["item:test.1", "repairable_failed"]
-        ]
+        assert continuation["activation"]["item_states"] == [["item:test.1", "repairable_failed"]]
 
 
 def test_repair_can_stage_a_revised_intent_without_an_extra_question(tmp_path: Path) -> None:
@@ -694,9 +696,7 @@ def test_repair_host_requires_the_next_intent_version_and_preserves_item_scope(
         ledger.mark_activation_running(repair_id)
         host = DurableAgentCoreHost(project, domain, ledger)
         prepared = host.prepare(repair_id)
-        assert "same intent_id, the next intent_version" in cast(
-            str, prepared["system_prompt"]
-        )
+        assert "same intent_id, the next intent_version" in cast(str, prepared["system_prompt"])
         context = cast(dict[str, object], prepared["context"])
         revised = intent(
             repair_id,
@@ -718,9 +718,7 @@ def test_repair_host_requires_the_next_intent_version_and_preserves_item_scope(
         )
         assert accepted.outcome == "intent_ready"
 
-        stale_revision = revised.model_copy(
-            update={"intent_version": 1, "content_hash": "0" * 64}
-        )
+        stale_revision = revised.model_copy(update={"intent_version": 1, "content_hash": "0" * 64})
         stale_revision = stale_revision.model_copy(
             update={
                 "content_hash": canonical_hash(
@@ -1236,9 +1234,13 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "K21 request for a lower, upper, or full triangle" in system_prompt
         assert "use is_finite to keep only finite observations" in system_prompt
         assert "reshape_wide_to_long" in system_prompt
+        assert "record one SemanticDecision with kind unit" in system_prompt
+        assert "emit declare_unit with evidence_ref equal to that decision_id" in system_prompt
+        assert "declare_unit copies values unchanged" in system_prompt
+        assert "Before concatenating a wide source reshaped to long" in system_prompt
+        assert "select the final common columns" in system_prompt
         assert (
-            "bind x to the original X, y to output_value, and group to output_name"
-            in system_prompt
+            "bind x to the original X, y to output_value, and group to output_name" in system_prompt
         )
         assert "create one task item per source using that source's own mapping" in system_prompt
         assert "Core derives both authority and integrity fields" in system_prompt
@@ -1378,6 +1380,97 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert rebound.intent.context_hash == context_hash
 
 
+def test_core_host_authorizes_unit_declaration_only_from_current_intent_evidence(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        context = WorkflowContext(
+            workflow_run_id="workflow:unit",
+            project_id="project:test",
+            project_revision=domain.revision,
+            instruction="用户已确认 Response 的单位是 mV。",
+            sources=(
+                WorkflowSource(
+                    source_alias="data_1",
+                    source_dataset_id="source:test",
+                    source_version=1,
+                    content_hash="a" * 64,
+                    display_name="sensor.csv",
+                    row_count=3,
+                ),
+            ),
+            fields=(
+                WorkflowField(
+                    field_alias="data_1_field_1",
+                    source_alias="data_1",
+                    field_id="field:x",
+                    name="Time",
+                    logical_type="numeric",
+                ),
+                WorkflowField(
+                    field_alias="data_1_field_2",
+                    source_alias="data_1",
+                    field_id="field:y",
+                    name="Response",
+                    logical_type="numeric",
+                ),
+            ),
+            selected_source_aliases=("data_1",),
+            selected_profile_ids=("K01",),
+            allowed_profile_ids=("K01",),
+            budget=WorkflowBudget(),
+        )
+        base_intent = intent("activation:unit", context_hash="a" * 64)
+        operation = DeclareUnit(
+            source_alias="data_1",
+            field_alias="data_1_field_2",
+            target_unit="mV",
+            output_field_alias="response_mv",
+            output_name="Response",
+            evidence_ref="decision:response-unit",
+        )
+        revised_item = base_intent.items[0].model_copy(
+            update={
+                "data_operations": (operation,),
+                "bindings": (
+                    DraftFieldBinding(
+                        role="x", source_alias="data_1", field_alias="data_1_field_1"
+                    ),
+                    DraftFieldBinding(role="y", source_alias="data_1", field_alias="response_mv"),
+                ),
+            }
+        )
+        supported = base_intent.model_copy(
+            update={
+                "items": (revised_item,),
+                "semantic_decisions": (
+                    SemanticDecision(
+                        decision_id="decision:response-unit",
+                        kind="unit",
+                        summary="用户确认 Response 的单位是 mV。",
+                    ),
+                ),
+            }
+        )
+
+        plan = host._compile_intent(supported, context)
+
+        declared = next(
+            field for field in plan.items[0].resolved_fields if field.field_alias == "response_mv"
+        )
+        assert declared.unit_label == "mV"
+
+        with pytest.raises(AgentFoundationError) as missing:
+            host._compile_intent(
+                supported.model_copy(update={"semantic_decisions": ()}),
+                context,
+            )
+        assert missing.value.code == "WORKFLOW_UNIT_EVIDENCE_INVALID"
+
+
 def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         imported = ProjectImportService(project).import_resource(
@@ -1427,9 +1520,7 @@ def test_core_host_rejects_invalid_intent_before_confirmation(tmp_path: Path) ->
             update={
                 "bindings": tuple(
                     binding.model_copy(update={"role": f"series_{index}"})
-                    for index, binding in enumerate(
-                        candidate.intent.items[0].bindings, start=1
-                    )
+                    for index, binding in enumerate(candidate.intent.items[0].bindings, start=1)
                 )
             }
         )
@@ -1793,12 +1884,8 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
                 ),
             ),
             bindings=(
-                DraftFieldBinding(
-                    role="x", source_alias="data_1", field_alias="data_1_field_1"
-                ),
-                DraftFieldBinding(
-                    role="y", source_alias="data_1", field_alias="data_1_field_2"
-                ),
+                DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_field_1"),
+                DraftFieldBinding(role="y", source_alias="data_1", field_alias="data_1_field_2"),
             ),
             visual_actions=(DraftSetTitle(text="Filtered"),),
         )
@@ -1876,9 +1963,7 @@ def test_current_prepared_plot_context_recovers_multi_source_data_program(
             created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         )
         ledger.create_task(create_envelope)
-        create_directive = DurableTaskCoordinator(ledger).next_action(
-            create_envelope.task_id
-        )
+        create_directive = DurableTaskCoordinator(ledger).next_action(create_envelope.task_id)
         create_activation_id = str(create_directive["activation"]["activation_id"])
         ledger.mark_activation_running(create_activation_id)
         create_host = DurableAgentCoreHost(project, domain, ledger)
@@ -1905,15 +1990,9 @@ def test_current_prepared_plot_context_recovers_multi_source_data_program(
                 ),
             ),
             bindings=(
-                DraftFieldBinding(
-                    role="x", source_alias="data_1", field_alias="aligned_x"
-                ),
-                DraftFieldBinding(
-                    role="series_1", source_alias="data_1", field_alias="aligned_a"
-                ),
-                DraftFieldBinding(
-                    role="series_2", source_alias="data_1", field_alias="aligned_b"
-                ),
+                DraftFieldBinding(role="x", source_alias="data_1", field_alias="aligned_x"),
+                DraftFieldBinding(role="series_1", source_alias="data_1", field_alias="aligned_a"),
+                DraftFieldBinding(role="series_2", source_alias="data_1", field_alias="aligned_b"),
             ),
         )
         create_intent = TaskIntent(
@@ -1985,9 +2064,7 @@ def test_current_prepared_plot_context_recovers_multi_source_data_program(
             WHERE task_id = ?""",
             (legacy_payload, legacy_hash, create_envelope.task_id),
         )
-        restored_plan, restored_hash = ledger.get_plan_with_hash(
-            create_envelope.task_id
-        )
+        restored_plan, restored_hash = ledger.get_plan_with_hash(create_envelope.task_id)
         assert restored_hash == legacy_hash
         assert restored_plan.items[0].binding_evidence == ()
 
@@ -2018,9 +2095,7 @@ def test_current_prepared_plot_context_recovers_multi_source_data_program(
             created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         )
         ledger.create_task(update_envelope)
-        update_directive = DurableTaskCoordinator(ledger).next_action(
-            update_envelope.task_id
-        )
+        update_directive = DurableTaskCoordinator(ledger).next_action(update_envelope.task_id)
         update_activation_id = str(update_directive["activation"]["activation_id"])
         ledger.mark_activation_running(update_activation_id)
         update_host = DurableAgentCoreHost(

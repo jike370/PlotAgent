@@ -1510,8 +1510,27 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('creates a persistent batch plan from dataset-specific immutable bindings', async () => {
     const user = userEvent.setup()
+    const pendingPlan = batchPlanFixture() as Record<string, JsonValue>
+    pendingPlan.prepared_previews = [{
+      item_id: 'item:batch',
+      sources: [{
+        source_dataset_id: 'source:temperature', source_version: 1,
+        display_name: 'temperature.csv', row_count: 12,
+      }],
+      input_row_count: 12,
+      input_field_count: 3,
+      output_row_count: 24,
+      output_field_count: 3,
+      fields: [
+        { field_id: 'field:time', name: 'Time', logical_type: 'numeric', unit_label: 's' },
+        { field_id: 'field:signal', name: 'Response', logical_type: 'numeric', unit_label: 'mV' },
+        { field_id: 'field:group', name: 'Group', logical_type: 'categorical', unit_label: null },
+      ],
+      rows: [[1, 3.2, 'Control'], [2, 3.9, 'Control'], [3, 4.8, 'Treatment']],
+      content_hash: 'd'.repeat(64),
+    }]
     const api = fakeDesktop({
-      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(batchPlanFixture()))),
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pendingPlan))),
       confirmTaskPlan: vi.fn(async () => ok(batchPlanFixture('ready'))),
       runTaskPlan: vi.fn(async () => ok({
         task_plan: batchPlanFixture('succeeded'),
@@ -1537,7 +1556,12 @@ describe('PlotAgent real desktop workflow', () => {
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('作用对象')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('使用数据')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('预计结果')
-    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('原始数据 · 前 3 行')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('来源数据 · 前 3 行')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('整理后用于绘图')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('输入 12 行 · 3 列 → 输出 24 行 · 3 列')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('Response')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('mV')
+    expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('Control')
     expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).not.toHaveTextContent('plot:one · v1')
     await user.click(screen.getByRole('button', { name: '确认并执行' }))
     await waitFor(() => expect(screen.getByRole('heading', { name: '任务计划' }).closest('section')).toHaveTextContent('已完成'))
@@ -1943,7 +1967,7 @@ describe('PlotAgent real desktop workflow', () => {
     const datasetSwitcher = await screen.findByRole('combobox', { name: '数据表' })
     await user.selectOptions(datasetSwitcher, 'source:pressure')
     await user.selectOptions(datasetSwitcher, 'source:temperature')
-    expect(screen.getByText('2/32')).toBeInTheDocument()
+    expect(screen.getByText('已选 2 个来源')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -1992,7 +2016,7 @@ describe('PlotAgent real desktop workflow', () => {
     for (const item of manyDatasets.slice(1)) {
       await user.selectOptions(datasetSwitcher, item.source_dataset_id)
     }
-    expect(screen.getByText('9/32')).toBeInTheDocument()
+    expect(screen.getByText('已选 9 个来源')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '选择图形' }))
     await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
@@ -2010,6 +2034,38 @@ describe('PlotAgent real desktop workflow', () => {
       datasetId: item.source_dataset_id,
       sourceVersion: 1,
     }))))
+  })
+
+  it('states the 32-source limit only at the boundary and disables a 33rd addition', async () => {
+    const user = userEvent.setup()
+    const manyDatasets = Array.from({ length: 33 }, (_, index) => ({
+      ...dataset,
+      source_dataset_id: `source:limit-${index + 1}`,
+      source_file_name: `limit-${index + 1}.csv`,
+      content_hash: `${(index % 9) + 1}`.repeat(64),
+      fields: dataset.fields.map((field) => ({
+        ...field,
+        field_id: field.field_id.replace('field:', `field:limit-${index + 1}.`),
+      })),
+    }))
+    installApi(fakeDesktop({
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '来源边界项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: manyDatasets },
+      })),
+    }))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    const sourceSummary = screen.getByText(/已选 32 个来源/)
+    expect(sourceSummary).toHaveTextContent('最多 32 个')
+    await user.click(sourceSummary)
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    expect(checkboxes.filter((checkbox) => (checkbox as HTMLInputElement).checked)).toHaveLength(32)
+    expect(checkboxes.at(-1)).not.toBeChecked()
+    expect(checkboxes.at(-1)).toBeDisabled()
   })
 
   it('authorizes every imported worksheet without parsing a file name from the instruction', async () => {
@@ -3132,6 +3188,8 @@ describe('PlotAgent real desktop workflow', () => {
       projectId: 'project:sample',
       taskId: 'task:provider-failed',
       sequence: 4,
+      startedAt: '2026-08-25T00:00:00.000Z',
+      occurredAt: '2026-08-25T00:00:01.000Z',
       stage: 'failed',
       label: 'Agent 运行失败',
     }))
@@ -3142,6 +3200,34 @@ describe('PlotAgent real desktop workflow', () => {
     await user.click(within(drawer).getByRole('button', { name: /全部/ }))
     expect(within(drawer).getByText('模型服务余额不足')).toBeInTheDocument()
     expect(within(drawer).queryByRole('button', { name: '停止任务' })).not.toBeInTheDocument()
+  })
+
+  it('shows a concrete Agent stage with elapsed time during a long operation', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(() => new Promise<DesktopDataResult>(() => undefined))
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '把图例移到右侧')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await waitFor(() => expect(runWorkflow).toHaveBeenCalled())
+    await waitFor(() => expect(workflowRuntimeListener).toBeDefined())
+    const startedAt = new Date(Date.now() - 2_500).toISOString()
+
+    act(() => workflowRuntimeListener?.({
+      schemaVersion: '1.0',
+      runId: 'workflow:elapsed',
+      projectId: 'project:sample',
+      taskId: 'task:elapsed',
+      sequence: 1,
+      startedAt,
+      occurredAt: new Date().toISOString(),
+      stage: 'planning',
+      label: 'Agent 正在检查数据并规划…',
+    }))
+
+    expect(await screen.findByText('Agent 正在检查数据并规划…')).toBeInTheDocument()
+    expect(await screen.findByText(/已用时 [2-5] 秒/)).toBeInTheDocument()
   })
 
   it('projects the refreshed cancelled checkpoint before describing retained results', async () => {
@@ -3178,6 +3264,8 @@ describe('PlotAgent real desktop workflow', () => {
       projectId: 'project:sample',
       taskId: 'task:cancel-boundary',
       sequence: 2,
+      startedAt: '2026-08-25T00:00:00.000Z',
+      occurredAt: '2026-08-25T00:00:01.000Z',
       stage: 'planning',
       label: 'Agent 正在规划…',
     }))

@@ -5379,6 +5379,46 @@ input[type="checkbox"] {
   font-size: 12px;
 }
 
+.agent-plan__data-preview > header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.agent-plan__data-preview > header small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-plan__data-preview--prepared {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.agent-plan__data-preview--prepared .mapping-column-head {
+  background: var(--mapping-preview-head);
+}
+
+.agent-plan__data-preview--error {
+  padding: 10px 12px;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.agent-plan__data-preview--error > header {
+  padding: 0 0 5px;
+}
+
+.agent-plan__data-preview--error p {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
 .agent-plan__data-preview .mapping-preview-scroll {
   border-top: 1px solid var(--border-strong);
   border-bottom: 1px solid var(--border-strong);
@@ -5477,6 +5517,12 @@ input[type="checkbox"] {
   color: var(--ink);
   font-size: 11.5px;
   font-weight: 650;
+}
+
+.activity-message__copy small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 500;
 }
 
 .activity-message__stage {
