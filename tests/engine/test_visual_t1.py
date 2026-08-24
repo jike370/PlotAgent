@@ -21,6 +21,7 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
 from plotagent.engine.backends.origin.visual_t1 import (
     _centered_levels,
     _color_scale_for_action,
+    _fixed_axis_bounds_mode_is_valid,
     _legend_column_count,
     _series_numeric_tolerance,
     _updated_tick_bits,
@@ -315,6 +316,16 @@ def test_axis_bounds_can_transition_between_fixed_and_automatic() -> None:
     assert isinstance(restored, SetAxis)
     assert restored.bounds_mode == "fixed"
     assert (restored.minimum, restored.maximum) == (10, 20)
+
+
+@pytest.mark.parametrize("native_mode", [0, 1, 8])
+def test_origin_fixed_axis_accepts_equivalent_native_rescale_modes(native_mode: int) -> None:
+    assert _fixed_axis_bounds_mode_is_valid(native_mode)
+
+
+@pytest.mark.parametrize("native_mode", [2, 3, 4, 5, 7])
+def test_origin_fixed_axis_rejects_non_fixed_native_rescale_modes(native_mode: int) -> None:
+    assert not _fixed_axis_bounds_mode_is_valid(native_mode)
 
 
 def test_matplotlib_automatic_bounds_restore_data_driven_limits() -> None:

@@ -72,6 +72,13 @@ _PALETTE = {
 }
 _LABEL_POSITION = {"auto": 1, "center": 1, "left": 2, "right": 3, "above": 4, "below": 5}
 _FONT_WEIGHT = {"auto": 0, "normal": 0, "bold": 1}
+# Origin's Python graph proxy exposes the manual/fixed state differently
+# before and after a project round-trip.  The value written by the renderer
+# is 0, Origin's documented LabTalk manual state is 1, and OriginPro 2024
+# currently reads the saved state back as 8.  The user-visible contract is
+# the persisted pair of limits; these are the native encodings that are
+# equivalent to a fixed two-sided range.
+_FIXED_AXIS_NATIVE_RESCALE_MODES = frozenset({0, 1, 8})
 
 
 def apply_origin_visual_actions(
@@ -427,6 +434,12 @@ def _updated_tick_bits(current: int, action: SetAxis) -> int:
     elif direction is not None and minor:
         minor = direction[1]
     return major | minor
+
+
+def _fixed_axis_bounds_mode_is_valid(observed_mode: int) -> bool:
+    """Return whether Origin reports a two-sided fixed/manual axis range."""
+
+    return observed_mode in _FIXED_AXIS_NATIVE_RESCALE_MODES
 
 
 def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
@@ -1142,9 +1155,15 @@ def _verify_actions(
                 observed["limits"] = (begin, end)
             if action.bounds_mode is not None:
                 observed_mode = int(layer.get_int(f"{axis_name}.rescale"))
-                expected_mode = 3 if action.bounds_mode == "automatic" else 0
-                _require_equal("axis bounds mode", observed_mode, expected_mode)
+                if action.bounds_mode == "automatic":
+                    _require_equal("axis bounds mode", observed_mode, 3)
+                elif not _fixed_axis_bounds_mode_is_valid(observed_mode):
+                    raise RuntimeError(
+                        "Origin T1 fresh readback mismatch for axis bounds mode: "
+                        f"expected a fixed/manual mode, observed {observed_mode}"
+                    )
                 observed["bounds_mode"] = action.bounds_mode
+                observed["bounds_mode_native"] = observed_mode
             if action.reverse is not None:
                 _require_equal("axis reverse", observed["reverse"], int(action.reverse))
             if action.label is not None:
