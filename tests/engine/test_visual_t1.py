@@ -14,17 +14,20 @@ from matplotlib import colors as mcolors
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter, LogLocator
 
+import plotagent.engine.backends.origin.visual_t1 as origin_visual_t1
 from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visual_actions,
     apply_visuals_before_save,
 )
 from plotagent.engine.backends.origin.visual_t1 import (
+    _apply_origin_default_frame,
     _centered_levels,
     _color_scale_for_action,
     _fixed_axis_bounds_mode_is_valid,
     _legend_column_count,
     _series_numeric_tolerance,
     _updated_tick_bits,
+    _verify_origin_default_frame,
 )
 from plotagent.engine.contracts import (
     AddAnnotation,
@@ -60,6 +63,18 @@ _VISUAL_ACTION_NAMES = (
     "SetDataLabels",
     "AddAnnotation",
 )
+
+
+class _OriginFrameLayer:
+    def __init__(self, zero_based_index: int) -> None:
+        self._index = zero_based_index
+
+    def index(self) -> int:
+        return self._index
+
+
+class _OriginFrameGraph(list[_OriginFrameLayer]):
+    name = "Graph_1"
 
 
 def _data_ref() -> EngineDataRef:
@@ -326,6 +341,67 @@ def test_origin_fixed_axis_accepts_equivalent_native_rescale_modes(native_mode: 
 @pytest.mark.parametrize("native_mode", [2, 3, 4, 5, 7])
 def test_origin_fixed_axis_rejects_non_fixed_native_rescale_modes(native_mode: int) -> None:
     assert not _fixed_axis_bounds_mode_is_valid(native_mode)
+
+
+def test_origin_default_frame_enables_all_four_sides_on_every_layer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
+    calls: list[tuple[str, int, int, bool]] = []
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_axis_line_show",
+        lambda _op, graph_name, layer_index, axis_code, visible: calls.append(
+            (graph_name, layer_index, axis_code, visible)
+        ),
+    )
+
+    _apply_origin_default_frame(object(), graph)
+
+    assert calls == [
+        ("Graph_1", layer_index, axis_code, True)
+        for layer_index in (1, 2)
+        for axis_code in (0, 1, 2, 3)
+    ]
+
+
+def test_origin_default_frame_fresh_readback_respects_explicit_axis_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
+    action = SetAxis(
+        action_id="action:hide-right-axis-line",
+        target="axis:t1.y_right",
+        expected_plot_version=1,
+        axis_line_visible=False,
+    )
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "read_axis_line_show",
+        lambda _op, _graph_name, layer_index, axis_code: int(
+            not (layer_index == 2 and axis_code == 3)
+        ),
+    )
+
+    snapshot = _verify_origin_default_frame(object(), graph, (action,))
+
+    assert snapshot["layer:1.bottom"] is True
+    assert snapshot["layer:1.top"] is True
+    assert snapshot["layer:2.right"] is False
+
+
+def test_origin_default_frame_fails_when_an_opposite_side_does_not_persist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0),))
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "read_axis_line_show",
+        lambda _op, _graph_name, _layer_index, axis_code: int(axis_code != 2),
+    )
+
+    with pytest.raises(RuntimeError, match="side=top"):
+        _verify_origin_default_frame(object(), graph, ())
 
 
 def test_matplotlib_automatic_bounds_restore_data_driven_limits() -> None:

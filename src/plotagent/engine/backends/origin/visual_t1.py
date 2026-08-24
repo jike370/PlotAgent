@@ -79,6 +79,12 @@ _FONT_WEIGHT = {"auto": 0, "normal": 0, "bold": 1}
 # the persisted pair of limits; these are the native encodings that are
 # equivalent to a fixed two-sided range.
 _FIXED_AXIS_NATIVE_RESCALE_MODES = frozenset({0, 1, 8})
+_ORIGIN_FRAME_AXIS_NAMES = {
+    0: "bottom",
+    1: "left",
+    2: "top",
+    3: "right",
+}
 
 
 def apply_origin_visual_actions(
@@ -97,13 +103,12 @@ def apply_origin_visual_actions(
     rebuilds plots or rewrites source data.
     """
 
-    if not actions:
-        return {"actions": 0}
     effective_actions = effective_visual_actions(actions)
     op.new()
     if not op.open(str(output), readonly=False, asksave=False):
         raise RuntimeError("Origin could not reopen the project for T1 visual edits")
     graph = _graph(op)
+    _apply_origin_default_frame(op, graph)
     for action in effective_actions:
         _apply_action(op, graph, document, action)
     applied_invariant = (
@@ -120,6 +125,11 @@ def apply_origin_visual_actions(
         raise RuntimeError("Origin could not fresh-reopen the T1 visual project")
     reopened = _graph(op)
     snapshot = _verify_actions(op, reopened, document, effective_actions)
+    snapshot["origin_default_frame"] = _verify_origin_default_frame(
+        op,
+        reopened,
+        effective_actions,
+    )
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
     elif applied_invariant is not None:
@@ -400,6 +410,66 @@ def _axis_native_code(target: str) -> int:
     if key == "y_right":
         return 3
     raise ValueError(f"unknown Origin axis target {target}")
+
+
+def _apply_origin_default_frame(op: Any, graph: Any) -> None:
+    """Apply Origin's four-sided native frame before public user edits.
+
+    Official templates do not agree on opposite-axis visibility.  PlotAgent's
+    Origin backend therefore normalizes every native layer to the product
+    default: bottom, left, top and right axis lines are visible.  Explicit
+    ``set_axis(axis_line_visible=...)`` actions run afterwards and remain
+    authoritative for their targeted side.
+    """
+
+    for layer in _layers(graph):
+        layer_index = _layer_index(layer)
+        for axis_code in _ORIGIN_FRAME_AXIS_NAMES:
+            set_axis_line_show(op, graph.name, layer_index, axis_code, True)
+
+
+def _origin_frame_expectations(
+    graph: Any,
+    actions: tuple[PlotEngineAction, ...],
+) -> dict[tuple[int, int], bool]:
+    expected = {
+        (_layer_index(layer), axis_code): True
+        for layer in _layers(graph)
+        for axis_code in _ORIGIN_FRAME_AXIS_NAMES
+    }
+    for action in actions:
+        if not isinstance(action, SetAxis) or action.axis_line_visible is None:
+            continue
+        layer, _axis_name = _axis_target(graph, action.target)
+        expected[(_layer_index(layer), _axis_native_code(action.target))] = (
+            action.axis_line_visible
+        )
+    return expected
+
+
+def _verify_origin_default_frame(
+    op: Any,
+    graph: Any,
+    actions: tuple[PlotEngineAction, ...],
+) -> dict[str, bool]:
+    """Fresh-read every frame side, including explicit visibility overrides."""
+
+    snapshot: dict[str, bool] = {}
+    for (layer_index, axis_code), expected in _origin_frame_expectations(
+        graph, actions
+    ).items():
+        observed = bool(
+            read_axis_line_show(op, graph.name, layer_index, axis_code)
+        )
+        side = _ORIGIN_FRAME_AXIS_NAMES[axis_code]
+        if observed != expected:
+            raise RuntimeError(
+                "Origin default frame did not persist: "
+                f"layer={layer_index}, side={side}, "
+                f"expected={int(expected)}, observed={int(observed)}"
+            )
+        snapshot[f"layer:{layer_index}.{side}"] = observed
+    return snapshot
 
 
 def _with_bit(current: int, bit: int, visible: bool) -> int:
