@@ -2533,7 +2533,8 @@ describe('PlotAgent real desktop workflow', () => {
       actions.push(input.action)
       return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
     })
-    const restorePlotVersion = vi.fn(async () => {
+    const restorePlotVersion = vi.fn(async (input: { sourcePlotVersion: number }) => {
+      void input
       version += 1
       return ok(enginePlotFixture('plot:one', version, 'K01', version + 1, [...actions]))
     })
