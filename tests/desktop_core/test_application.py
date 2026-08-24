@@ -100,19 +100,21 @@ def _create_open(harness: ApplicationHarness) -> tuple[str, int]:
     return project_id, cast(int, opened["project_version"])
 
 
-def test_workflow_source_boundary_accepts_nine_and_rejects_thirty_three() -> None:
-    nine_sources = [
+def test_workflow_source_boundary_accepts_sixty_four_and_rejects_sixty_five() -> None:
+    sixty_four_sources = [
         {"dataset_id": f"source:{position}", "source_version": 1}
-        for position in range(1, 10)
+        for position in range(1, 65)
     ]
-    assert len(DesktopWorkflowService._source_requests({"selected_sources": nine_sources})) == 9
+    assert len(
+        DesktopWorkflowService._source_requests({"selected_sources": sixty_four_sources})
+    ) == 64
 
     with pytest.raises(WorkflowServiceError) as captured:
         DesktopWorkflowService._source_requests(
             {
                 "selected_sources": [
                     {"dataset_id": f"source:{position}", "source_version": 1}
-                    for position in range(1, 34)
+                    for position in range(1, 66)
                 ]
             }
         )

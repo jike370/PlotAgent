@@ -167,6 +167,23 @@ class DesktopEngineSession:
             )
         return tuple(payloads)
 
+    def series_targets(self, plot_id: str) -> tuple[str, ...]:
+        """Return the materialized public series objects for one native plot.
+
+        Workflow plans may express an explicit all-series scope, but public engine
+        actions remain deliberately singular and versioned.  Resolve the scope from
+        backend readback so data-dependent grouped series are never guessed from a
+        profile template or from natural language.
+        """
+
+        document = self.documents.get(plot_id).document
+        readback = self.runtime.materialize_backend(self.matplotlib, document)
+        return tuple(
+            item.semantic_id
+            for item in readback.objects
+            if item.semantic_id.startswith("series:")
+        )
+
     def export(
         self,
         arguments: Mapping[str, object],

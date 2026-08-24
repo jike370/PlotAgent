@@ -261,7 +261,7 @@ Windows UI case。未产生任一必要证据时，该图不能记为发布通�
 
 | 风险族 | 产品不变量 | 确定性证据 | 正式 UI 状态 |
 |---|---|---|---|
-| 来源选择 | UI、Main、Core 与 workflow 合同均允许超过 8 个显式来源；当前公开上限 32 | 九来源 App/Main/Core/workflow/inspection 合同测试；33 来源稳定拒绝 | PASS；`22e5b13` 正式 UI 9/32、九项计划、九项执行，项目 `v9 → v18` |
+| 来源选择 | UI、Main、Core 与 workflow 合同均允许超过 8 个显式来源；该历史候选的公开上限为 32，已由第 15 节的新 64 来源合同取代 | 九来源 App/Main/Core/workflow/inspection 合同测试；历史 33 来源稳定拒绝 | PASS；`22e5b13` 正式 UI 9/32、九项计划、九项执行，项目 `v9 → v18`；不作为新 64 来源候选证据 |
 | 部分失败 | 完整、`known_none` 且不缺用户事实的语义失败自动进入 Agent scoped repair；缺少事实时追问；成功项不重跑；旧计划不盲重试 | Agent runtime 自动返修、重新确认、缺失事实追问、用户修订与接受成功项测试 | 旧候选 UI 仅证明确定性重试；新候选待正式 UI 证明自动修订计划卡 |
 | 非有限数值 | 缺失值和 NaN/±Inf 语义分离；`is_finite`/`is_not_finite` 可由 Agent 调用，诊断上下文保持 JSON 安全 | 数据操作语义、合同 codegen、Pi host JSON 边界与 Agent 提示测试 | PASS；正式 UI 计划显示 `y is finite` 并成功执行 |
 | 图类专属参数 | profile 已公开的 `set_chart_parameter` 必须能从自然语言进入草稿；不得只在 renderer 存在 | K21 `triangle=lower/upper/full` profile、backend 与 Agent 提示回归 | PASS；正式 UI “只保留下三角”计划及结果 |
@@ -334,3 +334,20 @@ Electron 长链路。统一发现台账没有未执行项：同构多来源单�
 [发布候选问题台账](./PLOTAGENT-V3-RELEASE-CANDIDATE-KNOWN-ISSUES.md) 为准。`781e793`
 不得直接进入完整黑盒或 SEQ-70；必须集中修复、重跑受影响确定性门禁和正式 Electron 定向
 测试，并形成新的干净候选。
+
+## 15. 2026-08-25 `c6ca622` 冻结黑盒后的统一改版
+
+`c6ca622` 的 52 项正式黑盒为 47 PASS / 5 FAIL / 0 BLOCKED / 0 UNVERIFIED。五项失败已按
+公共能力族冻结为下列新不变量，旧候选不再继续追加修复结论：
+
+| 风险族 | 新产品不变量 | 确定性覆盖 | 候选状态 |
+|---|---|---|---|
+| 复数系列编辑 | `target` 与 `all_series` 是类型化作用域；全部系列从真实 backend readback 展开为逐对象、逐版本动作，不猜 `series_1` | 合同正反例、编译器能力校验、执行器两系列展开与版本递增、Agent prompt 断言 | 施工完成，待全门禁与正式 UI |
+| 多产物时间线 | 一个计划的每个成功 output plot 都同步、编号并追加；最后一张只作为当前编辑焦点，不代表唯一结果 | 三输出计划组件测试，断言三张稳定 `@图N` 结果卡 | 施工完成，待正式 UI |
+| 来源授权 | 最多 64 个来源在 UI/Main/TaskEnvelope/AgentContext/Workflow/concat/align 一致；授权集合允许任务采用子集，不由程序解析自然语言筛选 | 64/65 边界、45 来源无文本解析传递、Agent host/提示与 codegen | 施工完成，待全门禁与正式 UI |
+| 多来源规划收敛 | 用户已明确来源、共享字段和图类时，不重复列举来源、调用示例或重复检查；兼容性不可见时至多做必要 schema 比较并在同一 activation 提交 | Agent system prompt 与上下文合同测试；真实 Pi 仍须冻结 UI 复测 | 待正式 UI |
+| 混合导入反馈 | 成功项保留；失败、未回执和待确认文件逐项展示在独立 Agent 结果消息，不嵌入静态数据卡 | 混合导入组件测试同时校验内容、消息分离和后续交互后仍可见 | 施工完成，待正式 UI |
+
+新候选必须重新执行全量确定性门禁、受影响 Electron 定向测试和完整冻结黑盒；本轮改动触及
+Agent 合同、来源边界与时间线结构，不能沿用 `c6ca622` 的黑盒 PASS 作为发布证明。只有新候选
+关键范围为 0 FAIL / 0 BLOCKED / 应测 0 UNVERIFIED 后，才运行一次最终 SEQ-70。

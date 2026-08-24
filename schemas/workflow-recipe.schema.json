@@ -20,7 +20,7 @@
           "items": {
             "$ref": "#/$defs/WorkflowOutputField"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "minItems": 2,
           "title": "Output Series Fields",
           "type": "array"
@@ -41,7 +41,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "minItems": 2,
           "title": "Source Aliases",
           "type": "array"
@@ -51,7 +51,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "minItems": 2,
           "title": "Value Field Aliases",
           "type": "array"
@@ -61,7 +61,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "minItems": 2,
           "title": "X Field Aliases",
           "type": "array"
@@ -156,7 +156,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "minItems": 2,
           "title": "Source Aliases",
           "type": "array"
@@ -175,7 +175,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "title": "Source Labels",
           "type": "array"
         }
@@ -2082,10 +2082,27 @@
           "title": "Operation",
           "type": "string"
         },
-        "target_alias": {
-          "pattern": "^[a-z][a-z0-9_]{0,63}$",
-          "title": "Target Alias",
+        "scope": {
+          "default": "target",
+          "enum": [
+            "target",
+            "all_series"
+          ],
+          "title": "Scope",
           "type": "string"
+        },
+        "target_alias": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Alias"
         },
         "visible": {
           "anyOf": [
@@ -2100,9 +2117,6 @@
           "title": "Visible"
         }
       },
-      "required": [
-        "target_alias"
-      ],
       "title": "DraftSetSeriesStyle",
       "type": "object"
     },
@@ -2832,7 +2846,7 @@
             "pattern": "^[a-z][a-z0-9_]{0,63}$",
             "type": "string"
           },
-          "maxItems": 32,
+          "maxItems": 64,
           "title": "Source Aliases",
           "type": "array"
         },

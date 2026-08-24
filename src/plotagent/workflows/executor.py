@@ -54,6 +54,7 @@ type ValidatePreparedData = Callable[
     None,
 ]
 type ValidateEditData = Callable[[CompiledTaskItem], None]
+type ResolveSeriesTargets = Callable[[CompiledTaskItem], tuple[str, ...]]
 
 
 @dataclass(slots=True)
@@ -64,6 +65,7 @@ class TaskPlanExecutor:
     execute_action: ExecuteEngineAction
     validate_prepared_data: ValidatePreparedData
     validate_edit_data: ValidateEditData
+    resolve_series_targets: ResolveSeriesTargets | None = None
 
     def run(self, plan_id: str) -> TaskPlanSnapshot:
         if self.repository is None:
@@ -236,6 +238,33 @@ class TaskPlanExecutor:
         for position, draft in enumerate(item.visual_actions, start=1):
             action_id = f"action:{item.item_id.removeprefix('item:')}.edit{position}"
             action: PlotEngineAction
+            if isinstance(draft, DraftSetSeriesStyle) and draft.scope == "all_series":
+                if self.resolve_series_targets is None:
+                    raise WorkflowExecutionError(
+                        "SERIES_SCOPE_UNAVAILABLE",
+                        "当前执行环境无法解析图形中的全部系列。",
+                    )
+                targets = self.resolve_series_targets(item)
+                if not targets:
+                    raise WorkflowExecutionError(
+                        "SERIES_SCOPE_EMPTY",
+                        "当前图形没有可编辑的数据系列。",
+                    )
+                for target_position, target in enumerate(targets, start=1):
+                    scoped_action = SetSeriesStyle(
+                        action_id=f"{action_id}.{target_position}",
+                        target=target,
+                        expected_plot_version=plot_version,
+                        **draft.model_dump(
+                            exclude={"operation", "target_alias", "scope"}
+                        ),
+                    )
+                    self.catalog.validate_action(
+                        self.catalog.get(item.profile_id), scoped_action
+                    )
+                    current_revision = self.execute_action(scoped_action, current_revision)
+                    plot_version += 1
+                continue
             if isinstance(draft, DraftSetTitle):
                 action = SetTitle(
                     action_id=action_id,
@@ -251,11 +280,12 @@ class TaskPlanExecutor:
                     **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
             elif isinstance(draft, DraftSetSeriesStyle):
+                assert draft.target_alias is not None
                 action = SetSeriesStyle(
                     action_id=action_id,
                     target=self._target(item, draft.target_alias, "series"),
                     expected_plot_version=plot_version,
-                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                    **draft.model_dump(exclude={"operation", "target_alias", "scope"}),
                 )
             elif isinstance(draft, DraftSetLegend):
                 action = SetLegend(

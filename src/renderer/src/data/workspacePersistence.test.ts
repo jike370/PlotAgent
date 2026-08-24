@@ -54,7 +54,7 @@ describe('workspace persistence', () => {
     }, 'project:one')).toEqual({ datasetId: 'source:eight' })
   })
 
-  it('restores every extra source allowed by the 32-source task boundary', () => {
+  it('restores every extra source allowed by the 64-source task boundary', () => {
     let stored: string | null = null
     const storage = {
       getItem: () => stored,

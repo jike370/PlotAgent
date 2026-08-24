@@ -33,6 +33,7 @@ from plotagent.contracts.domain_knowledge import (
     UntrustedSourceContext,
 )
 from plotagent.contracts.workflows import (
+    MAX_WORKFLOW_SOURCES,
     CompiledTaskItem,
     DataOperation,
     TaskDraft,
@@ -632,9 +633,10 @@ class DurableAgentCoreHost:
         _InspectionRows,
         tuple[SelectedPlotContext, ...],
     ]:
-        if len(envelope.selected_sources) > 32:
+        if len(envelope.selected_sources) > MAX_WORKFLOW_SOURCES:
             raise AgentFoundationError(
-                "SOURCE_SCOPE_INVALID", "Agent tasks accept at most 32 selected sources."
+                "SOURCE_SCOPE_INVALID",
+                f"Agent tasks accept at most {MAX_WORKFLOW_SOURCES} selected sources.",
             )
         records = {
             (item.source_dataset.source_dataset_id, item.source_dataset.source_version): item
@@ -1069,6 +1071,10 @@ class DurableAgentCoreHost:
             "parameter must appear exactly once in the typed intent unless it is unsupported or "
             "requires a blocking semantic answer. Never silently omit one requested change merely "
             "because another requested change is already represented. "
+            "For set_series_style, words such as all, every, 全部, 所有, or 每条 establish an "
+            "all-series scope: emit scope=all_series and omit target_alias. Use scope=target with "
+            "one exact target_alias only when the user identifies one series. Never silently "
+            "reduce a plural series request to series_1. "
             "An explicit data transformation belongs in TaskDraftItem.data_operations, not only "
             "in the summary. Map filter/keep/exclude/comparison requests to filter_rows and map "
             "ascending/descending/order requests to sort_rows. For example, 'keep temperature "
@@ -1101,6 +1107,11 @@ class DurableAgentCoreHost:
             "source plus user-facing output series names derived from the source display names. "
             "This operation is a strict alignment: never sort, interpolate, truncate, or coerce "
             "mismatched X values silently. "
+            "The selected source list is an authorization set, not a requirement to use unrelated "
+            "sources. When the instruction already names the intended sources, shared X/value "
+            "fields, and profile and those facts are visible in source_contexts, do not call "
+            "list_sources, domain examples, or repeated inspections. Compare schemas only if "
+            "compatibility is not visible, then submit the aligned intent in the same activation. "
             "When one source contains one shared X field and two or more explicitly requested "
             "numeric value fields for a grouped XY chart such as K01, K02, or K03, emit "
             "reshape_wide_to_long. Preserve X in id_field_aliases, list every requested value "

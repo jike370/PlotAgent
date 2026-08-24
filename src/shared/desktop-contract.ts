@@ -1,6 +1,6 @@
 export const DESKTOP_API_VERSION = '1.0' as const
 export const CORE_PROTOCOL_VERSION = '1.0' as const
-export const MAX_WORKFLOW_SOURCES = 32
+export const MAX_WORKFLOW_SOURCES = 64
 
 export type DesktopApiVersion = typeof DESKTOP_API_VERSION
 export type CoreProtocolVersion = typeof CORE_PROTOCOL_VERSION

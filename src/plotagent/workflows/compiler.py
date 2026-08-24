@@ -10,6 +10,7 @@ from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DataOperation,
+    DraftSetSeriesStyle,
     DraftVisualAction,
     ResolvedFieldBinding,
     ResolvedWorkflowField,
@@ -678,20 +679,35 @@ class DraftCompiler:
                     f"{profile.display_name} 不支持 {action.operation} 参数："
                     f"{', '.join(sorted(unsupported))}。",
                 )
-            if action.target_alias == "plot":
+            if isinstance(action, DraftSetSeriesStyle) and action.scope == "all_series":
+                if not any(item.object_kind == "series" for item in profile.objects) and not any(
+                    item.object_kind == "series" for item in profile.repeatable_objects
+                ):
+                    raise WorkflowCompileError(
+                        "TARGET_ALIAS_INVALID",
+                        f"{profile.display_name} 没有可批量编辑的系列。",
+                    )
+                continue
+            target_alias = action.target_alias
+            if target_alias is None:
+                raise WorkflowCompileError(
+                    "TARGET_ALIAS_INVALID",
+                    f"{profile.display_name} 的系列动作缺少目标。",
+                )
+            if target_alias == "plot":
                 continue
             fixed_aliases = {candidate.object_alias for candidate in profile.objects}
             repeatable = tuple(
                 candidate.object_alias_prefix for candidate in profile.repeatable_objects
             )
-            if action.target_alias not in fixed_aliases and not any(
-                action.target_alias.startswith(prefix + "_")
-                and action.target_alias.removeprefix(prefix + "_").isdigit()
+            if target_alias not in fixed_aliases and not any(
+                target_alias.startswith(prefix + "_")
+                and target_alias.removeprefix(prefix + "_").isdigit()
                 for prefix in repeatable
             ):
                 raise WorkflowCompileError(
                     "TARGET_ALIAS_INVALID",
-                    f"{profile.display_name} 没有目标 {action.target_alias}。",
+                    f"{profile.display_name} 没有目标 {target_alias}。",
                 )
 
     @staticmethod
@@ -699,6 +715,7 @@ class DraftCompiler:
         dumped = action.model_dump(exclude_none=True)
         operation = dumped.pop("operation")
         dumped.pop("target_alias", None)
+        dumped.pop("scope", None)
         if operation == "set_axis":
             bounds_mode = dumped.pop("bounds_mode", None)
             minimum = dumped.pop("minimum", None)

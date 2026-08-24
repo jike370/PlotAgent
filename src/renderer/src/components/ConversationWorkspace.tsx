@@ -1190,7 +1190,55 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   }, [project, props.workflowPlan, updateTimeline])
 
   useEffect(() => {
+    const plan = props.workflowPlan
+    if (!project || !plan) return
+    const expectedOutputs = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : [])
+    if (expectedOutputs.length === 0) return
+    const available = new Map(
+      [...props.projectPlots, ...(plot ? [plot] : [])]
+        .map((item) => [`${item.plotId}:v${item.plotVersion}`, item]),
+    )
+    const outputs = expectedOutputs.flatMap((output) => {
+      const item = available.get(`${output.plotId}:v${output.plotVersion}`)
+      return item ? [item] : []
+    })
+    if (outputs.length === 0) return
+    const references = registerPlotReferences(
+      window.localStorage,
+      project.projectId,
+      outputs.map((item) => item.plotId),
+    )
+    const numbers = new Map(references.map((item) => [item.plotId, item.number]))
+    queueMicrotask(() => updateTimeline((current) => {
+      let updated = current
+      for (const output of outputs) {
+        const plotNumber = numbers.get(output.plotId)
+        if (plotNumber === undefined) continue
+        const itemId = `timeline:plot:${output.plotId}:v${output.plotVersion}`
+        const index = updated.findIndex((item) => item.id === itemId)
+        if (index < 0) {
+          updated = [...updated, {
+            type: 'plot', id: itemId, turnId: activeTurnIdRef.current,
+            createdAt: new Date().toISOString(), plotNumber, plot: output,
+          }]
+          continue
+        }
+        const existing = updated[index]
+        if (existing.type !== 'plot') continue
+        const replacement = [...updated]
+        replacement[index] = { ...existing, plotNumber, plot: output }
+        updated = replacement
+      }
+      return updated
+    }))
+  }, [plot, project, props.projectPlots, props.workflowPlan, updateTimeline])
+
+  useEffect(() => {
     if (!project || !plot) return
+    const isPlanOutput = props.workflowPlan?.steps.some((step) => (
+      step.outputPlot?.plotId === plot.plotId && step.outputPlot.plotVersion === plot.plotVersion
+    )) ?? false
+    if (isPlanOutput) return
     const references = registerPlotReferences(window.localStorage, project.projectId, [plot.plotId])
     const plotNumber = references.find((item) => item.plotId === plot.plotId)?.number
     if (plotNumber === undefined) return
@@ -1207,7 +1255,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       updated[index] = { ...existing, plotNumber, plot }
       return updated
     }))
-  }, [plot, project, updateTimeline])
+  }, [plot, project, props.workflowPlan, updateTimeline])
 
   useEffect(() => {
     if (!project || !exportRecord) return
@@ -1257,8 +1305,9 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
             {datasets.length === 0 ? (
               <AgentMessage className="conversation-prompt"><p>上传数据文件，并告诉我你想画什么图。</p></AgentMessage>
             ) : (
-              <AgentMessage><p>已导入 {datasets.length} 个数据表。</p>{props.importNotice && <InlineNotice notice={props.importNotice} />}<DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></AgentMessage>
+              <AgentMessage><p>已导入 {datasets.length} 个数据表。</p><DatasetObject datasets={datasets} activeDataset={activeDataset} onSelectDataset={props.onSelectDataset} selectedWorkflowSourceIds={props.selectedWorkflowSourceIds} onToggleWorkflowSource={props.onToggleWorkflowSource} /></AgentMessage>
             )}
+            {props.importNotice && <NoticeMessage notice={props.importNotice} />}
             {timeline.map((item) => {
               const motionClass = hydratedTimelineIds.has(item.id) ? undefined : 'motion-timeline-enter'
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} animate={item.role === 'agent' && motionClass !== undefined} />
@@ -1267,7 +1316,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               return <ExportResult className={motionClass} key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
-            <ActivityMessage busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} agentRuntimeStartedAt={props.agentRuntimeStartedAt} tasks={props.taskEvents} onCancel={props.onCancelTask} />
+            <ActivityMessage key={`${busyAction ?? 'idle'}:${props.agentRuntimeStartedAt ?? 'pending'}`} busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} agentRuntimeStartedAt={props.agentRuntimeStartedAt} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
             {planRevisionOpen && <AgentMessage><p>请在输入框说明要修改的字段绑定，例如“X 改为 Time”。我会基于当前计划生成修订版，再请你确认。</p></AgentMessage>}
             {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}

@@ -321,6 +321,32 @@ function multiSourceBatchPlanFixture(): JsonValue {
   return payload
 }
 
+function threeOutputBatchPlanFixture(state = 'awaiting_confirmation'): JsonValue {
+  const payload = structuredClone(multiSourceBatchPlanFixture()) as Record<string, JsonValue>
+  const plan = payload.plan as Record<string, JsonValue>
+  const items = plan.items as Array<Record<string, JsonValue>>
+  const third = {
+    ...items[0],
+    item_id: 'item:batch.third',
+    plot_alias: 'plot_3',
+    plot_id: 'plot:batch.three',
+    idempotency_key: 'workflow:batch:item:batch.third',
+  }
+  plan.items = [...items, third]
+  payload.state = state
+  payload.current_project_revision = state === 'succeeded' ? 5 : 2
+  payload.item_progress = [...(plan.items as Array<Record<string, JsonValue>>)].map((item) => ({
+    item_id: item.item_id,
+    state: state === 'succeeded' ? 'succeeded' : 'pending',
+    attempt_count: state === 'succeeded' ? 1 : 0,
+    ...(state === 'succeeded' ? {
+      output_plot_id: item.plot_id,
+      output_plot_version: 1,
+    } : {}),
+  }))
+  return payload
+}
+
 function profiledCreatePlanFixture(
   profileIds: string[],
   state = 'awaiting_confirmation',
@@ -1240,7 +1266,13 @@ describe('PlotAgent real desktop workflow', () => {
 
     await user.click(await screen.findByRole('button', { name: /^导入/ }))
     expect(await screen.findByRole('heading', { name: '有效数据.xlsx > Sheet 1' })).toBeInTheDocument()
-    expect(screen.getByText('部分文件未导入')).toBeInTheDocument()
+    const importResult = await screen.findByText('部分文件未导入')
+    expect(importResult).toBeInTheDocument()
+    const datasetCard = screen.getByRole('heading', { name: '有效数据.xlsx > Sheet 1' }).closest('.message')
+    const importMessage = importResult.closest('.message')
+    expect(importMessage).not.toBe(datasetCard)
+    expect(datasetCard?.compareDocumentPosition(importMessage as Node) ?? 0)
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(screen.getByText(/已导入：有效数据.xlsx/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：损坏数据.txt/)).toBeInTheDocument()
     expect(screen.getByText(/未导入：未回执.dat：未返回处理结果，请重试。/)).toBeInTheDocument()
@@ -2036,9 +2068,83 @@ describe('PlotAgent real desktop workflow', () => {
     }))))
   })
 
-  it('states the 32-source limit only at the boundary and disables a 33rd addition', async () => {
+  it('keeps all 45 imported sources available to the Agent without instruction parsing', async () => {
     const user = userEvent.setup()
-    const manyDatasets = Array.from({ length: 33 }, (_, index) => ({
+    const prepareWorkflow = vi.fn(async (
+      input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0],
+    ) => {
+      void input
+      return ok(workflowResultWithPlan(batchPlanFixture()))
+    })
+    const manyDatasets = Array.from({ length: 45 }, (_, index) => ({
+      ...dataset,
+      source_dataset_id: `source:sheet-${index + 1}`,
+      source_file_name: 'forty-five-sheets.xlsx',
+      source_sheet_name: `Sheet ${index + 1}`,
+      content_hash: `${(index % 9) + 1}`.repeat(64),
+      fields: dataset.fields.map((field) => ({
+        ...field,
+        field_id: field.field_id.replace('field:', `field:sheet-${index + 1}.`),
+      })),
+    }))
+    installApi(fakeDesktop({
+      runWorkflow: prepareWorkflow,
+      openSampleProject: vi.fn(async () => ok({
+        project: { project_id: 'project:sample', display_name: '45 工作表项目', is_open: false },
+        opened: { project_id: 'project:sample', project_version: 0, status: 'open' },
+        imported: { kind: 'committed', project_version: 1, datasets: manyDatasets },
+      })),
+    }))
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '示例' }))
+    expect(screen.getByText('已选 45 个来源')).toBeInTheDocument()
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '分别使用 X02、X03 和 S61 工作表完成任务',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    await screen.findByRole('heading', { name: '任务计划' })
+    const selectedSources = prepareWorkflow.mock.calls.at(-1)?.[0]?.selectedSources
+    expect(selectedSources).toBeDefined()
+    expect(selectedSources).toHaveLength(45)
+    expect(selectedSources?.at(-1)?.datasetId).toBe('source:sheet-45')
+  })
+
+  it('appends every output of a multi-plot plan as a stable plot result', async () => {
+    const user = userEvent.setup()
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(threeOutputBatchPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(threeOutputBatchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => ok({
+        task_plan: threeOutputBatchPlanFixture('succeeded'),
+      })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(
+        input.plotId,
+        input.plotVersion,
+        'K01',
+        5,
+      ))),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '分别生成三张折线图',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    expect(await screen.findByRole('heading', { name: '@图2 · 折线图 · v1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '@图3 · 折线图 · v1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '@图4 · 折线图 · v1' })).toBeInTheDocument()
+  })
+
+  it('states the 64-source limit only at the boundary and disables a 65th addition', async () => {
+    const user = userEvent.setup()
+    const manyDatasets = Array.from({ length: 65 }, (_, index) => ({
       ...dataset,
       source_dataset_id: `source:limit-${index + 1}`,
       source_file_name: `limit-${index + 1}.csv`,
@@ -2058,12 +2164,12 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
 
     await user.click(await screen.findByRole('button', { name: '示例' }))
-    const sourceSummary = screen.getByText(/已选 32 个来源/)
-    expect(sourceSummary).toHaveTextContent('最多 32 个')
+    const sourceSummary = screen.getByText(/已选 64 个来源/)
+    expect(sourceSummary).toHaveTextContent('最多 64 个')
     await user.click(sourceSummary)
 
     const checkboxes = screen.getAllByRole('checkbox')
-    expect(checkboxes.filter((checkbox) => (checkbox as HTMLInputElement).checked)).toHaveLength(32)
+    expect(checkboxes.filter((checkbox) => (checkbox as HTMLInputElement).checked)).toHaveLength(64)
     expect(checkboxes.at(-1)).not.toBeChecked()
     expect(checkboxes.at(-1)).toBeDisabled()
   })

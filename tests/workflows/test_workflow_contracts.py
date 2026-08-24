@@ -14,6 +14,7 @@ from plotagent.contracts.workflows import (
     DeriveColumn,
     DraftFieldBinding,
     DraftSetAxis,
+    DraftSetSeriesStyle,
     DraftSetTitle,
     ExcludeRows,
     RenameField,
@@ -29,9 +30,10 @@ from plotagent.contracts.workflows import (
     WorkflowOutputField,
     WorkflowSource,
 )
-from plotagent.engine import EngineCatalog
+from plotagent.engine import EngineCatalog, SetSeriesStyle
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.workflows import DataInspectionService, DraftCompiler
+from plotagent.workflows.executor import TaskPlanExecutor
 from plotagent.workflows.inspection import InspectionError
 
 _HASH = "a" * 64
@@ -182,6 +184,84 @@ def test_compiler_accepts_x38_numeric_axis_bounds() -> None:
     assert isinstance(action, DraftSetAxis)
     assert action.target_alias == "x_axis"
     assert (action.minimum, action.maximum) == (30, 90)
+
+
+def test_all_series_scope_is_typed_and_expands_against_runtime_readback() -> None:
+    context = _context()
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(
+                    update={
+                        "visual_actions": (
+                            DraftSetSeriesStyle(
+                                scope="all_series",
+                                line_stroke_color="#D62728",
+                                line_width_pt=2,
+                            ),
+                        ),
+                    }
+                ),
+            )
+        }
+    )
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    compiled = plan.items[0].model_copy(
+        update={
+            "task_kind": "edit",
+            "plot_id": "plot:existing",
+            "target_plot_id": "plot:existing",
+            "target_plot_version": 3,
+            "sources": (),
+            "resolved_fields": (),
+            "data_operations": (),
+            "bindings": (),
+            "binding_evidence": (),
+        }
+    )
+    executed: list[object] = []
+
+    def execute(action: object, revision: int) -> int:
+        executed.append(action)
+        return revision + 1
+
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (_ for _ in ()).throw(AssertionError("not used")),
+        execute_action=execute,
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+        resolve_series_targets=lambda _item: (
+            "series:existing.group_1",
+            "series:existing.group_2",
+        ),
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 10)
+
+    assert revision == 12
+    assert plot_version == 5
+    assert [action.target for action in executed if isinstance(action, SetSeriesStyle)] == [
+        "series:existing.group_1",
+        "series:existing.group_2",
+    ]
+    assert all(
+        action.line_stroke_color == "#D62728" and action.line_width_pt == 2
+        for action in executed
+        if isinstance(action, SetSeriesStyle)
+    )
+
+
+def test_series_scope_rejects_ambiguous_target_contracts() -> None:
+    with pytest.raises(ValidationError):
+        DraftSetSeriesStyle(scope="target", line_width_pt=2)
+    with pytest.raises(ValidationError):
+        DraftSetSeriesStyle(
+            scope="all_series",
+            target_alias="series_1",
+            line_width_pt=2,
+        )
 
 
 def test_compiler_rejects_incompatible_field_types_before_confirmation() -> None:

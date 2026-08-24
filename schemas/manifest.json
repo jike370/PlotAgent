@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "3610664a2a5bb77bba25305c8a7e0f611b055113d8a991c837e3823a92a46c90"
+      "sha256": "5f555490a3aea49ab5586afb8b20c22014cddf617cc76a3b7262a0c4336c3367"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -18,7 +18,7 @@
     },
     {
       "path": "schemas/agent-yield-v2.schema.json",
-      "sha256": "eb8f4ebbab367f40988a2c3f6e79abfd1884c837c089921cc43662e3b8be4e74"
+      "sha256": "4941665eb7732f3b3c569150a1f894356e36594b7f3ee1260479e00295baca08"
     },
     {
       "path": "schemas/calculation-contract-v1.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "ef1ea8ea4f1fa690f9103eb99c6f5940c439d595a0b3b2fa6c197b6ed404fd7c"
+      "sha256": "c593fae43c50e8445a2919e113f23304b3f76e5754757f5893f5ef80ac36b915"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -126,7 +126,7 @@
     },
     {
       "path": "schemas/prepared-data-preview.schema.json",
-      "sha256": "414df6ea62c76a04849fb721aded63b43eeacc96674a9c10296d5bd6844f562a"
+      "sha256": "ad625eb7017da1e8ddbdd91d07056a310f32507a3d1d108f1dc99ba904436455"
     },
     {
       "path": "schemas/prepared-dataset.schema.json",
@@ -150,7 +150,7 @@
     },
     {
       "path": "schemas/task-draft.schema.json",
-      "sha256": "5478ee93af589e05c2d55f92682a837b1122744153361f6a8393cbf158c272d6"
+      "sha256": "83c1644536e4665c025a08b0bc6c1b1746cdfa2bb34a84d26e0961b5d1a1c10f"
     },
     {
       "path": "schemas/task-envelope-v2.schema.json",
@@ -166,15 +166,15 @@
     },
     {
       "path": "schemas/task-intent-v2.schema.json",
-      "sha256": "a2d7ac16d9bacbffc4d88ae93fd4373d78f97f9694e493a68e8c8b9220af12e3"
+      "sha256": "8c035caac0a7fb02749ff138a6503f4890787f948c10508e5a6a5fd10bb0e08d"
     },
     {
       "path": "schemas/task-plan-snapshot.schema.json",
-      "sha256": "bf34efba293ee9acffbb23e00802f8d54b63d78aa08304afe1b4dddfab7d02af"
+      "sha256": "91a28db3ce96eabf630fc017eb68c4c9f8c365be83958c0ab654ea03f9ee8291"
     },
     {
       "path": "schemas/task-plan.schema.json",
-      "sha256": "82e65014a819e7ca543c94648221cd208810c05075f57438c0eecf2f09a0ad59"
+      "sha256": "054d573fb5bdab27ca9a535eb4c0ca0f8a16e63ff98e771b9e45b0370a2811ff"
     },
     {
       "path": "schemas/tool-contract-v2.schema.json",
@@ -198,15 +198,15 @@
     },
     {
       "path": "schemas/workflow-context.schema.json",
-      "sha256": "e582e192d2ad72e5c44268c83b6551d706cf39f2d6facd09c2b4217e7b432115"
+      "sha256": "2c2b3805210d7688f109af09a101eabcfd2f3f7afb35422d45ddaabec7a54bad"
     },
     {
       "path": "schemas/workflow-decision.schema.json",
-      "sha256": "7b729b6b0f8a6a61d21a8a3cdd0d24d5282874968ff334c631e109baf97c79aa"
+      "sha256": "9074e23d308469518913e64f11219aeb92f76f89df67287a777e9197b4dcbfe1"
     },
     {
       "path": "schemas/workflow-recipe.schema.json",
-      "sha256": "3f26962438a513f43854532ff8241d20230346dfd93ab571344dab176b965681"
+      "sha256": "b316906b167eff546850235e6169e0f524f4938edb144a3ad1e12cea1d92474e"
     },
     {
       "path": "schemas/workflow-run-snapshot.schema.json",
@@ -214,7 +214,7 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "b4e747a34fd59546baf8bf701a504d566e0dcbd3cfb778320c319f9383fd29dd"
+      "sha256": "c54c1cd7a171354be8c6ea59836ae4560012229fabfdc5ca9e2a591750175076"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",

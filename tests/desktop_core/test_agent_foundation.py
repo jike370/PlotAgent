@@ -1246,6 +1246,10 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "Core derives both authority and integrity fields" in system_prompt
         assert "perform a completeness check against the original instruction" in system_prompt
         assert "Never silently omit one requested change" in system_prompt
+        assert "emit scope=all_series and omit target_alias" in system_prompt
+        assert "Never silently reduce a plural series request to series_1" in system_prompt
+        assert "selected source list is an authorization set" in system_prompt
+        assert "submit the aligned intent in the same activation" in system_prompt
         assert "requires both a filter_rows predicate" in system_prompt
         assert "a following sort_rows key" in system_prompt
         assert "a draft containing only x/y bindings is incomplete" in system_prompt

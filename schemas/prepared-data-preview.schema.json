@@ -165,7 +165,7 @@
       "items": {
         "$ref": "#/$defs/PreparedPreviewSource"
       },
-      "maxItems": 32,
+      "maxItems": 64,
       "minItems": 1,
       "title": "Sources",
       "type": "array"

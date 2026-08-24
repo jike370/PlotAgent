@@ -181,7 +181,17 @@ describe('desktop contract validation', () => {
     })?.selectedSources).toHaveLength(9)
     expect(parseWorkflowRunInput({
       projectId: 'project:one',
-      selectedSources: Array.from({ length: 33 }, (_, index) => ({
+      selectedSources: Array.from({ length: 64 }, (_, index) => ({
+        datasetId: `source:${index + 1}`,
+        sourceVersion: 1,
+      })),
+      expectedProjectVersion: 4,
+      selectedProfileIds: ['K01'],
+      instruction: '六十四个数据来源分别绘图',
+    })?.selectedSources).toHaveLength(64)
+    expect(parseWorkflowRunInput({
+      projectId: 'project:one',
+      selectedSources: Array.from({ length: 65 }, (_, index) => ({
         datasetId: `source:${index + 1}`,
         sourceVersion: 1,
       })),

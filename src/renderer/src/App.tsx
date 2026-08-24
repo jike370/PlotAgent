@@ -803,21 +803,19 @@ export function App(): React.JSX.Element {
       ...summary.attentionDetails.map((detail) => `待确认：${detail}`),
       ...summary.failedDetails.map((detail) => `未导入：${detail}`),
     ]
-    const nextImportNotice: ProductNotice | undefined = partial ? {
-      kind: 'warning',
-      title: '部分文件未导入',
-      message: outcomeLines.join('\n'),
-      actionLabel: summary.attentionCount > 0 ? '继续处理' : '重新选择文件',
-      onAction: () => { retryImportIntoProject(targetProject) },
-    } : undefined
-    setImportNotice(nextImportNotice)
-    setNotice(partial ? undefined : {
-      kind: 'success',
-      title: '数据已导入',
-      message: previewMode
+    const nextImportNotice: ProductNotice = {
+      kind: partial ? 'warning' : 'success',
+      title: partial ? '部分文件未导入' : '数据已导入',
+      message: previewMode && !partial
         ? `已载入 ${imported.length} 个内存示例数据集，可继续检查字段与界面流程。`
         : outcomeLines.join('\n'),
-    })
+      ...(partial ? {
+        actionLabel: summary.attentionCount > 0 ? '继续处理' : '重新选择文件',
+        onAction: () => { retryImportIntoProject(targetProject) },
+      } : {}),
+    }
+    setImportNotice(nextImportNotice)
+    setNotice(undefined)
   }
 
   function retryImportIntoProject(targetProject: ProductProject): void {
@@ -1134,18 +1132,29 @@ export function App(): React.JSX.Element {
     return () => window.clearTimeout(timer)
   }, [activeDataset, busyAction])
 
-  const syncPlanOutput = async (plan: WorkflowPlanView): Promise<ProductPlot | undefined> => {
-    if (!api || !project) return undefined
-    const output = plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : []).at(-1)
-    if (!output) return undefined
-    const stored = valueOrThrow(await api.getPlot({ projectId: project.projectId, plotId: output.plotId, plotVersion: output.plotVersion }))
-    const nextPlot = readPlot(stored)
-    if (!nextPlot) return undefined
-    setPlot(nextPlot)
-    mergeProjectPlot(nextPlot)
+  const syncPlanOutputs = async (plan: WorkflowPlanView): Promise<ProductPlot[]> => {
+    if (!api || !project) return []
+    const outputs = [...new Map(plan.steps.flatMap((step) => step.outputPlot ? [step.outputPlot] : [])
+      .map((output) => [`${output.plotId}:v${output.plotVersion}`, output])).values()]
+    if (outputs.length === 0) return []
+    const nextPlots = (await Promise.all(outputs.map(async (output) => {
+      const stored = valueOrThrow(await api.getPlot({
+        projectId: project.projectId,
+        plotId: output.plotId,
+        plotVersion: output.plotVersion,
+      }))
+      return readPlot(stored)
+    }))).filter((item): item is ProductPlot => item !== undefined)
+    if (nextPlots.length === 0) return []
+    for (const nextPlot of nextPlots) mergeProjectPlot(nextPlot)
+    const currentPlot = nextPlots.at(-1)
+    setPlot(currentPlot)
     setPreviousPlot(plot)
-    setProject(projectWithVersion(project, Math.max(project.projectVersion, nextPlot.projectVersion)))
-    return nextPlot
+    setProject(projectWithVersion(project, Math.max(
+      project.projectVersion,
+      ...nextPlots.map((item) => item.projectVersion),
+    )))
+    return nextPlots
   }
 
   const executeWorkflowPlan = async (
@@ -1169,7 +1178,7 @@ export function App(): React.JSX.Element {
         const pendingPlan = stored.ok ? readWorkflowPlan(stored.value) : undefined
         if (pendingPlan) {
           projectWorkflowPlan(pendingPlan)
-          await syncPlanOutput(pendingPlan)
+          await syncPlanOutputs(pendingPlan)
         }
         setWorkflowOutcome(outcome)
         return
@@ -1177,7 +1186,7 @@ export function App(): React.JSX.Element {
       const plan = readWorkflowPlan(value)
       if (!plan) throw new Error('Core 未返回任务计划状态。')
       projectWorkflowPlan(plan)
-      const nextPlot = await syncPlanOutput(plan)
+      const nextPlot = (await syncPlanOutputs(plan)).at(-1)
       const historyActions = historySourcePlot && nextPlot?.plotId === historySourcePlot.plotId
         ? [
             ...(plan.steps.some((step) => (

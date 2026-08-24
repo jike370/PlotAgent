@@ -759,7 +759,8 @@ export type DraftSetLegend = {
 
 export type DraftSetSeriesStyle = {
   readonly operation?: "set_series_style";
-  readonly target_alias: string;
+  readonly target_alias?: string | null;
+  readonly scope?: "target" | "all_series";
   readonly visible?: boolean | null;
   readonly line_stroke_color?: string | null;
   readonly line_width_pt?: number | null;

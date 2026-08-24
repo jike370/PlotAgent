@@ -739,6 +739,7 @@ class DurableTaskExecutionService:
             execute_action=lambda action, revision: self._execute_action(action, revision),
             validate_prepared_data=self.workflow.validate_prepared_data,
             validate_edit_data=self.workflow.validate_edit_data,
+            resolve_series_targets=lambda item: self.engine.series_targets(item.plot_id),
         )
 
     def _execute_action(self, action: PlotEngineAction, revision: int) -> int:

@@ -50,7 +50,7 @@ WorkflowDisplayLabel = Annotated[
     str,
     StringConstraints(min_length=1, max_length=256, strict=True),
 ]
-MAX_WORKFLOW_SOURCES = 32
+MAX_WORKFLOW_SOURCES = 64
 
 InstructionText = Annotated[
     str,
@@ -156,10 +156,12 @@ class WorkflowContext(StrictModel):
     project_revision: Annotated[int, Field(ge=0)]
     instruction: InstructionText
     locale: Literal["zh-CN", "en-US"] = "zh-CN"
-    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=64)] = ()
+    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=MAX_WORKFLOW_SOURCES)] = ()
     fields: Annotated[tuple[WorkflowField, ...], Field(max_length=512)] = ()
     plots: Annotated[tuple[WorkflowPlot, ...], Field(max_length=64)] = ()
-    selected_source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=32)] = ()
+    selected_source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(max_length=MAX_WORKFLOW_SOURCES)
+    ] = ()
     selected_plot_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=8)] = ()
     selected_profile_ids: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
     allowed_profile_ids: Annotated[tuple[Token, ...], Field(min_length=1)]
@@ -447,7 +449,7 @@ class ConcatenateSources(StrictModel):
         tuple[WorkflowAlias, ...],
         Field(
             min_length=2,
-            max_length=32,
+            max_length=MAX_WORKFLOW_SOURCES,
             description="Exact opaque Core source aliases copied from the current context.",
         ),
     ]
@@ -460,7 +462,9 @@ class ConcatenateSources(StrictModel):
             )
         ),
     ] = "source_group"
-    source_labels: Annotated[tuple[WorkflowDisplayLabel, ...], Field(max_length=32)] = ()
+    source_labels: Annotated[
+        tuple[WorkflowDisplayLabel, ...], Field(max_length=MAX_WORKFLOW_SOURCES)
+    ] = ()
 
     @model_validator(mode="after")
     def unique_sources(self) -> ConcatenateSources:
@@ -478,13 +482,20 @@ class AlignSourcesOnX(StrictModel):
     """Build one wide table from independent series sharing an ordered X domain."""
 
     operation: Literal["align_sources_on_x"] = "align_sources_on_x"
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
-    x_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
-    value_field_aliases: Annotated[tuple[WorkflowAlias, ...], Field(min_length=2, max_length=32)]
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES)
+    ]
+    x_field_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES)
+    ]
+    value_field_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES)
+    ]
     output_x_field_alias: WorkflowAlias
     output_x_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
     output_series_fields: Annotated[
-        tuple[WorkflowOutputField, ...], Field(min_length=2, max_length=32)
+        tuple[WorkflowOutputField, ...],
+        Field(min_length=2, max_length=MAX_WORKFLOW_SOURCES),
     ]
     numeric_tolerance: Annotated[float, Field(ge=0, allow_inf_nan=False)] = 0.0
 
@@ -777,7 +788,8 @@ class DraftSetAxis(StrictModel):
 
 class DraftSetSeriesStyle(StrictModel):
     operation: Literal["set_series_style"] = "set_series_style"
-    target_alias: WorkflowAlias
+    target_alias: WorkflowAlias | None = None
+    scope: Literal["target", "all_series"] = "target"
     visible: bool | None = None
     line_stroke_color: WorkflowColor | None = None
     line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
@@ -797,7 +809,15 @@ class DraftSetSeriesStyle(StrictModel):
 
     @model_validator(mode="after")
     def has_change(self) -> DraftSetSeriesStyle:
-        if all(value is None for name, value in self if name not in {"operation", "target_alias"}):
+        if self.scope == "target" and self.target_alias is None:
+            raise ValueError("target series style requires target_alias")
+        if self.scope == "all_series" and self.target_alias is not None:
+            raise ValueError("all-series style must not declare target_alias")
+        if all(
+            value is None
+            for name, value in self
+            if name not in {"operation", "target_alias", "scope"}
+        ):
             raise ValueError("series style needs at least one change")
         return self
 
@@ -950,7 +970,9 @@ class TaskDraftItem(StrictModel):
     plot_alias: WorkflowAlias
     profile_id: Token
     target_plot_alias: WorkflowAlias | None = None
-    source_aliases: Annotated[tuple[WorkflowAlias, ...], Field(max_length=32)] = ()
+    source_aliases: Annotated[
+        tuple[WorkflowAlias, ...], Field(max_length=MAX_WORKFLOW_SOURCES)
+    ] = ()
     data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[DraftFieldBinding, ...], Field(max_length=128)] = ()
     visual_actions: Annotated[tuple[DraftVisualAction, ...], Field(max_length=64)] = ()
@@ -1079,7 +1101,9 @@ class PreparedDataPreview(StrictModel):
     """Bounded, deterministic presentation of the exact pre-render data view."""
 
     item_id: TaskItemId
-    sources: Annotated[tuple[PreparedPreviewSource, ...], Field(min_length=1, max_length=32)]
+    sources: Annotated[
+        tuple[PreparedPreviewSource, ...], Field(min_length=1, max_length=MAX_WORKFLOW_SOURCES)
+    ]
     input_row_count: Annotated[int, Field(ge=0)]
     input_field_count: Annotated[int, Field(ge=1)]
     output_row_count: Annotated[int, Field(ge=1)]
@@ -1105,7 +1129,7 @@ class CompiledTaskItem(StrictModel):
     profile_id: Token
     target_plot_id: Token | None = None
     target_plot_version: VersionId | None = None
-    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=32)] = ()
+    sources: Annotated[tuple[WorkflowSource, ...], Field(max_length=MAX_WORKFLOW_SOURCES)] = ()
     resolved_fields: tuple[ResolvedWorkflowField, ...] = ()
     data_operations: tuple[DataOperation, ...]
     bindings: tuple[ResolvedFieldBinding, ...] = ()

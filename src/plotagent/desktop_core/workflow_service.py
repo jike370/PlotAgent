@@ -457,6 +457,7 @@ class DesktopWorkflowService:
             execute_action=self._execute_action,
             validate_prepared_data=self.validate_prepared_data,
             validate_edit_data=self.validate_edit_data,
+            resolve_series_targets=lambda item: self.engine.series_targets(item.plot_id),
         )
         return executor.run(plan_id).model_dump(mode="json")
 
@@ -600,11 +601,12 @@ class DesktopWorkflowService:
             dict.fromkeys(alias for item in draft.items for alias in item.source_aliases)
         )
         if any(item.task_kind == "create" for item in draft.items) and (
-            set(used_sources) != set(context.selected_source_aliases)
+            not used_sources
+            or not set(used_sources).issubset(set(context.selected_source_aliases))
         ):
             raise WorkflowServiceError(
                 "WORKFLOW_SOURCE_INTENT_MISMATCH",
-                "任务草稿改变或遗漏了用户选择的数据表。",
+                "任务草稿使用了当前任务未授权的数据表。",
             )
 
         if context.selected_plot_aliases:
@@ -732,6 +734,11 @@ class DesktopWorkflowService:
             "不能只提交 x/y bindings。提交前逐项检查 data_operations 是否覆盖原文中的每个数据动作；"
             "缺少任何一个动作时，先修正草稿或调用 ask_user，不得提交一个只有字段绑定的近似计划。"
             "set_title 的 target_alias 固定为 plot；plot_alias 是任务输出别名，不能作为动作目标。"
+            "set_series_style 中，用户说全部、所有、每条、all 或 every 时必须使用 "
+            "scope=all_series 并省略 target_alias；只有用户明确指出一条系列时才使用 "
+            "scope=target 和该系列的准确 target_alias，禁止把复数要求缩成 series_1。"
+            "selected_source_aliases 是 Agent 可使用的授权集合，不要求任务使用无关数据源；"
+            "TaskDraftItem.source_aliases 只列本任务实际采用的授权来源。"
             "简单目标优先一轮提交；需要事实时按需调用工具。"
             "关键信息缺失时调用 ask_user；能力边界确实不支持时调用 report_unsupported。"
             "最后调用 submit_task_draft；不得直接执行或导出。"
