@@ -39,7 +39,9 @@
 - EngineCatalog/Profile、EngineDataView、PlotDocument 与公共 Engine Action 是引擎公开合同。
 - Matplotlib 和 Origin 是两个独立 backend；共享字段、对象和公共动作语义，不共享私有图元、最终几何或统一中间绘图语言。
 - Origin backend 必须从官方模板/菜单/X-Function 创建原生对象，保存 OPJU 后用新会话重开读回。
-- 任何其他 Agent 可以绕过 Pi，直接通过同一 Workflow/Engine 合同接入；仍受本地权限、版本与能力校验。
+- 任何其他 Agent 可以绕过 Pi，通过 MCP/SDK 直接使用同一 Workflow/Engine 合同；仍受本地权限、确认、版本与能力校验。默认外部接口不嵌套第二个 PlotAgent Agent：外部 Agent 保持理解、规划、追问和确认的决策权，PlotAgent 负责确定性数据/绘图工具、执行、版本、读回与交付。
+- 外部接口的核心运行产物是持久化、版本化的图实例引用；用户主要交付物是包含原生工作表、图页和数据绑定且通过 fresh-reopen 的 OPJU。PNG/SVG、数据处理、字段绑定、readback、文件大小和哈希构成可审计结果包。
+- 当前 SDK/MCP 仍是目标产品合同，不属于当前桌面候选的已交付能力；旧 35 图外部接口分支只作为设计与测试方法参考，不继承其 GO 结论。
 
 ## F. 当前视觉范围
 

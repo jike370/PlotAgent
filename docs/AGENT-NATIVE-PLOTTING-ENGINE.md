@@ -28,6 +28,8 @@ PlotAgent Core
 
 Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交同一套强类型请求，由 Core 校验后执行。
 
+外部接入的控制权和产物合同见 [外部 Agent 绘图引擎接口](./EXTERNAL-AGENT-ENGINE-INTERFACES.md)。默认 MCP/SDK 不嵌套第二个 PlotAgent Agent：外部 Agent 负责理解、规划、追问和确认；PlotAgent 负责数据与图类能力、确定性执行、版本、读回以及原生 OPJU 交付。
+
 ## 2. 正式图形范围
 
 正式范围是 34 张单图：
@@ -79,6 +81,7 @@ Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交�
 - OPJU 由 Origin 原生模板流程生成，不嵌入 Matplotlib 图片。
 - 保存前与全新 Origin 会话重开后都要读回数据源、plot/layer 类型、Agent 编辑和文件身份。
 - “文件存在”不等于可编辑通过；必须在 Origin 中打开、修改数据或样式、保存并重开验证。
+- 外部接口的运行产物是持久化、版本化、可继续操作的 PlotDocument 引用；OPJU 是用户可带走的主要原生交付物。MCP/SDK 必须同时返回 plot ref/version、数据处理、字段绑定、readback、文件路径、大小和哈希，不能只返回“成功”或 OPJU 路径。
 
 ## 7. 验收
 
