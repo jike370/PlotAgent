@@ -1,6 +1,6 @@
 # PlotAgent 外部 Agent 绘图引擎接口
 
-> 状态：目标产品合同，尚未作为当前桌面候选的已交付能力。
+> 状态：`codex/external-engine-sdk-mcp` 独立分支正在实现；不属于当前桌面候选，未完成本文件第 8 节资格前不得宣称正式交付。
 >
 > 适用范围：外部 Agent 通过 MCP 或 SDK 使用当前 34 图 PlotAgent 绘图引擎。
 >
@@ -68,7 +68,9 @@ HTTP API 是可选的语言无关应用接口，不是当前外部 Agent 接入�
 
 ## 4. 默认 MCP 能力面
 
-默认工具面保持少而完整，名称以实现时 Schema 为准：
+默认工具面保持少而完整。当前分支将项目生命周期保留为显式工具，把数据视图的
+`stage/apply/inspect/preview/commit` 五种动作合并为一个强类型工具，避免为每个数据操作
+增加顶层工具。领域能力与实现工具的映射如下：
 
 | 能力 | 目的 | 关键返回 |
 | --- | --- | --- |
@@ -81,6 +83,17 @@ HTTP API 是可选的语言无关应用接口，不是当前外部 Agent 接入�
 | `edit_plot` | 对稳定 plot ref 应用公开编辑并创建新版本 | 新版本、动作、readback、可撤销性 |
 | `export_plot` | 导出 PNG、SVG 或原生 OPJU | 路径、格式、大小、哈希、原生验证 |
 | `get_project` / `get_plot` | 重启后恢复项目和继续编辑 | 当前版本、历史、产物和任务状态 |
+
+当前实现中的正式工具名为：
+
+- 项目：`plotagent_projects`、`plotagent_create_project`、`plotagent_open_project`；
+- 数据：`plotagent_import_dataset`、`plotagent_datasets`、`plotagent_inspect_data`、`plotagent_data_view`；
+- 图：`plotagent_chart_capabilities`、`plotagent_validate_action`、`plotagent_execute_action`、`plotagent_plots`、`plotagent_get_plot`、`plotagent_restore_plot`；
+- 交付：`plotagent_export_plot`；另有无副作用的 `plotagent_health`。
+
+`plotagent_execute_action` 使用 Engine Action 判别联合表达创建或编辑，不拆成几十个样式
+工具。外部 Agent 必须先读取真实 field/profile/plot version；MCP 不解析自然语言，也不启动
+内置 Pi。
 
 数据处理、renderer 私有方法和 Origin 自动化步骤是内部实现，不逐项作为顶层 MCP 工具暴露。外部 Agent 可以看到公开数据操作及其结果，但不需要拼接 renderer 内部命令。
 
@@ -186,6 +199,15 @@ MCP 工具调用不能通过长时间阻塞伪装完整任务。数据量大或�
 ## 9. 当前交付状态
 
 - 当前桌面候选已经交付并验证内置 Agent + 本地绘图引擎主链。
-- 当前主分支没有交付可安装的 SDK 或 MCP 产品入口；桌面黑盒、SEQ-70 和安装包不能证明它们可用。
+- `codex/external-engine-sdk-mcp` 从已验收桌面提交 `b6cea2d` 分出，新增 `plotagent.sdk`、
+  `plotagent.mcp_server` 和外部专用 extension core；未修改 Electron、桌面 RPC、内置 Pi、
+  Engine Profile 或 renderer。
+- SDK 使用调用者提供的独立 engine root；MCP 另外限制 import roots 和 export root。外部
+  数据整理复用正式 `StagedDataWorkspace`/`EngineDataViewRepository`，但不注册为桌面 RPC。
+- 当前确定性增量已覆盖 SDK 生命周期、真实导入/检查、34 图目录、无副作用验证、确定性
+  数据整理到 renderer、版本持久化、PNG 导出、路径隔离、MCP 工具发现、stdio initialize
+  以及 SDK/MCP 目录等价；完整套件、构建产物安装、OPJU live/fresh-reopen 和真实外部 Agent
+  Host 尚待本分支后续门禁。
 - 旧 `codex/external-engine-interfaces` 分支曾验证 35 图时期 SDK/HTTP/MCP 的协议可行性，但它早于当前 34 图 renderer、数据、Agent、版本和导出合同，不得直接合入或复用 GO 结论。
-- 正式施工必须以当前 Core/Engine Profile 为唯一真源重新实现适配层，并按第 8 节重新验收。
+- 本分支始终以当前 Core/Engine Profile 为唯一真源；若外部能力可在 extension core 完成，
+  不改桌面路径。只有共享缺陷且桌面同样受益时，才允许另行评审共享改动。
