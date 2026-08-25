@@ -324,10 +324,20 @@ class DraftCompiler:
                         logical_type=cast(Any, logical_type),
                         unit_label=unit_label,
                     )
-            self._validate_operation_flow(item.source_aliases, item.data_operations, fields)
+            available_fields = self._validate_operation_flow(
+                item.source_aliases,
+                item.data_operations,
+                fields,
+            )
+            self._validate_aligned_series_consumption(profile, item)
             bound: list[ResolvedFieldBinding] = []
             resolved_fields: dict[str, ResolvedWorkflowField] = {}
             for binding in item.bindings:
+                if binding.field_alias not in available_fields.get(binding.source_alias, set()):
+                    raise WorkflowCompileError(
+                        "FIELD_ALIAS_INVALID",
+                        "草稿绑定引用了数据处理后已不可用的字段。",
+                    )
                 field = fields.get(binding.field_alias)
                 synthetic = synthetic_fields.get(binding.field_alias)
                 if synthetic is not None:
@@ -569,7 +579,7 @@ class DraftCompiler:
         item_source_aliases: tuple[str, ...],
         operations: tuple[DataOperation, ...],
         fields: dict[str, WorkflowField],
-    ) -> None:
+    ) -> dict[str, set[str]]:
         available: dict[str, set[str]] = {
             source_alias: {
                 field.field_alias for field in fields.values() if field.source_alias == source_alias
@@ -648,10 +658,49 @@ class DraftCompiler:
                 "同一任务项的多个数据来源必须通过 concatenate_sources 或 "
                 "align_sources_on_x 明确合并。",
             )
+        return available
 
     @staticmethod
     def _operation_fields(operation: DataOperation) -> tuple[tuple[str, ...], tuple[str, ...]]:
         return data_operation_field_aliases(operation)
+
+    @staticmethod
+    def _validate_aligned_series_consumption(
+        profile: EngineProfile,
+        item: TaskDraftItem,
+    ) -> None:
+        """Require aligned values to remain series instead of becoming numeric categories."""
+
+        bindings_by_field = {binding.field_alias: binding.role for binding in item.bindings}
+        reshapes = tuple(
+            operation
+            for operation in item.data_operations
+            if operation.operation == "reshape_wide_to_long"
+        )
+        for operation in item.data_operations:
+            if operation.operation != "align_sources_on_x":
+                continue
+            output_aliases = tuple(field.field_alias for field in operation.output_series_fields)
+            output_set = set(output_aliases)
+            if any(set(reshape.value_field_aliases) == output_set for reshape in reshapes):
+                continue
+            roles = tuple(bindings_by_field.get(alias) for alias in output_aliases)
+            if all(
+                role is not None
+                and any(
+                    role.startswith(prefix + "_")
+                    and role.removeprefix(prefix + "_").isdigit()
+                    for prefix in profile.repeatable_role_prefixes
+                )
+                for role in roles
+            ):
+                continue
+            raise WorkflowCompileError(
+                "WORKFLOW_ALIGNED_SERIES_ROLE_INVALID",
+                "按 X 对齐生成的数值列必须全部绑定为可重复系列；若图形合同使用 "
+                "x、y、group，请先用 reshape_wide_to_long 将这些列转换为系列名称和数值，"
+                "不能把数值列直接绑定为 group。",
+            )
 
     @staticmethod
     def _validate_visual_actions(

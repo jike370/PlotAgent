@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { InMemoryResourceRegistry } from '../single-instance-routing.js'
 import type { PythonCoreSupervisor } from '../core/python-supervisor.js'
+import { IPC_CHANNELS, type DesktopDataResult } from '../../shared/desktop-contract.js'
 import {
   importOptionLabel,
   importOptionPatch,
@@ -16,6 +17,7 @@ import {
   requestOriginExport,
   requestPlotList,
   readImportClarification,
+  registerDesktopIpc,
   sanitizeCoreResult,
   verifyExportArtifact,
   withImportSourceIdentity,
@@ -216,6 +218,94 @@ describe('desktop product IPC boundary', () => {
         retryable: false,
       },
     })
+  })
+
+  it('returns one named terminal outcome for every file in a mixed import selection', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>()
+    const ipcMain = {
+      handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
+        handlers.set(channel, handler)
+      }),
+      removeHandler: vi.fn(),
+    }
+    const selectedPaths = [
+      'D:\\inputs\\multi-block.txt',
+      'D:\\inputs\\valid.csv',
+      'D:\\inputs\\ragged.csv',
+    ]
+    const request = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'datasets.list') return { project_version: 0, datasets: [] }
+      if (method !== 'datasets.import') throw new Error(`unexpected method ${method}`)
+      const sourcePath = String(params?.source_path)
+      if (sourcePath.endsWith('multi-block.txt')) {
+        return {
+          kind: 'committed',
+          project_version: 1,
+          datasets: [
+            { source_dataset_id: 'source:block-1', source_version: 1 },
+            { source_dataset_id: 'source:block-2', source_version: 1 },
+          ],
+        }
+      }
+      if (sourcePath.endsWith('valid.csv')) {
+        return {
+          kind: 'committed',
+          project_version: 2,
+          datasets: [{ source_dataset_id: 'source:valid', source_version: 1 }],
+        }
+      }
+      return {
+        kind: 'rejection',
+        code: 'IMPORT_RAGGED_ROWS',
+        message: '数据块 1 的行宽不一致。',
+      }
+    })
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(() => ({
+        code: 'CORE_REQUEST_FAILED', message: 'unexpected', retryable: false,
+      })),
+      getStatus: vi.fn(() => ({ phase: 'ready', restartAttempt: 0 })),
+      retry: vi.fn(() => false),
+    } as unknown as PythonCoreSupervisor
+    registerDesktopIpc({
+      ipcMain: ipcMain as never,
+      supervisor,
+      tasks: { snapshot: vi.fn(() => ({ tasks: [], activeTaskCount: 0, hasCommittingTask: false })), get: vi.fn() } as never,
+      closeController: { respond: vi.fn() } as never,
+      dialog: {
+        showOpenDialog: vi.fn(async () => ({ canceled: false, filePaths: selectedPaths })),
+        showMessageBox: vi.fn(),
+        showSaveDialog: vi.fn(),
+      } as never,
+      getWindow: () => ({}) as never,
+      resources: new InMemoryResourceRegistry(),
+      ensureSampleSource: vi.fn(),
+      agentFoundationRuntime: { ownsTask: vi.fn(() => false) } as never,
+      openPath: vi.fn(async () => ''),
+      revealPath: vi.fn(),
+    })
+    const handler = handlers.get(IPC_CHANNELS.datasetImport)
+    expect(handler).toBeDefined()
+
+    const response = await handler?.({}, { projectId: 'project:mixed' }) as DesktopDataResult
+
+    expect(response.ok).toBe(true)
+    if (!response.ok) return
+    expect(response.value).toMatchObject({
+      selected_files: ['multi-block.txt', 'valid.csv', 'ragged.csv'],
+      project_version: 2,
+      imports: [
+        { kind: 'committed', source_file_name: 'multi-block.txt' },
+        { kind: 'committed', source_file_name: 'valid.csv' },
+        {
+          kind: 'rejection',
+          source_file_name: 'ragged.csv',
+          message: '数据块 1 的行宽不一致。',
+        },
+      ],
+    })
+    expect(request.mock.calls.filter(([method]) => method === 'datasets.import')).toHaveLength(3)
   })
 
   it('reports export success only after the authorized file matches Core metadata', async () => {

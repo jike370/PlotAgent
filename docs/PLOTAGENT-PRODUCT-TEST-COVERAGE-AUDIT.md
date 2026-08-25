@@ -351,3 +351,17 @@ Electron 长链路。统一发现台账没有未执行项：同构多来源单�
 新候选必须重新执行全量确定性门禁、受影响 Electron 定向测试和完整冻结黑盒；本轮改动触及
 Agent 合同、来源边界与时间线结构，不能沿用 `c6ca622` 的黑盒 PASS 作为发布证明。只有新候选
 关键范围为 0 FAIL / 0 BLOCKED / 应测 0 UNVERIFIED 后，才运行一次最终 SEQ-70。
+
+## 16. 2026-08-25 `c87e264` 完整冻结黑盒
+
+`c87e264` 在干净 worktree 上完成全部 52 项正式 Windows Electron 黑盒：50 PASS / 2 FAIL /
+0 BLOCKED / 0 UNVERIFIED，34 个支持图类为 34/34 PASS。报告和逐项 CSV 位于
+`D:\plotv3-candidate-c87e264\build\frozen-blackbox-c87e264-20260825-075455\`。由于存在两个
+FAIL，未运行 SEQ-70，且 50 项 PASS 不得继承给修改后的候选。
+
+| 失败族 | 独立证据 | 统一处理与新增门禁 |
+|---|---|---|
+| 多来源同图系列语义 | Agent 已选择两个来源并声明 `align_sources_on_x`，但将第二个 numeric 输出绑定为 K01 `group`，结果图按数值 4/5/6 分组而非 RunA/RunB 两条线 | 编译器要求 aligned 输出要么全部绑定真实 `series_N`，要么完整经过 `reshape_wide_to_long` 后以 categorical name→group、numeric value→y；初次规划和返修 prompt 同步；补非法计划拒绝、合法编译和真实 prepared view 三层测试 |
+| 混合导入输入/回执证据 | UI 结果准确显示“导入 2 个文件，共 3 个工作表或数据块”，未出现第三个 ragged 文件；单独选择 ragged 后 Core 正确拒绝 | Main IPC 三文件边界测试冻结“一次选择、三次 Core 调用、每个文件一个具名终态、成功不回滚”；下一 UI 轮将三个输入复制到独立目录后全选，并要求结果消息同时列出两个成功和一个失败，避免把系统选择器未返回第三项误判为解析器失败 |
+
+Origin 默认四侧轴框继续作为发布阻断视觉合同：共用 Origin 后处理层必须在显式编辑前显示 bottom、left、top、right，fresh-reopen 逐侧读回；显式 `set_axis(axis_line_visible=...)` 仍可覆盖目标侧。下一候选须重新执行全门禁和完整 52 项黑盒，0 FAIL 后才运行最终 SEQ-70。

@@ -1021,6 +1021,83 @@ def test_multiple_sources_align_to_one_wide_renderer_view_without_interpolation(
     )
 
 
+def test_aligned_sources_reshape_to_named_grouped_xy_series() -> None:
+    aligned = _aligned_item()
+    reshape = ReshapeWideToLong(
+        source_alias="data_1",
+        id_field_aliases=("shared_x",),
+        value_field_aliases=("series_a", "series_b", "series_c"),
+        output_name="series_name",
+        output_value="series_value",
+    )
+    item = aligned.model_copy(
+        update={
+            "profile_id": "K01",
+            "resolved_fields": aligned.resolved_fields
+            + (
+                ResolvedWorkflowField(
+                    field_alias="series_name",
+                    source_alias="data_1",
+                    field_id="field:workflow_series_name",
+                    name="Series",
+                    logical_type="categorical",
+                ),
+                ResolvedWorkflowField(
+                    field_alias="series_value",
+                    source_alias="data_1",
+                    field_id="field:workflow_series_value",
+                    name="Value",
+                    logical_type="numeric",
+                ),
+            ),
+            "data_operations": (*aligned.data_operations, reshape),
+            "bindings": (
+                ResolvedFieldBinding(
+                    role="x", source_alias="data_1", field_id="field:workflow_shared_x"
+                ),
+                ResolvedFieldBinding(
+                    role="y", source_alias="data_1", field_id="field:workflow_series_value"
+                ),
+                ResolvedFieldBinding(
+                    role="group", source_alias="data_1", field_id="field:workflow_series_name"
+                ),
+            ),
+        }
+    )
+    registrar = _Registrar()
+
+    prepare_task_data(
+        item,
+        _Provider(
+            {
+                "source:a": _series_view("source:a", "a", (1, 2, 3), (10, 11, 12)),
+                "source:b": _series_view("source:b", "b", (1, 2, 3), (20, 21, 22)),
+                "source:c": _series_view("source:c", "c", (1, 2, 3), (30, 31, 32)),
+            }
+        ),
+        registrar,
+    )
+
+    assert registrar.registered is not None
+    assert tuple(column.field.name for column in registrar.registered.columns) == (
+        "Angle",
+        "Series",
+        "Value",
+    )
+    assert registrar.registered.columns[1].values == (
+        "a.txt",
+        "b.txt",
+        "c.txt",
+        "a.txt",
+        "b.txt",
+        "c.txt",
+        "a.txt",
+        "b.txt",
+        "c.txt",
+    )
+    assert registrar.registered.columns[2].values == (10, 20, 30, 11, 21, 31, 12, 22, 32)
+
+
 def test_multiple_source_alignment_rejects_x_mismatch_without_silent_interpolation() -> None:
     with pytest.raises(WorkflowDataError) as caught:
         prepare_task_data(

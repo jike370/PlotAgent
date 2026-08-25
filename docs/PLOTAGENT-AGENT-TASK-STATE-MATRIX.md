@@ -178,6 +178,7 @@
 30. 一次修订后仍失败且没有任何成功项时，任务从 `partial` 明确进入 `failed`；任务中心不再将其误算为进行中。`WORKFLOW_NON_ISOMORPHIC` 的返修提示要求逐项消除字段名、逻辑/物理类型与单位差异；证据不足时必须追问，不得重复一个必然失败的合并方案。
 31. 轴范围补齐显式 automatic/fixed 状态；从模板自动范围改为固定上下限后，撤销能够恢复 Origin/Matplotlib 的真实自动缩放语义。
 32. 所有 `WORKFLOW_*` 数据与计划执行错误归为不可原样重放的语义冲突；用户触发的不变技术重试最多一次，第二次相同失败必须终止该重试路径。
+33. 多来源按 X 对齐后的每个 numeric 输出必须保留为真实系列：repeatable-series 图类逐列绑定 `series_N`；x/y/group 图类必须再做宽转长并将 categorical name 绑定 group。把 aligned numeric 直接绑定 group 的草稿在确认前以 `WORKFLOW_ALIGNED_SERIES_ROLE_INVALID` 退回受限 Agent 返修。
 
 ## 5. 冻结门禁
 

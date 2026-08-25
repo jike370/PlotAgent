@@ -1228,6 +1228,7 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "emit concatenate_sources directly" in system_prompt
         assert "use align_sources_on_x" in system_prompt
         assert "never sort, interpolate, truncate, or coerce" in system_prompt
+        assert "Never bind an aligned numeric series output directly to group" in system_prompt
         assert "Use convert_type only after inspecting enough rows" in system_prompt
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt

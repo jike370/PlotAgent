@@ -597,6 +597,177 @@ def test_compiler_accepts_strict_multi_source_x_alignment_for_repeatable_series(
     ]
 
 
+def test_compiler_rejects_aligned_numeric_output_used_as_group() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("K01",),
+        }
+    )
+    draft = TaskDraft(
+        draft_id="draft:aligned-group",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="错误地把第二个数值系列当作分组字段",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:aligned-group.1",
+                plot_alias="plot_1",
+                profile_id="K01",
+                source_aliases=("data_1", "data_2"),
+                data_operations=(
+                    AlignSourcesOnX(
+                        source_aliases=("data_1", "data_2"),
+                        x_field_aliases=("data_1_time", "data_2_time"),
+                        value_field_aliases=("data_1_response", "data_2_response"),
+                        output_x_field_alias="shared_x",
+                        output_x_name="Time",
+                        output_series_fields=(
+                            WorkflowOutputField(field_alias="series_a", name="RunA"),
+                            WorkflowOutputField(field_alias="series_b", name="RunB"),
+                        ),
+                    ),
+                ),
+                bindings=(
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
+                    DraftFieldBinding(role="y", source_alias="data_1", field_alias="series_a"),
+                    DraftFieldBinding(role="group", source_alias="data_1", field_alias="series_b"),
+                ),
+            ),
+        ),
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "WORKFLOW_ALIGNED_SERIES_ROLE_INVALID"
+    assert validation.message is not None
+    assert "reshape_wide_to_long" in validation.message
+
+
+def test_compiler_accepts_aligned_sources_reshaped_for_grouped_xy() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("K01",),
+        }
+    )
+    draft = TaskDraft(
+        draft_id="draft:aligned-long",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="按共同 X 对齐并转换为两个命名系列",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:aligned-long.1",
+                plot_alias="plot_1",
+                profile_id="K01",
+                source_aliases=("data_1", "data_2"),
+                data_operations=(
+                    AlignSourcesOnX(
+                        source_aliases=("data_1", "data_2"),
+                        x_field_aliases=("data_1_time", "data_2_time"),
+                        value_field_aliases=("data_1_response", "data_2_response"),
+                        output_x_field_alias="shared_x",
+                        output_x_name="Time",
+                        output_series_fields=(
+                            WorkflowOutputField(field_alias="series_a", name="RunA"),
+                            WorkflowOutputField(field_alias="series_b", name="RunB"),
+                        ),
+                    ),
+                    ReshapeWideToLong(
+                        source_alias="data_1",
+                        id_field_aliases=("shared_x",),
+                        value_field_aliases=("series_a", "series_b"),
+                        output_name="series_name",
+                        output_value="series_value",
+                    ),
+                ),
+                bindings=(
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
+                    DraftFieldBinding(
+                        role="y", source_alias="data_1", field_alias="series_value"
+                    ),
+                    DraftFieldBinding(
+                        role="group", source_alias="data_1", field_alias="series_name"
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+
+    assert [operation.operation for operation in plan.items[0].data_operations] == [
+        "align_sources_on_x",
+        "reshape_wide_to_long",
+    ]
+    assert [binding.role for binding in plan.items[0].bindings] == ["x", "y", "group"]
+
+
+def test_compiler_rejects_binding_an_aligned_column_removed_by_reshape() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_source_aliases": ("data_1", "data_2"),
+            "selected_profile_ids": ("K01",),
+        }
+    )
+    align = AlignSourcesOnX(
+        source_aliases=("data_1", "data_2"),
+        x_field_aliases=("data_1_time", "data_2_time"),
+        value_field_aliases=("data_1_response", "data_2_response"),
+        output_x_field_alias="shared_x",
+        output_x_name="Time",
+        output_series_fields=(
+            WorkflowOutputField(field_alias="series_a", name="RunA"),
+            WorkflowOutputField(field_alias="series_b", name="RunB"),
+        ),
+    )
+    reshape = ReshapeWideToLong(
+        source_alias="data_1",
+        id_field_aliases=("shared_x",),
+        value_field_aliases=("series_a", "series_b"),
+        output_name="series_name",
+        output_value="series_value",
+    )
+    draft = TaskDraft(
+        draft_id="draft:stale-aligned-binding",
+        workflow_run_id=context.workflow_run_id,
+        route="agent",
+        summary="宽转长后仍引用已移除的宽表列",
+        confidence=1,
+        items=(
+            TaskDraftItem(
+                task_kind="create",
+                item_id="item:stale-aligned-binding.1",
+                plot_alias="plot_1",
+                profile_id="K01",
+                source_aliases=("data_1", "data_2"),
+                data_operations=(align, reshape),
+                bindings=(
+                    DraftFieldBinding(role="x", source_alias="data_1", field_alias="shared_x"),
+                    DraftFieldBinding(
+                        role="y", source_alias="data_1", field_alias="series_value"
+                    ),
+                    DraftFieldBinding(
+                        role="group", source_alias="data_1", field_alias="series_b"
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(draft, context)
+
+    assert not validation.valid
+    assert validation.error_code == "FIELD_ALIAS_INVALID"
+    assert validation.message == "草稿绑定引用了数据处理后已不可用的字段。"
+
+
 def test_compiler_can_convert_legacy_text_sources_before_strict_x_alignment() -> None:
     base = _context()
     context = base.model_copy(
