@@ -108,7 +108,7 @@ def apply_origin_visual_actions(
     if not op.open(str(output), readonly=False, asksave=False):
         raise RuntimeError("Origin could not reopen the project for T1 visual edits")
     graph = _graph(op)
-    _apply_origin_default_frame(op, graph)
+    template_frame = _capture_origin_template_frame(op, graph)
     for action in effective_actions:
         _apply_action(op, graph, document, action)
     applied_invariant = (
@@ -125,10 +125,11 @@ def apply_origin_visual_actions(
         raise RuntimeError("Origin could not fresh-reopen the T1 visual project")
     reopened = _graph(op)
     snapshot = _verify_actions(op, reopened, document, effective_actions)
-    snapshot["origin_default_frame"] = _verify_origin_default_frame(
+    snapshot["origin_template_frame"] = _verify_origin_template_frame(
         op,
         reopened,
         effective_actions,
+        template_frame,
     )
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
@@ -412,31 +413,39 @@ def _axis_native_code(target: str) -> int:
     raise ValueError(f"unknown Origin axis target {target}")
 
 
-def _apply_origin_default_frame(op: Any, graph: Any) -> None:
-    """Apply Origin's four-sided native frame before public user edits.
+def _capture_origin_template_frame(
+    op: Any,
+    graph: Any,
+) -> dict[tuple[int, int], bool]:
+    """Read the official template's axis-frame state without normalizing it."""
 
-    Official templates do not agree on opposite-axis visibility.  PlotAgent's
-    Origin backend therefore normalizes every native layer to the product
-    default: bottom, left, top and right axis lines are visible.  Explicit
-    ``set_axis(axis_line_visible=...)`` actions run afterwards and remain
-    authoritative for their targeted side.
-    """
-
-    for layer in _layers(graph):
-        layer_index = _layer_index(layer)
-        for axis_code in _ORIGIN_FRAME_AXIS_NAMES:
-            set_axis_line_show(op, graph.name, layer_index, axis_code, True)
+    return {
+        (_layer_index(layer), axis_code): bool(
+            read_axis_line_show(
+                op,
+                graph.name,
+                _layer_index(layer),
+                axis_code,
+            )
+        )
+        for layer in _layers(graph)
+        for axis_code in _ORIGIN_FRAME_AXIS_NAMES
+    }
 
 
 def _origin_frame_expectations(
     graph: Any,
     actions: tuple[PlotEngineAction, ...],
+    template_frame: dict[tuple[int, int], bool],
 ) -> dict[tuple[int, int], bool]:
-    expected = {
-        (_layer_index(layer), axis_code): True
+    expected = dict(template_frame)
+    current_keys = {
+        (_layer_index(layer), axis_code)
         for layer in _layers(graph)
         for axis_code in _ORIGIN_FRAME_AXIS_NAMES
     }
+    if current_keys != set(expected):
+        raise RuntimeError("Origin template frame layer structure changed after save")
     for action in actions:
         if not isinstance(action, SetAxis) or action.axis_line_visible is None:
             continue
@@ -447,16 +456,17 @@ def _origin_frame_expectations(
     return expected
 
 
-def _verify_origin_default_frame(
+def _verify_origin_template_frame(
     op: Any,
     graph: Any,
     actions: tuple[PlotEngineAction, ...],
+    template_frame: dict[tuple[int, int], bool],
 ) -> dict[str, bool]:
-    """Fresh-read every frame side, including explicit visibility overrides."""
+    """Verify template defaults survived except for explicit user overrides."""
 
     snapshot: dict[str, bool] = {}
     for (layer_index, axis_code), expected in _origin_frame_expectations(
-        graph, actions
+        graph, actions, template_frame
     ).items():
         observed = bool(
             read_axis_line_show(op, graph.name, layer_index, axis_code)
@@ -464,7 +474,7 @@ def _verify_origin_default_frame(
         side = _ORIGIN_FRAME_AXIS_NAMES[axis_code]
         if observed != expected:
             raise RuntimeError(
-                "Origin default frame did not persist: "
+                "Origin template frame did not persist: "
                 f"layer={layer_index}, side={side}, "
                 f"expected={int(expected)}, observed={int(observed)}"
             )

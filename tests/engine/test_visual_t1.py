@@ -20,15 +20,15 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visuals_before_save,
 )
 from plotagent.engine.backends.origin.visual_t1 import (
-    _apply_origin_default_frame,
     _apply_series,
+    _capture_origin_template_frame,
     _centered_levels,
     _color_scale_for_action,
     _fixed_axis_bounds_mode_is_valid,
     _legend_column_count,
     _series_numeric_tolerance,
     _updated_tick_bits,
-    _verify_origin_default_frame,
+    _verify_origin_template_frame,
 )
 from plotagent.engine.contracts import (
     AddAnnotation,
@@ -367,54 +367,60 @@ def test_origin_fixed_axis_rejects_non_fixed_native_rescale_modes(native_mode: i
     assert not _fixed_axis_bounds_mode_is_valid(native_mode)
 
 
-def test_origin_default_frame_enables_all_four_sides_on_every_layer(
+def test_origin_template_frame_reads_every_side_without_normalizing_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
-    calls: list[tuple[str, int, int, bool]] = []
     monkeypatch.setattr(
         origin_visual_t1,
-        "set_axis_line_show",
-        lambda _op, graph_name, layer_index, axis_code, visible: calls.append(
-            (graph_name, layer_index, axis_code, visible)
+        "read_axis_line_show",
+        lambda _op, _graph_name, layer_index, axis_code: int(
+            axis_code in ({0, 1} if layer_index == 1 else {0, 1, 2, 3})
         ),
     )
 
-    _apply_origin_default_frame(object(), graph)
+    snapshot = _capture_origin_template_frame(object(), graph)
 
-    assert calls == [
-        ("Graph_1", layer_index, axis_code, True)
-        for layer_index in (1, 2)
-        for axis_code in (0, 1, 2, 3)
-    ]
+    assert snapshot[(1, 0)] is True
+    assert snapshot[(1, 2)] is False
+    assert snapshot[(1, 3)] is False
+    assert snapshot[(2, 2)] is True
+    assert len(snapshot) == 8
 
 
-def test_origin_default_frame_fresh_readback_respects_explicit_axis_override(
+def test_origin_template_frame_fresh_readback_respects_explicit_axis_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
     action = SetAxis(
-        action_id="action:hide-right-axis-line",
+        action_id="action:show-right-axis-line",
         target="axis:t1.y_right",
         expected_plot_version=1,
-        axis_line_visible=False,
+        axis_line_visible=True,
     )
     monkeypatch.setattr(
         origin_visual_t1,
         "read_axis_line_show",
         lambda _op, _graph_name, layer_index, axis_code: int(
-            not (layer_index == 2 and axis_code == 3)
+            axis_code in {0, 1} or (layer_index == 2 and axis_code == 3)
         ),
     )
 
-    snapshot = _verify_origin_default_frame(object(), graph, (action,))
+    template_frame = {
+        (layer_index, axis_code): axis_code in {0, 1}
+        for layer_index in (1, 2)
+        for axis_code in (0, 1, 2, 3)
+    }
+    snapshot = _verify_origin_template_frame(
+        object(), graph, (action,), template_frame
+    )
 
     assert snapshot["layer:1.bottom"] is True
-    assert snapshot["layer:1.top"] is True
-    assert snapshot["layer:2.right"] is False
+    assert snapshot["layer:1.top"] is False
+    assert snapshot["layer:2.right"] is True
 
 
-def test_origin_default_frame_fails_when_an_opposite_side_does_not_persist(
+def test_origin_template_frame_fails_when_an_unedited_side_does_not_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0),))
@@ -424,8 +430,11 @@ def test_origin_default_frame_fails_when_an_opposite_side_does_not_persist(
         lambda _op, _graph_name, _layer_index, axis_code: int(axis_code != 2),
     )
 
+    template_frame = {
+        (1, axis_code): True for axis_code in (0, 1, 2, 3)
+    }
     with pytest.raises(RuntimeError, match="side=top"):
-        _verify_origin_default_frame(object(), graph, ())
+        _verify_origin_template_frame(object(), graph, (), template_frame)
 
 
 def test_origin_series_edit_ungroups_multi_plot_layer_before_visible_style() -> None:
