@@ -258,6 +258,8 @@ class SemanticDecision(StrictModel):
     ]
     summary: NonEmptyText
     evidence_refs: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
+    resolved_profile_id: Token | None = None
+    evidence_quote: NonEmptyText | None = None
 
 
 class TaskIntent(StrictModel):

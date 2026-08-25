@@ -953,6 +953,27 @@ def test_first_intent_after_clarification_is_grounded_in_the_user_answer(
             task_version=continuation_version,
             context_hash=cast(str, context["content_hash"]),
         )
+        clarified_intent = clarified_intent.model_copy(
+            update={
+                "semantic_decisions": (
+                    SemanticDecision(
+                        decision_id="decision:clarified-profile-k01",
+                        kind="profile",
+                        summary="用户在追问后明确选择 K01 折线图。",
+                        resolved_profile_id="K01",
+                        evidence_quote="K01",
+                    ),
+                ),
+                "content_hash": "0" * 64,
+            }
+        )
+        clarified_intent = clarified_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    clarified_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
         candidate = AgentIntentReady(
             activation_id=continuation_id,
             task_id=task_envelope.task_id,
@@ -1184,6 +1205,106 @@ def test_ui_chart_selection_is_a_default_and_explicit_agent_profile_is_authorize
         assert ledger.get_plan(task_envelope.task_id).items[0].profile_id == "K03"
 
 
+@pytest.mark.parametrize(
+    ("instruction", "decision", "expected_outcome"),
+    (
+        ("用这张表画一张图。", None, "needs_input"),
+        (
+            "用这张表画折线图。",
+            SemanticDecision(
+                decision_id="decision:profile-k01",
+                kind="profile",
+                summary="用户明确要求折线图。",
+                resolved_profile_id="K01",
+                evidence_quote="折线图",
+            ),
+            "intent_ready",
+        ),
+        (
+            "用这张表画一张图。",
+            SemanticDecision(
+                decision_id="decision:profile-guessed",
+                kind="profile",
+                summary="猜测用户需要折线图。",
+                resolved_profile_id="K01",
+                evidence_quote="一张图",
+            ),
+            "needs_input",
+        ),
+    ),
+)
+def test_unselected_profile_requires_verifiable_user_wording(
+    tmp_path: Path,
+    instruction: str,
+    decision: SemanticDecision | None,
+    expected_outcome: str,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        imported = ProjectImportService(project).import_resource(
+            ImportResource(resource_id="resource:basic", path=FILES / "csv_basic.csv")
+        )
+        assert isinstance(imported, ImportCommitResult)
+        source = imported.datasets[0].source_dataset
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        task_envelope = TaskEnvelope(
+            task_id="task:unselected-profile",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction=instruction,
+            selected_sources=(
+                SourceDatasetRef(
+                    source_dataset_id=source.source_dataset_id,
+                    source_version=source.source_version,
+                    content_hash=source.content_hash,
+                ),
+            ),
+            selected_profile_ids=(),
+            budget=TaskBudgetLimits(),
+            created_at="2026-08-18T10:00:00Z",
+        )
+        ledger.create_task(task_envelope)
+        coordinator = DurableTaskCoordinator(ledger, clock=lambda: NOW)
+        directive = coordinator.next_action(task_envelope.task_id)
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(project, domain, ledger)
+        environment = host.prepare(activation_id)
+        context = cast(dict[str, object], environment["context"])
+        candidate_intent = intent(
+            activation_id,
+            task_id=task_envelope.task_id,
+            context_hash=cast(str, context["content_hash"]),
+        )
+        candidate_intent = candidate_intent.model_copy(
+            update={
+                "semantic_decisions": () if decision is None else (decision,),
+                "content_hash": "0" * 64,
+            }
+        )
+        candidate_intent = candidate_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    candidate_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        candidate = AgentIntentReady(
+            activation_id=activation_id,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            intent=candidate_intent,
+        )
+        validated = host.validate_yield(
+            activation_id,
+            cast(JsonValue, candidate.model_dump(mode="json")),
+        )
+        assert validated.outcome == expected_outcome
+        if isinstance(validated, AgentNeedsInput):
+            assert validated.questions[0].answer_kind == "profile"
+
+
 def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         imported = ProjectImportService(project).import_resource(
@@ -1256,6 +1377,7 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "a draft containing only x/y bindings is incomplete" in system_prompt
         assert "never use needs_input to ask the user to confirm a plan" in system_prompt
         assert "product's confirmation card request authorization" in system_prompt
+        assert "evidence_quote to the shortest exact quote" in system_prompt
         assert "Never return cancelled from submit_agent_yield" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
         definitions = cast(dict[str, object], yield_schema["$defs"])
@@ -1628,6 +1750,15 @@ def test_unselected_chart_choice_is_semantically_owned_by_the_agent(
             update={
                 "summary": "Create one K03 scatter plot.",
                 "items": (scatter_item,),
+                "semantic_decisions": (
+                    SemanticDecision(
+                        decision_id="decision:semantic-profile-k03",
+                        kind="profile",
+                        summary="用户明确要求散点图。",
+                        resolved_profile_id="K03",
+                        evidence_quote="散点图",
+                    ),
+                ),
                 "content_hash": "0" * 64,
             }
         )

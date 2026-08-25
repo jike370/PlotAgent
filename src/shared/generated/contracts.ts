@@ -1542,6 +1542,8 @@ export type SemanticDecision = {
   readonly kind: "profile" | "field_binding" | "unit" | "ordering" | "filter" | "aggregation" | "calculation" | "visual" | "output";
   readonly summary: string;
   readonly evidence_refs?: ReadonlyArray<string>;
+  readonly resolved_profile_id?: string | null;
+  readonly evidence_quote?: string | null;
 }
 
 export type SetAxis = {

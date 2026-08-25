@@ -17,6 +17,7 @@ from plotagent.contracts.agent_tasks import (
     ActivationBudget,
     AgentActivation,
     AgentIntentReady,
+    AgentNeedsInput,
     AgentYield,
     TaskCheckpoint,
     TaskEnvelope,
@@ -28,6 +29,7 @@ from plotagent.contracts.base import SourceDatasetRef
 from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_json
 from plotagent.contracts.domain_knowledge import (
     AgentContextSnapshot,
+    ChartCatalogEntry,
     SelectedPlotBindingContext,
     SelectedPlotContext,
     UntrustedSourceContext,
@@ -36,6 +38,7 @@ from plotagent.contracts.workflows import (
     MAX_WORKFLOW_SOURCES,
     CompiledTaskItem,
     DataOperation,
+    InputQuestion,
     TaskDraft,
     TaskDraftItem,
     TaskPlan,
@@ -288,6 +291,22 @@ class DurableAgentCoreHost:
             )
         if yielded.outcome == "intent_ready":
             intent = yielded.intent
+            if self._profile_selection_requires_input(runtime, intent):
+                return AgentNeedsInput(
+                    activation_id=activation.activation_id,
+                    task_id=activation.task_id,
+                    task_version=activation.task_version,
+                    questions=(
+                        InputQuestion(
+                            question_key="chart_profile",
+                            prompt=(
+                                "未能从您的原话中确认要使用的图形类型。"
+                                "请选择图形类型，或直接写明图类名称。"
+                            ),
+                            answer_kind="profile",
+                        ),
+                    ),
+                )
             if activation.reason in {"user_answered", "user_corrected"}:
                 prior = activation.confirmed_intent
                 if prior is None:
@@ -587,6 +606,66 @@ class DurableAgentCoreHost:
         if validated.intent_version == 1:
             return plan
         return plan.model_copy(update={"plan_id": f"{plan.plan_id}.v{validated.intent_version}"})
+
+    def _profile_selection_requires_input(
+        self,
+        runtime: _ActivationRuntime,
+        intent: TaskIntent,
+    ) -> bool:
+        """Fail closed when an unselected create profile lacks quoted user evidence."""
+
+        envelope = self.ledger.get_effective_envelope(runtime.activation.task_id)
+        if envelope.selected_profile_ids or envelope.selected_plots:
+            return False
+        create_profiles = tuple(
+            dict.fromkeys(item.profile_id for item in intent.items if item.task_kind == "create")
+        )
+        if not create_profiles:
+            return False
+        decisions = {
+            decision.resolved_profile_id: decision
+            for decision in intent.semantic_decisions
+            if decision.kind == "profile" and decision.resolved_profile_id is not None
+        }
+        user_texts = tuple(
+            text
+            for text in (
+                envelope.original_instruction,
+                runtime.activation.current_user_message,
+            )
+            if text is not None
+        )
+        catalog: dict[str, ChartCatalogEntry] = {
+            entry.profile_id: entry for entry in DOMAIN_KNOWLEDGE.list_chart_catalog()
+        }
+        for profile_id in create_profiles:
+            decision = decisions.get(profile_id)
+            if decision is None or decision.evidence_quote is None:
+                return True
+            quote = decision.evidence_quote.strip()
+            if not any(quote.casefold() in text.casefold() for text in user_texts):
+                return True
+            normalized_quote = self._normalized_profile_phrase(quote)
+            profile = catalog.get(profile_id)
+            if profile is None or not normalized_quote:
+                return True
+            normalized_names = (
+                self._normalized_profile_phrase(profile.profile_id),
+                self._normalized_profile_phrase(profile.display_name_zh),
+                self._normalized_profile_phrase(profile.official_name),
+            )
+            if normalized_quote == normalized_names[0]:
+                continue
+            minimum_length = 2 if any("\u4e00" <= char <= "\u9fff" for char in quote) else 4
+            if len(normalized_quote) < minimum_length or not any(
+                normalized_quote in name for name in normalized_names[1:]
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _normalized_profile_phrase(value: str) -> str:
+        return "".join(character.casefold() for character in value if character.isalnum())
 
     def _envelope_with_plot_sources(self, envelope: TaskEnvelope) -> TaskEnvelope:
         """Authorize the immutable inputs of a user-selected plot for this activation.
@@ -1058,7 +1137,12 @@ class DurableAgentCoreHost:
             "must not ask the user to repeat the catalog wording or select the chart in the UI. "
             "If the wording still leaves multiple materially plausible profiles, ask one blocking "
             "profile question "
-            "instead of guessing. Core validates the chosen closed profile and confirmation scope; "
+            "instead of guessing. When no profile was selected in the UI and the wording does "
+            "identify a profile, record exactly one SemanticDecision with kind=profile for each "
+            "chosen profile. Set resolved_profile_id to that profile and evidence_quote to the "
+            "shortest exact quote from the user's instruction that names it, such as 折线图 or "
+            "散点图. Never use generic wording such as 图 or 一张图 as profile evidence. "
+            "Core validates the chosen closed profile and confirmation scope; "
             "you own the natural-language interpretation. "
             "Return exactly one terminal AgentYield through submit_agent_yield. For intent_ready, "
             "produce one TaskIntent containing 1–64 independently identified items. Preserve the "

@@ -2612,6 +2612,20 @@
           "title": "Decision Id",
           "type": "string"
         },
+        "evidence_quote": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Quote"
+        },
         "evidence_refs": {
           "default": [],
           "items": {
@@ -2636,6 +2650,19 @@
           ],
           "title": "Kind",
           "type": "string"
+        },
+        "resolved_profile_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolved Profile Id"
         },
         "summary": {
           "maxLength": 512,
