@@ -32,6 +32,7 @@ Pi或手动UI都不直接调用renderer。PlotAgent Core先验证profile、字�
 - 每图绑定官方模板、菜单section或X-Function；
 - 写入worksheet/matrix与designation后走官方创建入口；
 - 只应用用户明确动作和已实证的必要T2配置；
+- 官方模板的分组样式只属于默认表现；当用户编辑独立系列时，共享视觉层解除目标图层的表现分组后再写入样式，保留原生plot和source binding；
 - 保存前读回，另启全新Origin会话重开再读回；
 - 禁止嵌入Matplotlib位图、手工近似专属图或回退旧renderer。
 

@@ -21,6 +21,7 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
 )
 from plotagent.engine.backends.origin.visual_t1 import (
     _apply_origin_default_frame,
+    _apply_series,
     _centered_levels,
     _color_scale_for_action,
     _fixed_axis_bounds_mode_is_valid,
@@ -75,6 +76,29 @@ class _OriginFrameLayer:
 
 class _OriginFrameGraph(list[_OriginFrameLayer]):
     name = "Graph_1"
+
+
+class _OriginSeriesLayer:
+    def index(self) -> int:
+        return 0
+
+
+class _OriginSeriesGraph(list[_OriginSeriesLayer]):
+    name = "Graph_1"
+
+
+class _OriginSeriesOp:
+    def __init__(self) -> None:
+        self.commands: list[str] = []
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "__PAT1COUNT":
+            return 2
+        raise AssertionError(f"unexpected LabTalk expression {expression}")
 
 
 def _data_ref() -> EngineDataRef:
@@ -402,6 +426,37 @@ def test_origin_default_frame_fails_when_an_opposite_side_does_not_persist(
 
     with pytest.raises(RuntimeError, match="side=top"):
         _verify_origin_default_frame(object(), graph, ())
+
+
+def test_origin_series_edit_ungroups_multi_plot_layer_before_visible_style() -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp()
+
+    _apply_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id="action:group-2-red",
+            target="series:t1.group_2",
+            expected_plot_version=1,
+            line_stroke_color="#FF0000",
+            line_width_pt=2,
+        ),
+    )
+
+    ungroup = origin.commands.index("layer -gu;")
+    color = next(
+        index
+        for index, command in enumerate(origin.commands)
+        if 'set __PAT1P -cl color("#FF0000")' in command
+    )
+    width = next(
+        index
+        for index, command in enumerate(origin.commands)
+        if "set __PAT1P -wp 2" in command
+    )
+    assert ungroup < color < width
+    assert any("range __PAT1P=[Graph_1]1!2" in command for command in origin.commands)
 
 
 def test_matplotlib_automatic_bounds_restore_data_driven_limits() -> None:

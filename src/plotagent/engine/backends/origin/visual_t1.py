@@ -637,6 +637,18 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
 
 def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
     layer, plot_index = _layer_and_plot(graph, action.target)
+    # Origin's official templates commonly group multiple plots so the first
+    # plot owns an incrementing style list.  A direct ``set plotN`` command can
+    # then read back the requested value while the grouped renderer still
+    # paints a different incremented value.  PlotAgent exposes every semantic
+    # series as an independently editable object, so break only the targeted
+    # layer's presentation group before applying a public series edit.  This
+    # preserves the native plots and source bindings while making the visible
+    # result agree with the per-series contract.
+    if _plot_count(op, graph, layer) > 1:
+        _activate_layer(op, graph, layer)
+        if not op.lt_exec("layer -gu;"):
+            raise RuntimeError("Origin could not make series formatting independent")
     key = _target_key(action.target)
     visibility_indices = (
         range(1, _plot_count(op, graph, layer) + 1)
