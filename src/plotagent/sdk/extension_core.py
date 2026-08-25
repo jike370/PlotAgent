@@ -161,6 +161,37 @@ class ExternalEngineCore(DesktopApplication):
             "lineage": tuple(item.model_dump(mode="json") for item in handle.lineage),
         }
 
+    def display_plot_ref(self, project_id: str, plot_id: str) -> str:
+        """Return a stable external-only @图N alias for one committed plot."""
+
+        session = self._external_session(project_id)
+        session.engine.documents.get(plot_id)
+        connection = session.store._assert_writer()  # noqa: SLF001
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS external_plot_display_refs (
+                plot_id TEXT PRIMARY KEY,
+                ordinal INTEGER NOT NULL UNIQUE CHECK (ordinal >= 1)
+            ) STRICT
+            """
+        )
+        row = connection.execute(
+            "SELECT ordinal FROM external_plot_display_refs WHERE plot_id = ?",
+            (plot_id,),
+        ).fetchone()
+        if row is None:
+            next_row = connection.execute(
+                "SELECT COALESCE(MAX(ordinal), 0) + 1 FROM external_plot_display_refs"
+            ).fetchone()
+            ordinal = 1 if next_row is None else int(next_row[0])
+            connection.execute(
+                "INSERT INTO external_plot_display_refs(plot_id, ordinal) VALUES (?, ?)",
+                (plot_id, ordinal),
+            )
+        else:
+            ordinal = int(row[0])
+        return f"@图{ordinal}"
+
     def _external_session(self, project_id: str):  # type: ignore[no-untyped-def]
         try:
             return self._session(project_id)

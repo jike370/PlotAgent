@@ -78,6 +78,7 @@ def test_sdk_lifecycle_validation_persistence_and_export(tmp_path: Path) -> None
             expected_project_version=cast(int, imported["project_version"]),
         )
         assert (created["profile_id"], created["plot_version"]) == ("K01", 1)
+        assert created["display_ref"] == "@图1"
 
         exported = sdk.export_plot(
             project_id,
@@ -93,6 +94,7 @@ def test_sdk_lifecycle_validation_persistence_and_export(tmp_path: Path) -> None
             resource_id="resource:sdk-export",
         )
         assert destination.is_file()
+        assert exported["display_ref"] == "@图1"
         artifact = cast(dict[str, object], exported["artifact"])
         assert artifact["content_hash"] == hashlib.sha256(destination.read_bytes()).hexdigest()
         sdk.close_project(project_id)
@@ -103,6 +105,7 @@ def test_sdk_lifecycle_validation_persistence_and_export(tmp_path: Path) -> None
         assert [(item["plot_id"], item["plot_version"]) for item in plots] == [
             ("plot:sdk", 1)
         ]
+        assert plots[0]["display_ref"] == "@图1"
 
 
 def test_sdk_does_not_touch_a_desktop_workspace(tmp_path: Path) -> None:

@@ -274,7 +274,7 @@ class PlotAgentSDK:
         expected_project_version: int,
         request_id: str | None = None,
     ) -> dict[str, JsonValue]:
-        return self._call(
+        result = self._call(
             "engine.actions.execute",
             {
                 "project_id": project_id,
@@ -283,12 +283,23 @@ class PlotAgentSDK:
             },
             request_id=request_id,
         )
+        return self._attach_display_ref(project_id, result)
 
     create_plot = execute_action
     edit_plot = execute_action
 
     def list_plots(self, project_id: str) -> dict[str, JsonValue]:
-        return self._call("engine.plots.list", {"project_id": project_id})
+        result = self._call("engine.plots.list", {"project_id": project_id})
+        plots = result.get("plots")
+        if not isinstance(plots, (list, tuple)):
+            return result
+        enriched: list[JsonValue] = []
+        for item in plots:
+            if not isinstance(item, dict):
+                enriched.append(item)
+                continue
+            enriched.append(self._attach_display_ref(project_id, dict(item)))
+        return {**result, "plots": enriched}
 
     def get_plot(
         self,
@@ -297,7 +308,7 @@ class PlotAgentSDK:
         *,
         plot_version: int | None = None,
     ) -> dict[str, JsonValue]:
-        return self._call(
+        result = self._call(
             "engine.plots.get",
             {
                 "project_id": project_id,
@@ -305,6 +316,7 @@ class PlotAgentSDK:
                 **({"plot_version": plot_version} if plot_version is not None else {}),
             },
         )
+        return self._attach_display_ref(project_id, result)
 
     inspect_plot = get_plot
 
@@ -318,7 +330,7 @@ class PlotAgentSDK:
         source_plot_version: int,
         action_id: str,
     ) -> dict[str, JsonValue]:
-        return self._call(
+        result = self._call(
             "engine.plots.restore",
             {
                 "project_id": project_id,
@@ -329,6 +341,7 @@ class PlotAgentSDK:
                 "action_id": action_id,
             },
         )
+        return self._attach_display_ref(project_id, result)
 
     def export_plot(
         self,
@@ -340,7 +353,7 @@ class PlotAgentSDK:
         expected_existing_sha256: str | None = None,
         request_id: str | None = None,
     ) -> dict[str, JsonValue]:
-        return self._call(
+        result = self._call(
             "engine.exports.execute",
             {
                 "project_id": project_id,
@@ -355,6 +368,7 @@ class PlotAgentSDK:
             },
             request_id=request_id,
         )
+        return self._attach_display_ref(project_id, result)
 
     @staticmethod
     def _action_arguments(
@@ -404,3 +418,18 @@ class PlotAgentSDK:
         except Exception as error:
             raise external_data_error(error) from None
         return cast(dict[str, JsonValue], result)
+
+    def _attach_display_ref(
+        self,
+        project_id: str,
+        result: dict[str, JsonValue],
+    ) -> dict[str, JsonValue]:
+        plot_id = result.get("plot_id")
+        if not isinstance(plot_id, str):
+            return result
+        try:
+            with self._lock:
+                display_ref = self._application.display_plot_ref(project_id, plot_id)
+        except Exception as error:
+            raise external_data_error(error) from None
+        return {**result, "display_ref": display_ref}
