@@ -180,7 +180,20 @@ MCP 工具调用不能通过长时间阻塞伪装完整任务。数据量大或�
 - `completed`：返回图实例和结果包；
 - `failed` / `cancelled`：返回稳定原因、影响范围和恢复动作。
 
-是否向用户确认由外部 Agent 的产品交互承担；PlotAgent Core 仍负责确认凭证、授权范围、版本和执行事务，不能因外部 Agent 使用 MCP/SDK 而取消确认边界。
+是否向用户确认由外部 Agent 的产品交互承担；PlotAgent Core 负责授权范围、无副作用预检、
+版本和执行事务。外部 Agent Host 负责保存用户确认事实，不能因为使用 MCP/SDK 而跳过其
+产品中的确认边界。
+
+当前 V1 不提供“一次调用包办整项批量任务”的 MCP 工具。导入、数据视图动作、单个图版本和
+单个导出都是同步、原子且版本钉住的调用；批量由外部 Agent 逐项编排，因此不会用一个
+长时间阻塞调用伪装整项任务。当前 SDK/MCP 返回任务 receipt，但没有对外公开持久
+`running/cancel` 轮询接口；只有未来增加异步批量入口时，才必须先实现上述持久状态，不能
+直接放大当前同步调用的超时。
+
+用户确认属于外部 Agent Host 的交互责任。当前引擎通过 `validate_action` 提供无副作用的
+精确预检，通过 project/plot version 防止确认后目标漂移；MCP server 不自行伪造“用户已
+确认”。若 Host 的产品要求强制确认，Host 必须把 validation 结果展示给用户后再调用
+`execute_action`。
 
 ## 8. 验收标准
 
@@ -205,9 +218,10 @@ MCP 工具调用不能通过长时间阻塞伪装完整任务。数据量大或�
 - SDK 使用调用者提供的独立 engine root；MCP 另外限制 import roots 和 export root。外部
   数据整理复用正式 `StagedDataWorkspace`/`EngineDataViewRepository`，但不注册为桌面 RPC。
 - 当前确定性增量已覆盖 SDK 生命周期、真实导入/检查、34 图目录、无副作用验证、确定性
-  数据整理到 renderer、版本持久化、PNG 导出、路径隔离、MCP 工具发现、stdio initialize
-  以及 SDK/MCP 目录等价；完整套件、构建产物安装、OPJU live/fresh-reopen 和真实外部 Agent
-  Host 尚待本分支后续门禁。
+  数据整理到 renderer、版本持久化、稳定 `@图N`、PNG 导出、路径隔离、MCP 工具发现、
+  stdio initialize 以及 SDK/MCP 目录等价；Python 全量、前端全量、独立 wheel 安装和
+  K01 OPJU live/fresh-reopen 已通过。真实外部 Agent Host 的自然语言多轮调用仍是合并前
+  剩余门禁，详见独立资格报告。
 - 旧 `codex/external-engine-interfaces` 分支曾验证 35 图时期 SDK/HTTP/MCP 的协议可行性，但它早于当前 34 图 renderer、数据、Agent、版本和导出合同，不得直接合入或复用 GO 结论。
 - 本分支始终以当前 Core/Engine Profile 为唯一真源；若外部能力可在 extension core 完成，
   不改桌面路径。只有共享缺陷且桌面同样受益时，才允许另行评审共享改动。

@@ -33,6 +33,7 @@
 7. [Origin 视觉能力矩阵](./ORIGIN-VISUAL-CAPABILITY-MATRIX.md)：T1 公共能力和 T2/T3 边界。
 8. [Origin OPJU 导出](./ORIGIN-EXPORT.md)：原生可编辑产物合同。
 9. [外部 Agent 绘图引擎接口](./EXTERNAL-AGENT-ENGINE-INTERFACES.md)：MCP/SDK 控制权、工具面、图实例与可编辑结果包合同。
+10. [SDK/MCP 独立分支资格报告](./EXTERNAL-ENGINE-QUALIFICATION.md)：当前实现边界、安装产物、等价性、OPJU fresh-reopen 与剩余门禁。
 
 ## 4. 桌面、存储与安全
 
