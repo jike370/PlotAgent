@@ -10,7 +10,11 @@ from typing import Any, cast
 
 import pytest
 
-from plotagent.contracts.agent_tasks import AgentIntentReady, TaskIntent
+from plotagent.contracts.agent_tasks import (
+    AgentIntentReady,
+    ProfileSelectionDecision,
+    TaskIntent,
+)
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import DraftFieldBinding, TaskDraftItem
 from plotagent.desktop_core.agent_execution import DurableTaskExecutionService
@@ -670,6 +674,14 @@ def test_agent_v2_confirmed_plan_executes_and_verifies_one_plot(
                 ),
             ),
         ),
+        profile_selections=(
+            ProfileSelectionDecision(
+                decision_id="decision:profile-confirmed-execution-api-1",
+                item_id="item:confirmed-execution-api.1",
+                profile_id="K01",
+                basis="ui_selected",
+            ),
+        ),
         context_hash=cast(str, context["content_hash"]),
         content_hash="0" * 64,
     )
@@ -824,6 +836,15 @@ def _execute_agent_create_batch(
                         field_alias=numeric_aliases[1],
                     ),
                 ),
+            )
+            for position, profile in enumerate(profiles, start=1)
+        ),
+        profile_selections=tuple(
+            ProfileSelectionDecision(
+                decision_id=f"decision:profile-{token}-{position}",
+                item_id=f"item:{token}.{position}",
+                profile_id=profile,
+                basis="ui_selected",
             )
             for position, profile in enumerate(profiles, start=1)
         ),
@@ -1784,6 +1805,14 @@ def test_agent_v2_accepts_verified_subset_without_reconfirmation_or_rerun(
                 ),
             ),
         ),
+        profile_selections=(
+            ProfileSelectionDecision(
+                decision_id="decision:profile-accept-subset-1",
+                item_id="item:accept-subset.1",
+                profile_id="K01",
+                basis="ui_selected",
+            ),
+        ),
         context_hash=cast(str, context["content_hash"]),
         content_hash="0" * 64,
     )
@@ -2218,6 +2247,15 @@ def test_agent_v2_scoped_repair_can_request_missing_semantic_input(
                         field_alias=numeric_aliases[1],
                     ),
                 ),
+            )
+            for position, profile in enumerate(("K01", "K02"), start=1)
+        ),
+        profile_selections=tuple(
+            ProfileSelectionDecision(
+                decision_id=f"decision:profile-repair-needs-input-{position}",
+                item_id=f"item:repair-needs-input.{position}",
+                profile_id=profile,
+                basis="ui_selected",
             )
             for position, profile in enumerate(("K01", "K02"), start=1)
         ),

@@ -10008,6 +10008,57 @@
       "title": "PreparedPreviewSource",
       "type": "object"
     },
+    "ProfileSelectionDecision": {
+      "additionalProperties": false,
+      "description": "One explicit provenance record for every create item chart choice.",
+      "properties": {
+        "basis": {
+          "enum": [
+            "ui_selected",
+            "user_instruction"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "decision_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "evidence_quote": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Quote"
+        },
+        "item_id": {
+          "pattern": "^item:[A-Za-z0-9][A-Za-z0-9._-]{0,191}$",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "profile_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_id",
+        "item_id",
+        "profile_id",
+        "basis"
+      ],
+      "title": "ProfileSelectionDecision",
+      "type": "object"
+    },
     "ProjectMetadataLabelSpec": {
       "additionalProperties": false,
       "properties": {
@@ -11426,20 +11477,6 @@
           "title": "Decision Id",
           "type": "string"
         },
-        "evidence_quote": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Evidence Quote"
-        },
         "evidence_refs": {
           "default": [],
           "items": {
@@ -11464,19 +11501,6 @@
           ],
           "title": "Kind",
           "type": "string"
-        },
-        "resolved_profile_id": {
-          "anyOf": [
-            {
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Resolved Profile Id"
         },
         "summary": {
           "maxLength": 512,
@@ -14922,6 +14946,14 @@
           "title": "Items",
           "type": "array"
         },
+        "profile_selections": {
+          "items": {
+            "$ref": "#/$defs/ProfileSelectionDecision"
+          },
+          "maxItems": 64,
+          "title": "Profile Selections",
+          "type": "array"
+        },
         "schema_version": {
           "const": "task-intent.v2",
           "default": "task-intent.v2",
@@ -14962,6 +14994,7 @@
         "created_by_activation_id",
         "summary",
         "items",
+        "profile_selections",
         "context_hash",
         "content_hash"
       ],

@@ -1617,6 +1617,7 @@ describe('AgentFoundationRuntime', () => {
               created_by_activation_id: activation.activation_id,
               summary: '按共同 X 对齐六个来源后创建 X38。',
               items: [],
+              profile_selections: [],
               context_hash: 'a'.repeat(64),
               content_hash: 'b'.repeat(64),
             },

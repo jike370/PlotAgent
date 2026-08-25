@@ -43,7 +43,9 @@
 
 首个独立候选工作树 `1b2f8cc` 的全量 Python 门禁为 `881 passed / 2 failed`。两项失败同源：Windows 新 worktree 将 `tests/fixtures/seq70/workflow_tasks.json` 从仓库 LF 检出为 CRLF，冻结输入字节数由 11204 变为 11461，迁移与 finalizer 均按设计拒绝哈希漂移。不得修改冻结哈希去接受平台漂移；仓库改为通过 `.gitattributes` 固定该 SEQ-70 输入为 LF。该修复必须以再次创建的全新 Windows 候选验证，不能用主工作树已有 LF 文件补证。
 
-候选 `8791cb4` 的完整确定性门禁通过，冻结 Windows Electron 黑盒为 `52 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`；最终 SEQ-70 仍为 `NO_GO`：W03 三次真实模型试验中第 2 次在“未选图类、原文仅要求画一张图”的情况下猜测 K03，另外两次正确追问。该失败证明“不得猜图类”不能只依赖提示。新候选在 TaskIntent 的 Profile 语义决策中加入原文证据，Core 对无 UI 预选的创建草稿执行统一证据门禁；证据缺失或不匹配时转为结构化图类追问。此变更属于 Agent/Core 决策边界，必须重跑完整确定性门禁、冻结黑盒与最终 SEQ-70，不继承 `8791cb4` 的发布结论。
+候选 `8791cb4` 的完整确定性门禁通过，冻结 Windows Electron 黑盒为 `52 PASS / 0 FAIL / 0 BLOCKED / 0 UNVERIFIED`；最终 SEQ-70 仍为 `NO_GO`：W03 三次真实模型试验中第 2 次在“未选图类、原文仅要求画一张图”的情况下猜测 K03，另外两次正确追问。候选 `71809f3` 随后把图类证据作为通用语义决策的可选字段，确定性门禁全绿，但正式 Electron 的 K01 首项证明真实 Pi 会合法省略该可选字段：明确写出“K01 折线图”以及再次澄清后，Core 均错误地把 Agent 合同缺失转嫁为用户追问，故在入口门禁终止。新版将图类来源改为 `TaskIntent.profile_selections` 的必填、逐 create item 合同；缺失由 Pi 在同一 activation 内返修，真实歧义才追问用户。此变更属于 Agent/Core 决策边界，必须重跑完整确定性门禁、冻结黑盒与最终 SEQ-70，不继承上述候选的发布结论。
+
+上述改版在冻结前已完成完整确定性门禁：Python `887 passed`、Vitest `30 files / 292 tests`，contracts codegen、Ruff、mypy（184 个源文件）、Node/Web TypeScript、ESLint（排除用户未跟踪 `website/`）和 production build 全部通过。该结果只允许建立新候选，不替代真实 Pi 入口、52 项 Electron 黑盒或最终 SEQ-70。
 
 ### 1.1 冻结范围与覆盖账本
 

@@ -11,6 +11,7 @@ from plotagent.contracts.agent_tasks import (
     AgentInformationReady,
     AgentIntentReady,
     AgentNeedsInput,
+    ProfileSelectionDecision,
     SideEffectReceipt,
     TaskBudgetLimits,
     TaskCompletion,
@@ -128,6 +129,14 @@ def intent(*, task_id: str = "task:test") -> TaskIntent:
         created_by_activation_id="activation:test",
         summary="Create one line chart.",
         items=(item,),
+        profile_selections=(
+            ProfileSelectionDecision(
+                decision_id="decision:profile-test-1",
+                item_id=item.item_id,
+                profile_id=item.profile_id,
+                basis="ui_selected",
+            ),
+        ),
         context_hash=HASH_A,
         content_hash=HASH_B,
     )
@@ -719,7 +728,21 @@ def test_item_progress_is_isolated_between_batch_items(tmp_path) -> None:
         ledger.mark_activation_running("activation:test")
         first = intent().items[0]
         second = first.model_copy(update={"item_id": "item:test.2", "plot_alias": "plot_2"})
-        batch = intent().model_copy(update={"items": (first, second)})
+        selections = intent().profile_selections
+        batch = intent().model_copy(
+            update={
+                "items": (first, second),
+                "profile_selections": (
+                    selections[0],
+                    selections[0].model_copy(
+                        update={
+                            "decision_id": "decision:profile-test-2",
+                            "item_id": second.item_id,
+                        }
+                    ),
+                ),
+            }
+        )
         staged = ledger.accept_yield(
             AgentIntentReady(
                 activation_id="activation:test",

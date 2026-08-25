@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from pydantic import ValidationError
 
 from plotagent.contracts.agent_tasks import (
     AgentBlocked,
     AgentIntentReady,
     AgentNeedsInput,
+    ProfileSelectionDecision,
     SelectedPlotRef,
     SemanticDecision,
     TaskBudgetLimits,
@@ -108,6 +110,14 @@ def intent(
         created_by_activation_id=activation_id,
         summary="Create one K01 line chart.",
         items=(item,),
+        profile_selections=(
+            ProfileSelectionDecision(
+                decision_id="decision:profile-item-test-1",
+                item_id=item.item_id,
+                profile_id=item.profile_id,
+                basis="ui_selected",
+            ),
+        ),
         context_hash=context_hash,
         content_hash="0" * 64,
     )
@@ -955,12 +965,12 @@ def test_first_intent_after_clarification_is_grounded_in_the_user_answer(
         )
         clarified_intent = clarified_intent.model_copy(
             update={
-                "semantic_decisions": (
-                    SemanticDecision(
+                "profile_selections": (
+                    ProfileSelectionDecision(
                         decision_id="decision:clarified-profile-k01",
-                        kind="profile",
-                        summary="用户在追问后明确选择 K01 折线图。",
-                        resolved_profile_id="K01",
+                        item_id=clarified_intent.items[0].item_id,
+                        profile_id="K01",
+                        basis="user_instruction",
                         evidence_quote="K01",
                     ),
                 ),
@@ -1112,6 +1122,15 @@ def test_clarification_can_replace_scope_with_two_sources_and_stage_two_items(
             created_by_activation_id=continuation_id,
             summary="Create two K01 plots with per-source mappings.",
             items=tuple(items),
+            profile_selections=tuple(
+                ProfileSelectionDecision(
+                    decision_id=f"decision:profile-clarified-{position}",
+                    item_id=item.item_id,
+                    profile_id=item.profile_id,
+                    basis="ui_selected",
+                )
+                for position, item in enumerate(items, start=1)
+            ),
             context_hash="0" * 64,
             content_hash="0" * 64,
         )
@@ -1180,8 +1199,19 @@ def test_ui_chart_selection_is_a_default_and_explicit_agent_profile_is_authorize
             context_hash=cast(str, context["content_hash"]),
         )
         override_item = override_intent.items[0].model_copy(update={"profile_id": "K03"})
+        override_selection = ProfileSelectionDecision(
+            decision_id="decision:profile-override-k03",
+            item_id=override_item.item_id,
+            profile_id="K03",
+            basis="user_instruction",
+            evidence_quote="K03",
+        )
         override_intent = override_intent.model_copy(
-            update={"items": (override_item,), "content_hash": "0" * 64}
+            update={
+                "items": (override_item,),
+                "profile_selections": (override_selection,),
+                "content_hash": "0" * 64,
+            }
         )
         override_intent = override_intent.model_copy(
             update={
@@ -1206,38 +1236,38 @@ def test_ui_chart_selection_is_a_default_and_explicit_agent_profile_is_authorize
 
 
 @pytest.mark.parametrize(
-    ("instruction", "decision", "expected_outcome"),
+    ("instruction", "decision", "expected_error"),
     (
-        ("用这张表画一张图。", None, "needs_input"),
+        ("用这张表画一张图。", None, "schema"),
         (
             "用这张表画折线图。",
-            SemanticDecision(
+            ProfileSelectionDecision(
                 decision_id="decision:profile-k01",
-                kind="profile",
-                summary="用户明确要求折线图。",
-                resolved_profile_id="K01",
+                item_id="item:test.1",
+                profile_id="K01",
+                basis="user_instruction",
                 evidence_quote="折线图",
             ),
-            "intent_ready",
+            None,
         ),
         (
             "用这张表画一张图。",
-            SemanticDecision(
+            ProfileSelectionDecision(
                 decision_id="decision:profile-guessed",
-                kind="profile",
-                summary="猜测用户需要折线图。",
-                resolved_profile_id="K01",
+                item_id="item:test.1",
+                profile_id="K01",
+                basis="user_instruction",
                 evidence_quote="一张图",
             ),
-            "needs_input",
+            "evidence",
         ),
     ),
 )
-def test_unselected_profile_requires_verifiable_user_wording(
+def test_unselected_profile_requires_typed_verifiable_selection(
     tmp_path: Path,
     instruction: str,
-    decision: SemanticDecision | None,
-    expected_outcome: str,
+    decision: ProfileSelectionDecision | None,
+    expected_error: str | None,
 ) -> None:
     with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
         imported = ProjectImportService(project).import_resource(
@@ -1277,9 +1307,20 @@ def test_unselected_profile_requires_verifiable_user_wording(
             task_id=task_envelope.task_id,
             context_hash=cast(str, context["content_hash"]),
         )
+        if expected_error == "schema":
+            raw_candidate = AgentIntentReady(
+                activation_id=activation_id,
+                task_id=task_envelope.task_id,
+                task_version=1,
+                intent=candidate_intent,
+            ).model_dump(mode="json")
+            cast(dict[str, object], raw_candidate["intent"]).pop("profile_selections")
+            with pytest.raises(ValidationError):
+                host.validate_yield(activation_id, cast(JsonValue, raw_candidate))
+            return
         candidate_intent = candidate_intent.model_copy(
             update={
-                "semantic_decisions": () if decision is None else (decision,),
+                "profile_selections": (cast(ProfileSelectionDecision, decision),),
                 "content_hash": "0" * 64,
             }
         )
@@ -1296,13 +1337,21 @@ def test_unselected_profile_requires_verifiable_user_wording(
             task_version=1,
             intent=candidate_intent,
         )
-        validated = host.validate_yield(
-            activation_id,
-            cast(JsonValue, candidate.model_dump(mode="json")),
-        )
-        assert validated.outcome == expected_outcome
-        if isinstance(validated, AgentNeedsInput):
-            assert validated.questions[0].answer_kind == "profile"
+        if expected_error == "evidence":
+            with pytest.raises(AgentFoundationError) as caught:
+                host.validate_yield(
+                    activation_id,
+                    cast(JsonValue, candidate.model_dump(mode="json")),
+                )
+            assert caught.value.code == "PROFILE_EVIDENCE_INVALID"
+        else:
+            assert (
+                host.validate_yield(
+                    activation_id,
+                    cast(JsonValue, candidate.model_dump(mode="json")),
+                ).outcome
+                == "intent_ready"
+            )
 
 
 def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Path) -> None:
@@ -1377,7 +1426,11 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "a draft containing only x/y bindings is incomplete" in system_prompt
         assert "never use needs_input to ask the user to confirm a plan" in system_prompt
         assert "product's confirmation card request authorization" in system_prompt
-        assert "evidence_quote to the shortest exact quote" in system_prompt
+        assert (
+            "Every task_kind=create item must have exactly one matching profile_selections"
+            in system_prompt
+        )
+        assert "set evidence_quote to the shortest exact quote" in system_prompt
         assert "Never return cancelled from submit_agent_yield" in system_prompt
         yield_schema = cast(dict[str, object], environment["yield_schema"])
         definitions = cast(dict[str, object], yield_schema["$defs"])
@@ -1750,12 +1803,12 @@ def test_unselected_chart_choice_is_semantically_owned_by_the_agent(
             update={
                 "summary": "Create one K03 scatter plot.",
                 "items": (scatter_item,),
-                "semantic_decisions": (
-                    SemanticDecision(
+                "profile_selections": (
+                    ProfileSelectionDecision(
                         decision_id="decision:semantic-profile-k03",
-                        kind="profile",
-                        summary="用户明确要求散点图。",
-                        resolved_profile_id="K03",
+                        item_id=scatter_item.item_id,
+                        profile_id="K03",
+                        basis="user_instruction",
                         evidence_quote="散点图",
                     ),
                 ),
@@ -1880,6 +1933,7 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
             created_by_activation_id=activation_id,
             summary="Update the selected plot title.",
             items=(item,),
+            profile_selections=(),
             context_hash=cast(str, context["content_hash"]),
             content_hash="0" * 64,
         )
@@ -2033,6 +2087,7 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
             created_by_activation_id=activation_id,
             summary="Filter and sort the selected plot data, then update its title.",
             items=(item,),
+            profile_selections=(),
             context_hash=cast(str, context["content_hash"]),
             content_hash="0" * 64,
         )
@@ -2139,6 +2194,14 @@ def test_current_prepared_plot_context_recovers_multi_source_data_program(
             created_by_activation_id=create_activation_id,
             summary="Create an aligned multi-source plot.",
             items=(create_item,),
+            profile_selections=(
+                ProfileSelectionDecision(
+                    decision_id="decision:profile-derived-create",
+                    item_id=create_item.item_id,
+                    profile_id=create_item.profile_id,
+                    basis="ui_selected",
+                ),
+            ),
             context_hash=cast(str, create_context["content_hash"]),
             content_hash="0" * 64,
         )

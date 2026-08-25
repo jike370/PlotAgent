@@ -18,6 +18,7 @@ from plotagent.contracts.agent_tasks import (
     ExecutionGrant,
     ExecutionScope,
     IntentRef,
+    ProfileSelectionDecision,
     SelectedPlotRef,
     SideEffectReceipt,
     TaskBudgetLimits,
@@ -86,6 +87,14 @@ def intent() -> TaskIntent:
         created_by_activation_id="activation:test",
         summary="Create one line chart.",
         items=(item,),
+        profile_selections=(
+            ProfileSelectionDecision(
+                decision_id="decision:profile-test-1",
+                item_id=item.item_id,
+                profile_id=item.profile_id,
+                basis="ui_selected",
+            ),
+        ),
         context_hash=HASH_A,
         content_hash=HASH_B,
     )
@@ -93,6 +102,24 @@ def intent() -> TaskIntent:
 
 def intent_ref() -> IntentRef:
     return IntentRef(intent_id="intent:test", intent_version=1, content_hash=HASH_B)
+
+
+def test_create_intent_requires_one_typed_profile_selection_per_item() -> None:
+    value = intent()
+    missing = value.model_dump(mode="json")
+    missing.pop("profile_selections")
+    with pytest.raises(ValidationError, match="profile_selections"):
+        TaskIntent.model_validate_json(json.dumps(missing))
+
+    mismatched = value.model_dump(mode="json")
+    mismatched["profile_selections"][0]["profile_id"] = "K03"
+    with pytest.raises(ValidationError, match="must match"):
+        TaskIntent.model_validate_json(json.dumps(mismatched))
+
+    quoted_ui = value.model_dump(mode="json")
+    quoted_ui["profile_selections"][0]["evidence_quote"] = "折线图"
+    with pytest.raises(ValidationError, match="cannot carry"):
+        TaskIntent.model_validate_json(json.dumps(quoted_ui))
 
 
 def technical_error(*, retryable: bool = True) -> TaskError:

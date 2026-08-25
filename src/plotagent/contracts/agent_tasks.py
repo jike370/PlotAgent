@@ -258,8 +258,24 @@ class SemanticDecision(StrictModel):
     ]
     summary: NonEmptyText
     evidence_refs: Annotated[tuple[Token, ...], Field(max_length=64)] = ()
-    resolved_profile_id: Token | None = None
+
+
+class ProfileSelectionDecision(StrictModel):
+    """One explicit provenance record for every create item chart choice."""
+
+    decision_id: Token
+    item_id: TaskItemIdV2
+    profile_id: Token
+    basis: Literal["ui_selected", "user_instruction"]
     evidence_quote: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def evidence_matches_basis(self) -> ProfileSelectionDecision:
+        if self.basis == "user_instruction" and self.evidence_quote is None:
+            raise ValueError("user-instruction profile selections require an evidence quote")
+        if self.basis == "ui_selected" and self.evidence_quote is not None:
+            raise ValueError("UI-selected profile selections cannot carry a user quote")
+        return self
 
 
 class TaskIntent(StrictModel):
@@ -271,6 +287,9 @@ class TaskIntent(StrictModel):
     created_by_activation_id: AgentActivationId
     summary: NonEmptyText
     items: Annotated[tuple[TaskDraftItem, ...], Field(min_length=1, max_length=64)]
+    profile_selections: Annotated[
+        tuple[ProfileSelectionDecision, ...], Field(max_length=64)
+    ]
     semantic_decisions: Annotated[tuple[SemanticDecision, ...], Field(max_length=256)] = ()
     context_hash: Sha256
     content_hash: Sha256
@@ -279,11 +298,25 @@ class TaskIntent(StrictModel):
     def item_identity_is_unique(self) -> TaskIntent:
         item_ids = tuple(item.item_id for item in self.items)
         plot_aliases = tuple(item.plot_alias for item in self.items)
+        profile_item_ids = tuple(item.item_id for item in self.profile_selections)
+        profile_decision_ids = tuple(item.decision_id for item in self.profile_selections)
         decision_ids = tuple(item.decision_id for item in self.semantic_decisions)
         if len(item_ids) != len(set(item_ids)) or len(plot_aliases) != len(set(plot_aliases)):
             raise ValueError("task intent item identities must be unique")
+        if len(profile_item_ids) != len(set(profile_item_ids)) or len(
+            profile_decision_ids
+        ) != len(set(profile_decision_ids)):
+            raise ValueError("task intent profile selections must be unique")
         if len(decision_ids) != len(set(decision_ids)):
             raise ValueError("task intent semantic decisions must be unique")
+        create_items = {item.item_id: item for item in self.items if item.task_kind == "create"}
+        if set(profile_item_ids) != set(create_items):
+            raise ValueError("every create item needs exactly one profile selection")
+        if any(
+            create_items[selection.item_id].profile_id != selection.profile_id
+            for selection in self.profile_selections
+        ):
+            raise ValueError("profile selections must match their create item profiles")
         return self
 
 

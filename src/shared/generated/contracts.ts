@@ -1319,6 +1319,14 @@ export type PreparedPreviewSource = {
   readonly row_count: number;
 }
 
+export type ProfileSelectionDecision = {
+  readonly decision_id: string;
+  readonly item_id: string;
+  readonly profile_id: string;
+  readonly basis: "ui_selected" | "user_instruction";
+  readonly evidence_quote?: string | null;
+}
+
 export type ProjectMetadataLabelSpec = {
   readonly schema_version?: "1.0";
   readonly preparation_spec_id: string;
@@ -1542,8 +1550,6 @@ export type SemanticDecision = {
   readonly kind: "profile" | "field_binding" | "unit" | "ordering" | "filter" | "aggregation" | "calculation" | "visual" | "output";
   readonly summary: string;
   readonly evidence_refs?: ReadonlyArray<string>;
-  readonly resolved_profile_id?: string | null;
-  readonly evidence_quote?: string | null;
 }
 
 export type SetAxis = {
@@ -1946,6 +1952,7 @@ export type TaskIntent = {
   readonly created_by_activation_id: string;
   readonly summary: string;
   readonly items: ReadonlyArray<TaskDraftItem>;
+  readonly profile_selections: ReadonlyArray<ProfileSelectionDecision>;
   readonly semantic_decisions?: ReadonlyArray<SemanticDecision>;
   readonly context_hash: string;
   readonly content_hash: string;
