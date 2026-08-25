@@ -330,11 +330,17 @@ Electron 长链路。统一发现台账没有未执行项：同构多来源单�
 `concatenate_sources` 正确拒绝。项目 153 另收到上游 HTTP 402 `Insufficient Balance`，
 耐久错误正确记为可重试 `PI_V2_PROVIDER_FAILED`，不与产品 FAIL 合并。
 
-冻结施工范围、确认卡处理后预览缺口、长规划反馈、来源数量文案、已验收待合入动效及用户
-明确暂缓的 OPJU 默认文件名问题，统一以
+冻结施工范围、确认卡处理后预览缺口、长规划反馈、来源数量文案、已验收待合入动效及当时
+暂缓的 OPJU 默认文件名问题，统一以
 [发布候选问题台账](./PLOTAGENT-V3-RELEASE-CANDIDATE-KNOWN-ISSUES.md) 为准。`781e793`
 不得直接进入完整黑盒或 SEQ-70；必须集中修复、重跑受影响确定性门禁和正式 Electron 定向
 测试，并形成新的干净候选。
+
+后续状态：`EXPORT-NAME-01` 已由 `5a3c323` 关闭。Renderer 使用稳定 `@图N` 引用、图类编号、
+中文图名和图版本生成建议文件名，Main 统一执行 Windows 文件名安全化。打包版正式 Electron
+保存框默认显示 `图1-K02-线点图-v5.opju`，未手工改名直接保存成功；证据见
+`build/opju-default-name-5a3c323-20260826/REPORT.md`。该修复不改变 PlotSpec、renderer、Origin
+内容合同或既有图视觉证据。
 
 ## 15. 2026-08-25 `c6ca622` 冻结黑盒后的统一改版
 
