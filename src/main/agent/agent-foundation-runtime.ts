@@ -4,6 +4,7 @@ import { MAX_WORKFLOW_SOURCES, type JsonValue } from '../../shared/desktop-contr
 import { CorePiRuntimeHostV2, type PiRuntimeCoreBridgeV2 } from './pi-runtime-host-v2.js'
 import {
   PiRuntimeAdapterV2,
+  type PiRuntimeV2Diagnostic,
   type PiRuntimeV2Event,
 } from './pi-runtime-v2.js'
 import {
@@ -58,6 +59,7 @@ export interface AgentFoundationRuntimeEvent {
 export interface AgentFoundationRuntimeOptions {
   readonly core: PiRuntimeCoreBridgeV2
   readonly emit: (event: AgentFoundationRuntimeEvent) => void
+  readonly diagnose?: (diagnostic: PiRuntimeV2Diagnostic) => void
   readonly createRuntime?: (
     host: CorePiRuntimeHostV2,
     emit: (event: PiRuntimeV2Event) => void,
@@ -300,7 +302,7 @@ export class AgentFoundationRuntime {
     this.core = options.core
     this.emitEvent = options.emit
     this.createRuntime = options.createRuntime ?? ((host, emit) => (
-      new PiRuntimeAdapterV2({ host, emit })
+      new PiRuntimeAdapterV2({ host, emit, diagnose: options.diagnose })
     ))
     this.clock = options.clock ?? (() => new Date())
     this.id = options.id ?? randomUUID

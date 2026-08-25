@@ -399,10 +399,15 @@ class DesktopApplication:
         candidate = values["yield"]
         if not isinstance(candidate, dict):
             raise RpcServiceError("INVALID_PARAMS", "Agent yield was invalid.")
-        yielded = session.task_host.validate_yield(
-            _text(values["activation_id"], "activation_id"),
-            cast(JsonValue, candidate),
-        )
+        try:
+            yielded = session.task_host.validate_yield(
+                _text(values["activation_id"], "activation_id"),
+                cast(JsonValue, candidate),
+            )
+        except ValidationError as error:
+            raise RpcServiceError(
+                "INVALID_PARAMS", _validation_error_summary(error, "Agent yield")
+            ) from None
         return cast(RpcJsonValue, yielded.model_dump(mode="json"))
 
     def _agent_yield_accept(
@@ -1526,6 +1531,19 @@ class _DomainSourceResolver:
 
     def resolve(self, source_dataset: SourceDataset) -> ResolvedSourceTable:
         return self.domain.resolve_source(source_dataset)
+
+
+def _validation_error_summary(error: ValidationError, label: str) -> str:
+    issues: list[str] = []
+    for issue in error.errors(include_url=False, include_input=False)[:12]:
+        location = ".".join(str(part) for part in issue.get("loc", ())) or "root"
+        kind = str(issue.get("type", "validation_error"))
+        message = " ".join(str(issue.get("msg", "invalid value")).split())[:160]
+        issues.append(f"{location}: {kind} ({message})")
+    if not issues:
+        return f"{label} failed validation."
+    suffix = "" if error.error_count() <= len(issues) else "; additional issues omitted"
+    return f"{label} failed validation: {'; '.join(issues)}{suffix}."
 
 
 def _object(

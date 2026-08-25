@@ -182,6 +182,72 @@ def test_agent_task_v2_api_persists_checkpoint_and_events(
     assert restored == advanced
 
 
+def test_agent_yield_validation_reports_safe_field_paths(
+    harness: ApplicationHarness,
+) -> None:
+    project_id, revision = _create_open(harness)
+    imported = _import_dataset(harness, project_id, revision, key="safe-yield")
+    dataset = cast(dict[str, Any], cast(list[object], imported["datasets"])[0])
+    task_id = "task:safe-yield-diagnostic"
+    harness.call(
+        "agent.tasks.create",
+        {
+            "project_id": project_id,
+            "envelope": {
+                "task_id": task_id,
+                "task_version": 1,
+                "project_id": project_id,
+                "project_revision": imported["project_version"],
+                "original_instruction": "Create a line chart.",
+                "selected_sources": [
+                    {
+                        "source_dataset_id": dataset["source_dataset_id"],
+                        "source_version": dataset["source_version"],
+                        "content_hash": dataset["content_hash"],
+                    }
+                ],
+                "selected_profile_ids": ["K01"],
+                "budget": {"max_estimated_cost": 10},
+                "created_at": "2026-08-25T10:00:00Z",
+            },
+        },
+    )
+    directive = harness.call(
+        "agent.tasks.pump.next", {"project_id": project_id, "task_id": task_id}
+    )
+    activation = cast(dict[str, Any], directive["activation"])
+    activation_id = cast(str, activation["activation_id"])
+    harness.call(
+        "agent.tasks.activation.running",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+    harness.call(
+        "agent.activations.prepare",
+        {"project_id": project_id, "activation_id": activation_id},
+    )
+
+    with pytest.raises(RpcServiceError) as captured:
+        harness.call(
+            "agent.yields.validate",
+            {
+                "project_id": project_id,
+                "activation_id": activation_id,
+                "yield": {
+                    "outcome": "needs_input",
+                    "activation_id": activation_id,
+                    "task_id": task_id,
+                    "task_version": activation["task_version"],
+                    "questions": "private-input-must-not-be-persisted",
+                },
+            },
+        )
+
+    assert captured.value.code == "INVALID_PARAMS"
+    assert "Agent yield failed validation" in captured.value.message
+    assert "questions" in captured.value.message
+    assert "private-input-must-not-be-persisted" not in captured.value.message
+
+
 def test_agent_task_answer_accepts_json_selection_arrays_in_context_update(
     harness: ApplicationHarness,
 ) -> None:

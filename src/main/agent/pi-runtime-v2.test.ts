@@ -18,8 +18,10 @@ import type {
 } from '../../shared/generated/contracts.js'
 import {
   PiRuntimeAdapterV2,
+  sanitizePiRuntimeDiagnosticMessage,
   type PiActivationEnvironmentV2,
   type PiRuntimeHostV2,
+  type PiRuntimeV2Diagnostic,
   type PiRuntimeV2Event,
 } from './pi-runtime-v2.js'
 
@@ -563,16 +565,25 @@ describe('PiRuntimeAdapterV2', () => {
     let validationAttempts = 0
     let modelCalls = 0
     const validatedCandidates: JsonValue[] = []
+    const diagnostics: PiRuntimeV2Diagnostic[] = []
     const runtime = new PiRuntimeAdapterV2({
       host: hostFor(input, {
         validateYield: async (_activation, value) => {
           validationAttempts += 1
           validatedCandidates.push(value)
-          if (validationAttempts === 1) throw new Error('K01 requires x/y/group, not series_N')
+          if (validationAttempts === 1) {
+            throw new Error([
+              'Agent yield failed validation: intent.items.0.bindings: missing.',
+              '',
+              'Received arguments:',
+              '{"api_key":"api_key-secret-must-not-leak"}',
+            ].join('\n'))
+          }
           return value as AgentYieldContract
         },
       }),
       emit: () => undefined,
+      diagnose: (diagnostic) => diagnostics.push(diagnostic),
       streamFn: (() => {
         modelCalls += 1
         return toolCallStream(
@@ -588,6 +599,28 @@ describe('PiRuntimeAdapterV2', () => {
     expect(modelCalls).toBe(2)
     expect(validatedCandidates).toEqual([invalidCandidate, repairedCandidate])
     expect(validatedCandidates[0]).not.toEqual(validatedCandidates[1])
+    expect(diagnostics).toEqual([expect.objectContaining({
+      activationId: input.activation_id,
+      taskId: input.task_id,
+      modelTurn: 1,
+      kind: 'tool_call_rejected',
+      toolName: 'submit_agent_yield',
+      message: 'Agent yield failed validation: intent.items.0.bindings: missing.',
+    })])
+    expect(JSON.stringify(diagnostics)).not.toContain('secret-must-not-leak')
+  })
+
+  it('reduces failed Core tool payloads to non-sensitive identifiers', () => {
+    expect(sanitizePiRuntimeDiagnosticMessage({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          status: 'failed',
+          payload: { rows: [['private-value']] },
+          error: { code: 'STYLE_UNSUPPORTED', category: 'semantic_conflict' },
+        }),
+      }],
+    })).toBe('Core tool returned a failed result (STYLE_UNSUPPORTED, semantic_conflict).')
   })
 
   it('maps provider disconnects to a stable known-none failure', async () => {

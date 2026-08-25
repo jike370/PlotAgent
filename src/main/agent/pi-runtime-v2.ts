@@ -92,9 +92,23 @@ export interface PiRuntimeV2Event {
   readonly toolCallId?: string
 }
 
+export interface PiRuntimeV2Diagnostic {
+  readonly schemaVersion: '1.0'
+  readonly occurredAt: string
+  readonly activationId: string
+  readonly taskId: string
+  readonly taskVersion: number
+  readonly modelTurn: number
+  readonly kind: 'tool_call_rejected'
+  readonly toolName: string
+  readonly toolCallId: string
+  readonly message: string
+}
+
 export interface PiRuntimeAdapterV2Options {
   readonly host: PiRuntimeHostV2
   readonly emit: (event: PiRuntimeV2Event) => void
+  readonly diagnose?: (diagnostic: PiRuntimeV2Diagnostic) => void
   readonly streamFn?: StreamFn
   readonly clock?: () => Date
 }
@@ -149,6 +163,58 @@ function modelFor(provider: PiRuntimeProviderV2): Model<'openai-completions'> {
     maxTokens: 2_048,
     ...(samplingParams === undefined ? {} : { samplingParams }),
   }
+}
+
+function toolResultText(result: unknown): string {
+  if (result === null || typeof result !== 'object' || Array.isArray(result)) return ''
+  const content = (result as { content?: unknown }).content
+  if (!Array.isArray(content)) return ''
+  return content.flatMap((item) => {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return []
+    const candidate = item as { type?: unknown; text?: unknown }
+    return candidate.type === 'text' && typeof candidate.text === 'string'
+      ? [candidate.text]
+      : []
+  }).join('\n')
+}
+
+function failedCoreResultSummary(text: string): string | undefined {
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined
+    const result = parsed as Record<string, unknown>
+    if (result.status !== 'failed') return undefined
+    const error = result.error
+    if (error === null || typeof error !== 'object' || Array.isArray(error)) {
+      return 'Core tool returned a failed result.'
+    }
+    const detail = error as Record<string, unknown>
+    const identifiers = [detail.code, detail.category]
+      .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    return identifiers.length === 0
+      ? 'Core tool returned a failed result.'
+      : `Core tool returned a failed result (${identifiers.join(', ')}).`
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Keep enough information to locate a rejected model action without persisting
+ * tool arguments, source rows, prompts, credentials, or a full Core payload.
+ */
+export function sanitizePiRuntimeDiagnosticMessage(result: unknown): string {
+  const raw = toolResultText(result).trim()
+  if (raw.length === 0) return 'The tool call was rejected without a diagnostic message.'
+  const failedSummary = failedCoreResultSummary(raw)
+  if (failedSummary !== undefined) return failedSummary
+  const argumentsStart = raw.search(/\n\s*(?:received\s+arguments|arguments\s+received)\s*:/iu)
+  const withoutArguments = (argumentsStart < 0 ? raw : raw.slice(0, argumentsStart))
+    .replace(/\b(?:sk|api[_-]?key)[-_][A-Za-z0-9_-]{8,}\b/giu, '[REDACTED]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*\b/giu, 'Bearer [REDACTED]')
+    .trim()
+  return (withoutArguments || 'The tool call was rejected without a safe diagnostic message.')
+    .slice(0, 2_000)
 }
 
 function canonicalValue(value: JsonValue): JsonValue {
@@ -341,6 +407,7 @@ function validateEnvironment(
 export class PiRuntimeAdapterV2 {
   private readonly host: PiRuntimeHostV2
   private readonly emitEvent: PiRuntimeAdapterV2Options['emit']
+  private readonly emitDiagnostic: NonNullable<PiRuntimeAdapterV2Options['diagnose']>
   private readonly streamFn: StreamFn
   private readonly clock: () => Date
   private active?: ActiveRun
@@ -350,6 +417,7 @@ export class PiRuntimeAdapterV2 {
   constructor(options: PiRuntimeAdapterV2Options) {
     this.host = options.host
     this.emitEvent = options.emit
+    this.emitDiagnostic = options.diagnose ?? (() => undefined)
     const providerStream = options.streamFn ?? (streamSimple as StreamFn)
     this.streamFn = (model, context, streamOptions) => providerStream(model, context, {
       ...streamOptions,
@@ -644,7 +712,12 @@ export class PiRuntimeAdapterV2 {
           return false
         },
       })
-      agent.subscribe((event) => this.handleAgentEvent(activation, event, generation))
+      agent.subscribe((event) => this.handleAgentEvent(
+        activation,
+        event,
+        generation,
+        counters,
+      ))
       this.active.agent = agent
 
       const prompt = JSON.stringify({ context_snapshot: environment.context })
@@ -769,9 +842,24 @@ export class PiRuntimeAdapterV2 {
     activation: AgentActivation,
     event: AgentEvent,
     generation: number,
+    counters: RuntimeCounters,
   ): void {
     if (generation !== this.generation) return
     if (event.type === 'turn_start') this.emit(activation, 'model_turn')
+    if (event.type === 'tool_execution_end' && event.isError) {
+      this.emitDiagnostic({
+        schemaVersion: '1.0',
+        occurredAt: this.clock().toISOString(),
+        activationId: activation.activation_id,
+        taskId: activation.task_id,
+        taskVersion: activation.task_version,
+        modelTurn: Math.max(1, counters.modelTurns + 1),
+        kind: 'tool_call_rejected',
+        toolName: event.toolName,
+        toolCallId: event.toolCallId,
+        message: sanitizePiRuntimeDiagnosticMessage(event.result),
+      })
+    }
   }
 
   private assertCurrent(generation: number): void {

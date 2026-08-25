@@ -4,6 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from 'e
 
 import { PythonCoreSupervisor, resolveCoreLaunchSpec } from './core/python-supervisor.js'
 import { AgentFoundationRuntime } from './agent/agent-foundation-runtime.js'
+import { AgentRuntimeDiagnosticWriter } from './agent/runtime-diagnostics.js'
 import { registerDesktopIpc, requestCoreAction } from './ipc/desktop-ipc.js'
 import { AppCloseController } from './lifecycle/app-close-controller.js'
 import {
@@ -21,6 +22,7 @@ import { TaskTracker } from './tasks/task-state.js'
 import { IPC_CHANNELS } from '../shared/desktop-contract.js'
 
 let mainWindow: BrowserWindow | undefined
+let agentRuntimeDiagnosticWriter: AgentRuntimeDiagnosticWriter | undefined
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'plotagent-resource',
@@ -47,6 +49,7 @@ function sendToRenderer(channel: string, value: unknown): void {
 const agentFoundationRuntime = new AgentFoundationRuntime({
   core: supervisor,
   emit: (event) => sendToRenderer(IPC_CHANNELS.workflowRuntimeEvent, event),
+  diagnose: (diagnostic) => agentRuntimeDiagnosticWriter?.write(diagnostic),
 })
 
 const closeController = new AppCloseController({
@@ -145,6 +148,9 @@ if (!hasSingleInstanceLock) {
   openRouter.routeCommandLine(process.argv.slice(1), process.cwd())
 
   app.whenReady().then(() => {
+    agentRuntimeDiagnosticWriter = new AgentRuntimeDiagnosticWriter(
+      join(app.getPath('userData'), 'logs'),
+    )
     hardenSession(session.defaultSession)
     registerResourceProtocol(session.defaultSession, resourceRegistry)
     app.on('web-contents-created', (_event, contents) => hardenWebContents(contents))
