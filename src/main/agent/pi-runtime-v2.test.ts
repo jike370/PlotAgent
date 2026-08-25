@@ -564,6 +564,7 @@ describe('PiRuntimeAdapterV2', () => {
     }
     let validationAttempts = 0
     let modelCalls = 0
+    let repairTurnContext = ''
     const validatedCandidates: JsonValue[] = []
     const diagnostics: PiRuntimeV2Diagnostic[] = []
     const runtime = new PiRuntimeAdapterV2({
@@ -584,8 +585,9 @@ describe('PiRuntimeAdapterV2', () => {
       }),
       emit: () => undefined,
       diagnose: (diagnostic) => diagnostics.push(diagnostic),
-      streamFn: (() => {
+      streamFn: ((_model, providerContext) => {
         modelCalls += 1
+        if (modelCalls === 2) repairTurnContext = JSON.stringify(providerContext.messages)
         return toolCallStream(
           `provider-call-yield-${modelCalls}`,
           'submit_agent_yield',
@@ -599,6 +601,9 @@ describe('PiRuntimeAdapterV2', () => {
     expect(modelCalls).toBe(2)
     expect(validatedCandidates).toEqual([invalidCandidate, repairedCandidate])
     expect(validatedCandidates[0]).not.toEqual(validatedCandidates[1])
+    expect(repairTurnContext).toContain(
+      'Agent yield failed validation: intent.items.0.bindings: missing.',
+    )
     expect(diagnostics).toEqual([expect.objectContaining({
       activationId: input.activation_id,
       taskId: input.task_id,

@@ -116,6 +116,89 @@ def _draft(context: WorkflowContext) -> TaskDraft:
     )
 
 
+def test_edit_task_contract_reports_every_violation_without_input_values() -> None:
+    with pytest.raises(ValidationError) as captured:
+        TaskDraftItem(
+            task_kind="edit",
+            item_id="item:invalid-edit.1",
+            plot_alias="plot_1",
+            profile_id="K02",
+            source_aliases=("private_source_alias",),
+            data_operations=(
+                SelectFields(
+                    source_alias="private_source_alias",
+                    field_aliases=("private_field_alias", "private_second_field_alias"),
+                ),
+            ),
+            bindings=(
+                DraftFieldBinding(
+                    role="x",
+                    source_alias="private_source_alias",
+                    field_alias="private_field_alias",
+                ),
+            ),
+        )
+
+    message = " ".join(
+        str(issue["msg"])
+        for issue in captured.value.errors(include_url=False, include_input=False)
+    )
+    assert "target_plot_alias is required" in message
+    assert "source_aliases must be empty" in message
+    assert "data_operations must be empty" in message
+    assert "bindings must be empty" in message
+    assert "visual_actions must contain at least one action" in message
+    assert "private_source_alias" not in message
+    assert "private_field_alias" not in message
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected"),
+    (
+        ({"target_plot_alias": None}, "target_plot_alias is required"),
+        ({"source_aliases": ("data_1",)}, "source_aliases must be empty"),
+        (
+            {
+                "data_operations": (
+                    SelectFields(source_alias="data_1", field_aliases=("data_1_time",)),
+                )
+            },
+            "data_operations must be empty",
+        ),
+        (
+            {
+                "bindings": (
+                    DraftFieldBinding(
+                        role="x", source_alias="data_1", field_alias="data_1_time"
+                    ),
+                )
+            },
+            "bindings must be empty",
+        ),
+        ({"visual_actions": ()}, "visual_actions must contain at least one action"),
+    ),
+)
+def test_edit_task_contract_reports_each_specific_violation(
+    updates: dict[str, object],
+    expected: str,
+) -> None:
+    valid = {
+        "task_kind": "edit",
+        "item_id": "item:invalid-edit-specific.1",
+        "plot_alias": "plot_1",
+        "profile_id": "K02",
+        "target_plot_alias": "plot_1",
+        "visual_actions": (DraftSetTitle(text="Edited title"),),
+    }
+    valid.update(updates)
+
+    with pytest.raises(ValidationError) as captured:
+        TaskDraftItem.model_validate(valid)
+
+    message = str(captured.value)
+    assert expected in message
+
+
 def test_compiler_resolves_agent_aliases_and_rejects_unknown_targets() -> None:
     context = _context()
     draft = _draft(context)

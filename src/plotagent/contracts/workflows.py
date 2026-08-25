@@ -982,14 +982,22 @@ class TaskDraftItem(StrictModel):
         if self.task_kind == "create":
             if self.target_plot_alias is not None or not self.source_aliases or not self.bindings:
                 raise ValueError("create tasks need sources and bindings, not an existing plot")
-        elif self.task_kind == "edit" and (
-            self.target_plot_alias is None
-            or self.source_aliases
-            or self.data_operations
-            or self.bindings
-            or not self.visual_actions
-        ):
-            raise ValueError("edit tasks accept only a target plot and visual actions")
+        elif self.task_kind == "edit":
+            violations: list[str] = []
+            if self.target_plot_alias is None:
+                violations.append("target_plot_alias is required")
+            if self.source_aliases:
+                violations.append("source_aliases must be empty")
+            if self.data_operations:
+                violations.append("data_operations must be empty")
+            if self.bindings:
+                violations.append("bindings must be empty")
+            if not self.visual_actions:
+                violations.append("visual_actions must contain at least one action")
+            if violations:
+                raise ValueError(
+                    "edit task contract violations: " + "; ".join(violations)
+                )
         elif self.task_kind == "update_data" and (
             self.target_plot_alias is None or not self.source_aliases or not self.bindings
         ):
