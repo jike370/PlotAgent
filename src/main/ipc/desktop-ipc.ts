@@ -46,8 +46,29 @@ const PROJECT_FILTERS = [{ name: 'PlotAgent 项目', extensions: ['plotproj'] }]
 const PRIVATE_RESULT_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
 const ARTIFACT_PATH_KEY = /^(?:artifact|preview|output)_path$/i
 const ABSOLUTE_PATH_VALUE = /^(?:[A-Za-z]:[\\/]|\\\\|file:\/\/)/i
+const WINDOWS_INVALID_FILE_NAME_CHARACTERS = new Set('<>:"/\\|?*')
+const WINDOWS_RESERVED_FILE_STEM = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+const MAX_EXPORT_FILE_STEM_CHARACTERS = 120
 
 type DesktopDialog = Pick<Dialog, 'showMessageBox' | 'showOpenDialog' | 'showSaveDialog'>
+
+export function safeExportDefaultPath(suggestedFileName: string, extension: 'png' | 'svg' | 'opju'): string {
+  const suffix = `.${extension}`
+  const trimmed = suggestedFileName.trim()
+  const withoutExtension = trimmed.toLocaleLowerCase('en-US').endsWith(suffix)
+    ? trimmed.slice(0, -suffix.length)
+    : trimmed
+  const sanitized = [...withoutExtension].map((character) => {
+    const codePoint = character.codePointAt(0) ?? 0
+    return codePoint <= 31 || WINDOWS_INVALID_FILE_NAME_CHARACTERS.has(character) ? '-' : character
+  }).join('').replace(/-+/gu, '-').replace(/^[ .-]+|[ .-]+$/gu, '')
+  const bounded = [...sanitized].slice(0, MAX_EXPORT_FILE_STEM_CHARACTERS).join('')
+    .replace(/[ .-]+$/gu, '')
+  const stem = bounded.length === 0 || WINDOWS_RESERVED_FILE_STEM.test(bounded)
+    ? 'PlotAgent-export'
+    : bounded
+  return `${stem}${suffix}`
+}
 
 export interface ImportClarificationChoice {
   readonly code: string
@@ -968,7 +989,7 @@ export function registerDesktopIpc({
     if (input === null || owner === undefined) return invalidDataArgument('导出请求无效。')
     const choice = await dialog.showSaveDialog(owner, {
       title: `导出 ${input.format.toLocaleUpperCase('en-US')}`,
-      defaultPath: `${input.target.id}.${input.format}`,
+      defaultPath: safeExportDefaultPath(input.suggestedFileName, input.format),
       filters: [{ name: input.format.toLocaleUpperCase('en-US'), extensions: [input.format] }],
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()
@@ -995,7 +1016,7 @@ export function registerDesktopIpc({
     if (!preflight.ok) return preflight
     const choice = await dialog.showSaveDialog(owner, {
       title: '导出 Origin 项目',
-      defaultPath: `${input.target.id}.opju`,
+      defaultPath: safeExportDefaultPath(input.suggestedFileName, 'opju'),
       filters: [{ name: 'Origin 项目', extensions: ['opju'] }],
     })
     if (choice.canceled || choice.filePath === undefined) return cancelled()

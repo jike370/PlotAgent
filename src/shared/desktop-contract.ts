@@ -289,6 +289,7 @@ export interface PngSvgExportInput extends ProjectIdInput {
     readonly version: number
   }
   readonly format: 'png' | 'svg'
+  readonly suggestedFileName: string
 }
 
 export interface OriginExportInput extends ProjectIdInput {
@@ -297,6 +298,7 @@ export interface OriginExportInput extends ProjectIdInput {
     readonly id: string
     readonly version: number
   }
+  readonly suggestedFileName: string
 }
 
 export type CloseChoice = 'wait' | 'cancel-and-quit' | 'return'
@@ -720,17 +722,36 @@ export function parseTaskPlanConfirmInput(value: unknown): TaskPlanConfirmInput 
     : { ...parsed, accept: value.accept }
 }
 
+function parseSuggestedFileName(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized.length > 0
+    && normalized.length <= 200
+    && !normalized.includes('\0')
+    && !normalized.includes('\r')
+    && !normalized.includes('\n')
+    ? normalized
+    : null
+}
+
 export function parsePngSvgExportInput(value: unknown): PngSvgExportInput | null {
-  const parsed = parseProjectIdRecord(value, ['target', 'format'])
+  const parsed = parseProjectIdRecord(value, ['target', 'format', 'suggestedFileName'])
   const target = parsed === null ? null : parseVersionedTarget(parsed.target)
-  if (parsed === null || target === null || (parsed.format !== 'png' && parsed.format !== 'svg')) return null
-  return { projectId: parsed.projectId as string, target, format: parsed.format }
+  const suggestedFileName = parsed === null ? null : parseSuggestedFileName(parsed.suggestedFileName)
+  if (
+    parsed === null || target === null || suggestedFileName === null
+    || (parsed.format !== 'png' && parsed.format !== 'svg')
+  ) return null
+  return { projectId: parsed.projectId as string, target, format: parsed.format, suggestedFileName }
 }
 
 export function parseOriginExportInput(value: unknown): OriginExportInput | null {
-  const parsed = parseProjectIdRecord(value, ['target'])
+  const parsed = parseProjectIdRecord(value, ['target', 'suggestedFileName'])
   const target = parsed === null ? null : parseVersionedTarget(parsed.target)
-  return parsed === null || target === null ? null : { projectId: parsed.projectId as string, target }
+  const suggestedFileName = parsed === null ? null : parseSuggestedFileName(parsed.suggestedFileName)
+  return parsed === null || target === null || suggestedFileName === null
+    ? null
+    : { projectId: parsed.projectId as string, target, suggestedFileName }
 }
 
 function isCoreMessageBase(value: Record<string, unknown>): boolean {

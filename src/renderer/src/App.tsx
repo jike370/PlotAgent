@@ -39,6 +39,7 @@ import {
 } from './data/productState'
 import { readWorkspaceSelection, writeWorkspaceSelection } from './data/workspacePersistence'
 import { plotHistoryEntry, type PlotHistoryEntry } from './data/plotHistory'
+import { registerPlotReferences } from './data/plotReferences'
 import {
   matchProviderPreset,
   providerPreset,
@@ -91,6 +92,21 @@ function nextProjectName(projects: ProductProject[]): string {
   let index = 1
   while (names.has(`新建项目 ${index}`)) index += 1
   return `新建项目 ${index}`
+}
+
+function suggestedExportFileName(
+  projectId: string,
+  exportPlot: ProductPlot,
+  projectPlots: readonly ProductPlot[],
+  format: 'png' | 'svg' | 'opju',
+): string {
+  const plotIds = [...new Set([...projectPlots.map((candidate) => candidate.plotId), exportPlot.plotId])]
+  const reference = registerPlotReferences(window.localStorage, projectId, plotIds)
+    .find((candidate) => candidate.plotId === exportPlot.plotId)
+  const chartName = chartCatalog.find((candidate) => candidate.id === exportPlot.chartId)?.name
+    ?? exportPlot.chartId
+  const displayReference = reference === undefined ? '图形' : `图${reference.number}`
+  return `${displayReference}-${exportPlot.chartId}-${chartName}-v${exportPlot.plotVersion}.${format}`
 }
 
 function readProviderConfigured(value: JsonValue): boolean {
@@ -1532,9 +1548,15 @@ export function App(): React.JSX.Element {
         setProject(projectWithVersion(project, projectVersionFrom(listedValue, project.projectVersion)))
       }
       const target = { kind: 'plot' as const, id: exportPlot.plotId, version: exportPlot.plotVersion }
+      const suggestedFileName = suggestedExportFileName(
+        project.projectId,
+        exportPlot,
+        projectPlots,
+        format,
+      )
       const result = format === 'opju'
-        ? await api.exportOrigin({ projectId: project.projectId, target })
-        : await api.exportPngSvg({ projectId: project.projectId, target, format })
+        ? await api.exportOrigin({ projectId: project.projectId, target, suggestedFileName })
+        : await api.exportPngSvg({ projectId: project.projectId, target, format, suggestedFileName })
       const exported = valueOrThrow(result)
       const completedExport = readExportRecord(exported, format, target)
       if (completedExport === undefined || completedExport.artifactHash === undefined || completedExport.artifactSize === undefined) {

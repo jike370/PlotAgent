@@ -6,6 +6,8 @@ import {
   parseCoreProtocolMessage,
   parseCustomProviderConfigureInput,
   parseEngineActionInput,
+  parseOriginExportInput,
+  parsePngSvgExportInput,
   parseProjectRenameInput,
   parseProjectResourceInput,
   parseTaskPlanConfirmInput,
@@ -208,6 +210,29 @@ describe('desktop contract validation', () => {
       selectedSources: [{ datasetId: 'source:a', sourceVersion: 1 }],
       instruction: '绘制散点图',
       outputPath: 'C:\\private.opju',
+    })).toBeNull()
+  })
+
+  it('requires a bounded user-facing filename for export requests', () => {
+    expect(parsePngSvgExportInput({
+      projectId: 'project:one',
+      target: { kind: 'plot', id: 'plot:one', version: 2 },
+      format: 'png',
+      suggestedFileName: '图1-K01-折线图-v2.png',
+    })).toMatchObject({ suggestedFileName: '图1-K01-折线图-v2.png' })
+    expect(parseOriginExportInput({
+      projectId: 'project:one',
+      target: { kind: 'plot', id: 'plot:one', version: 2 },
+      suggestedFileName: '图1-K01-折线图-v2.opju',
+    })).toMatchObject({ suggestedFileName: '图1-K01-折线图-v2.opju' })
+    expect(parseOriginExportInput({
+      projectId: 'project:one',
+      target: { kind: 'plot', id: 'plot:one', version: 2 },
+    })).toBeNull()
+    expect(parseOriginExportInput({
+      projectId: 'project:one',
+      target: { kind: 'plot', id: 'plot:one', version: 2 },
+      suggestedFileName: 'bad\nname.opju',
     })).toBeNull()
   })
 

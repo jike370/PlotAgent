@@ -1335,6 +1335,7 @@ describe('PlotAgent real desktop workflow', () => {
       projectId: 'project:sample',
       target: { kind: 'plot', id: expect.stringMatching(/^plot:ui\./), version: 1 },
       format: 'png',
+      suggestedFileName: '图1-K01-折线图-v1.png',
     })
     expect(await screen.findAllByText('已导出 PNG')).not.toHaveLength(0)
     expect(screen.getByRole('status', { name: '导出记录' })).toHaveTextContent('PNG 导出完成')
@@ -1405,12 +1406,15 @@ describe('PlotAgent real desktop workflow', () => {
     })
     expect(exportPngSvg).toHaveBeenNthCalledWith(1, {
       projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 }, format: 'png',
+      suggestedFileName: '图1-K01-折线图-v4.png',
     })
     expect(exportPngSvg).toHaveBeenNthCalledWith(2, {
       projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 }, format: 'svg',
+      suggestedFileName: '图1-K01-折线图-v4.svg',
     })
     expect(exportOrigin).toHaveBeenCalledWith({
       projectId: 'project:sample', target: { kind: 'plot', id: 'plot:one', version: 4 },
+      suggestedFileName: '图1-K01-折线图-v4.opju',
     })
     expect(screen.getByRole('region', { name: /@图\d+.*v4/ })).toBeInTheDocument()
   })

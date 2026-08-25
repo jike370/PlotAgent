@@ -18,12 +18,23 @@ import {
   requestPlotList,
   readImportClarification,
   registerDesktopIpc,
+  safeExportDefaultPath,
   sanitizeCoreResult,
   verifyExportArtifact,
   withImportSourceIdentity,
 } from './desktop-ipc.js'
 
 describe('desktop product IPC boundary', () => {
+  it('keeps readable export names while removing Windows-invalid filename syntax', () => {
+    expect(safeExportDefaultPath('图1-X38-Y偏移堆叠线图-v11.opju', 'opju'))
+      .toBe('图1-X38-Y偏移堆叠线图-v11.opju')
+    expect(safeExportDefaultPath('plot:workflow/one*?.opju', 'opju'))
+      .toBe('plot-workflow-one.opju')
+    expect(safeExportDefaultPath('CON.opju', 'opju')).toBe('PlotAgent-export.opju')
+    expect(safeExportDefaultPath('  ...  ', 'png')).toBe('PlotAgent-export.png')
+    expect(safeExportDefaultPath(`图1-${'长'.repeat(180)}.svg`, 'svg').length).toBeLessThanOrEqual(124)
+  })
+
   it('turns supported import clarifications into safe retry options', () => {
     expect(readImportClarification({
       kind: 'clarification',
