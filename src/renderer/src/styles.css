@@ -15,6 +15,16 @@
   text-rendering: optimizeLegibility;
   color-scheme: light;
 
+  --type-micro: 10px;
+  --type-meta: 11px;
+  --type-caption: 12px;
+  --type-control: 13px;
+  --type-body: 14px;
+  --type-body-emphasis: 15px;
+  --type-heading: 16px;
+  --type-title: 18px;
+  --type-display: 20px;
+
   --page: #f1f2f4;
   --canvas: #ffffff;
   --surface: #f7f8fa;
@@ -202,7 +212,7 @@ select:focus-visible {
   border-radius: var(--radius-sm);
   color: #ffffff;
   background: var(--primary);
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 650;
   transform: translateY(-160%);
 }
@@ -219,7 +229,7 @@ select:focus-visible {
   color: var(--muted);
   background: #f8fafc;
   border-bottom: 1px solid var(--border);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 600;
   -webkit-app-region: drag;
   user-select: none;
@@ -266,7 +276,7 @@ select:focus-visible {
   border-radius: 8px;
   color: oklch(1 0 0);
   background: var(--primary);
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 650;
 }
 
@@ -282,7 +292,7 @@ select:focus-visible {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 600;
 }
 
@@ -297,7 +307,7 @@ kbd {
   color: var(--faint);
   background: var(--canvas);
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 500;
 }
 
@@ -305,7 +315,7 @@ kbd {
   display: block;
   padding: 0 8px;
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 600;
 }
 
@@ -327,7 +337,7 @@ kbd {
   align-items: center;
   gap: 9px;
   padding: 0 15px;
-  font-size: 14px;
+  font-size: var(--type-heading);
   font-weight: 720;
 }
 
@@ -349,7 +359,7 @@ kbd {
 }
 
 .brand-wordmark strong {
-  font-size: 14px;
+  font-size: var(--type-heading);
   font-weight: 760;
   letter-spacing: -0.015em;
 }
@@ -361,7 +371,7 @@ kbd {
   border-radius: 999px;
   color: var(--muted-strong);
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 600;
 }
 
@@ -381,7 +391,7 @@ kbd {
   border-radius: 10px;
   background: var(--canvas);
   box-shadow: var(--shadow-sm);
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 650;
 }
 
@@ -421,7 +431,7 @@ kbd {
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .sidebar-search input:focus-visible {
@@ -481,7 +491,7 @@ kbd {
   border-radius: 7px;
   background: transparent;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 500;
 }
 
@@ -553,7 +563,7 @@ kbd {
   border-radius: 5px;
   color: var(--ink);
   background: var(--canvas);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .project-info-popover,
@@ -578,12 +588,12 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .project-info-popover span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .project-menu {
@@ -605,7 +615,7 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .project-menu > button {
@@ -619,7 +629,7 @@ kbd {
   border-radius: 6px;
   background: transparent;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .project-menu > button:hover,
@@ -638,7 +648,7 @@ kbd {
   padding: 24px 12px;
   color: var(--muted);
   text-align: center;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .sidebar__footer {
@@ -662,7 +672,7 @@ kbd {
   background: transparent;
   color: var(--muted);
   text-align: left;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .sidebar__footer > button:not(:disabled):hover {
@@ -710,13 +720,13 @@ kbd {
   color: oklch(1 0 0);
   background: var(--primary);
   text-align: center;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .footer-meta {
   margin-left: auto;
   color: var(--faint);
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .status-dot,
@@ -766,12 +776,12 @@ kbd {
   padding: 0;
   border: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .workspace-heading h1 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--type-title);
   font-weight: 760;
   letter-spacing: -0.015em;
 }
@@ -792,7 +802,7 @@ kbd {
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .workspace-header__actions > button:hover {
@@ -814,7 +824,7 @@ kbd {
   gap: 5px;
   padding: 0 7px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .conversation-scroll {
@@ -836,7 +846,7 @@ kbd {
   gap: 12px;
   margin: 2px 0 22px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .conversation-date::before,
@@ -866,13 +876,13 @@ kbd {
   color: var(--ink-strong);
   background: #eff0f2;
   box-shadow: inset 0 0 0 1px rgb(25 29 35 / 4%);
-  font-size: 13.5px;
+  font-size: var(--type-body-emphasis);
   line-height: 1.65;
 }
 
 .message-time {
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .message--agent {
@@ -889,7 +899,7 @@ kbd {
   border-radius: 7px;
   color: #ffffff;
   background: var(--primary);
-  font-size: 8px;
+  font-size: var(--type-micro);
   font-weight: 750;
 }
 
@@ -902,7 +912,7 @@ kbd {
   max-width: min(780px, 72ch);
   margin: 4px 0 13px;
   color: var(--ink-strong);
-  font-size: 13.5px;
+  font-size: var(--type-body-emphasis);
   line-height: 1.65;
 }
 
@@ -930,14 +940,14 @@ kbd {
 
 .object-header h3 {
   margin: 0 0 2px;
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
   font-weight: 720;
 }
 
 .object-header p {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .object-icon {
@@ -971,7 +981,7 @@ kbd {
   gap: 4px;
   padding: 0 7px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
   white-space: nowrap;
 }
@@ -999,7 +1009,7 @@ kbd {
   padding: 0 11px;
   color: var(--muted);
   background: var(--surface);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .object-footer span,
@@ -1016,7 +1026,7 @@ kbd {
   border-radius: 5px;
   color: var(--primary-hover);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -1044,13 +1054,13 @@ kbd {
 
 .dataset-stats span {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .dataset-stats strong {
   margin-right: 3px;
   color: var(--ink-strong);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .dataset-instrument-metadata {
@@ -1063,7 +1073,7 @@ kbd {
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--muted-strong);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .dataset-instrument-metadata > dt {
@@ -1106,12 +1116,12 @@ kbd {
 
 .dataset-preview__heading strong {
   color: var(--ink-strong);
-  font-size: 12.5px;
+  font-size: var(--type-body-emphasis);
 }
 
 .dataset-preview__heading span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .dataset-preview__scroll {
@@ -1127,7 +1137,7 @@ kbd {
   border-collapse: collapse;
   table-layout: fixed;
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .dataset-preview__table th,
@@ -1159,12 +1169,12 @@ kbd {
 
 .dataset-preview__table th strong {
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .dataset-preview__table th small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 500;
 }
 
@@ -1217,7 +1227,7 @@ kbd {
   padding: 0 12px;
   color: var(--muted-strong);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -1242,7 +1252,7 @@ kbd {
   gap: 9px;
   padding: 5px 7px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .agent-dataset-context label:hover { background: var(--surface-2); }
@@ -1272,16 +1282,16 @@ kbd {
 .mapping-slot .mapping-role {
   grid-column: 1 / -1;
   color: var(--faint);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .mapping-slot strong {
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .mapping-slot span:not(.mapping-role) {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .mapping-slot svg {
@@ -1306,7 +1316,7 @@ kbd {
   border-top: 1px solid var(--border);
   color: var(--success);
   background: var(--success-soft);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .validation-row button {
@@ -1316,7 +1326,7 @@ kbd {
   border-radius: 5px;
   color: var(--primary-hover);
   background: var(--canvas);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .inline-confirmation {
@@ -1325,13 +1335,13 @@ kbd {
   gap: 6px;
   margin: -6px 0 15px;
   color: var(--success);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .inline-confirmation time {
   margin-left: auto;
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .text-button {
@@ -1342,7 +1352,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .text-button:hover {
@@ -1358,7 +1368,7 @@ kbd {
   padding: 0 12px;
   color: var(--muted);
   background: var(--surface);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .progress-track,
@@ -1416,7 +1426,7 @@ kbd {
   gap: 7px;
   padding: 0 8px;
   border-top: 1px solid var(--border);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-tile footer label {
@@ -1444,7 +1454,7 @@ input[type="checkbox"] {
 .mini-status {
   padding: 2px 5px;
   border-radius: 6px;
-  font-size: 8px;
+  font-size: var(--type-micro);
   font-weight: 650;
 }
 
@@ -1470,12 +1480,12 @@ input[type="checkbox"] {
 }
 
 .failed-plot strong {
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .failed-plot span {
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .failed-plot button {
@@ -1488,7 +1498,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--danger);
   background: var(--canvas);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .batch-footer button {
@@ -1516,13 +1526,13 @@ input[type="checkbox"] {
 .agent-note strong {
   display: block;
   margin-bottom: 2px;
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .agent-note p {
   margin: 0;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
   line-height: 1.5;
 }
 
@@ -1554,14 +1564,14 @@ input[type="checkbox"] {
 .result-ledger strong {
   display: block;
   margin-bottom: 2px;
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .result-ledger p {
   margin: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1582,7 +1592,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--primary-hover);
   background: var(--surface);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .result-ledger .ledger-warning {
@@ -1782,7 +1792,7 @@ input[type="checkbox"] {
   gap: 5px;
   overflow: hidden;
   color: var(--ink-strong);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1797,7 +1807,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--ink);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -1822,7 +1832,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--muted);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .scope-switch button.is-active {
@@ -1846,7 +1856,7 @@ input[type="checkbox"] {
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
   line-height: 1.5;
 }
 
@@ -1884,14 +1894,14 @@ input[type="checkbox"] {
 
 .plot-mention-menu button:hover,
 .plot-mention-menu button:focus-visible { background: var(--surface-2); }
-.plot-mention-menu strong { min-width: 42px; font-size: 12px; }
-.plot-mention-menu span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.plot-mention-menu strong { min-width: 42px; font-size: var(--type-body); }
+.plot-mention-menu span { overflow: hidden; color: var(--muted); font-size: var(--type-control); text-overflow: ellipsis; white-space: nowrap; }
 
 .composer-mention-error {
   margin: 0;
   padding: 0 11px 4px;
   color: var(--danger);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .composer-toolbar {
@@ -1912,7 +1922,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--muted);
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .composer-toolbar button:hover {
@@ -1922,7 +1932,7 @@ input[type="checkbox"] {
 
 .composer-toolbar .composer-tool {
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .composer-recipe-picker {
@@ -1939,7 +1949,7 @@ input[type="checkbox"] {
   color: var(--ink);
   background: transparent;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--type-control);
   text-overflow: ellipsis;
 }
 
@@ -1967,7 +1977,7 @@ input[type="checkbox"] {
 .chosen-chart {
   margin-left: 5px;
   color: var(--faint);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .composer-toolbar .send-button {
@@ -1997,7 +2007,7 @@ input[type="checkbox"] {
 .reference-menu > div {
   padding: 5px 7px 6px;
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .reference-menu button {
@@ -2022,12 +2032,12 @@ input[type="checkbox"] {
 }
 
 .reference-menu strong {
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .reference-menu small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .reference-menu .reference-library-entry {
@@ -2054,12 +2064,12 @@ input[type="checkbox"] {
   padding: 7px 10px;
   border-radius: 8px 8px 2px 8px;
   background: var(--primary-soft);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .user-command small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .agent-pending,
@@ -2070,7 +2080,7 @@ input[type="checkbox"] {
   gap: 6px;
   padding: 6px 8px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .agent-complete {
@@ -2083,7 +2093,7 @@ input[type="checkbox"] {
   border-radius: 4px;
   color: var(--primary-hover);
   background: var(--surface);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .spin {
@@ -2122,7 +2132,7 @@ input[type="checkbox"] {
 
 .empty-conversation h2 {
   margin: 0 0 7px;
-  font-size: 19px;
+  font-size: var(--type-display);
   font-weight: 720;
 }
 
@@ -2130,7 +2140,7 @@ input[type="checkbox"] {
   max-width: 56ch;
   margin: 0 0 20px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--type-body);
   line-height: 1.6;
 }
 
@@ -2154,12 +2164,12 @@ input[type="checkbox"] {
 
 .drop-target strong {
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .drop-target span {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .empty-actions {
@@ -2178,7 +2188,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .environment-checks {
@@ -2188,7 +2198,7 @@ input[type="checkbox"] {
   padding-top: 13px;
   border-top: 1px solid var(--border);
   color: var(--success);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .environment-checks span {
@@ -2213,7 +2223,7 @@ input[type="checkbox"] {
 .empty-composer span {
   margin-left: auto;
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .workspace-startup-status {
@@ -2221,7 +2231,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
   color: var(--success);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .sidebar-startup-empty {
@@ -2238,7 +2248,7 @@ input[type="checkbox"] {
 
 .sidebar-startup-empty strong {
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .startup-empty {
@@ -2255,7 +2265,7 @@ input[type="checkbox"] {
   gap: 5px;
   margin-bottom: 15px;
   color: var(--success);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
   font-weight: 650;
 }
 
@@ -2283,12 +2293,12 @@ input[type="checkbox"] {
 }
 
 .startup-action strong {
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
   font-weight: 690;
 }
 
 .startup-action small {
-  font-size: 11px;
+  font-size: var(--type-control);
   line-height: 1.4;
 }
 
@@ -2348,7 +2358,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--ink-strong);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 620;
 }
 
@@ -2365,7 +2375,7 @@ input[type="checkbox"] {
   padding: 0 20px;
   border-top: 1px solid var(--border);
   color: var(--faint);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 /* Chart library */
@@ -2390,7 +2400,7 @@ input[type="checkbox"] {
 
 .library-header h2 {
   margin: 0 0 1px;
-  font-size: 15px;
+  font-size: var(--type-heading);
 }
 
 .library-search {
@@ -2413,7 +2423,7 @@ input[type="checkbox"] {
   flex: 1;
   border: 0;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .library-search input:focus-visible {
@@ -2474,7 +2484,7 @@ input[type="checkbox"] {
   color: var(--muted);
   background: transparent;
   text-align: left;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .library-nav-group button:hover,
@@ -2491,7 +2501,7 @@ input[type="checkbox"] {
 .library-nav-group button > span:last-child {
   margin-left: auto;
   color: var(--faint);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .tree-node {
@@ -2522,7 +2532,7 @@ input[type="checkbox"] {
 }
 
 .results-toolbar strong {
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .filter-pills {
@@ -2540,7 +2550,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--muted);
   background: var(--canvas);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .filter-pills button:hover {
@@ -2603,7 +2613,7 @@ input[type="checkbox"] {
   min-width: 0;
   flex: 1;
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--type-control);
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2614,7 +2624,7 @@ input[type="checkbox"] {
   padding: 3px 4px;
   border-radius: 5px;
   text-align: center;
-  font-size: 9px;
+  font-size: var(--type-meta);
   font-weight: 750;
 }
 
@@ -2644,7 +2654,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--success);
   background: var(--success-soft);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .no-results {
@@ -2659,12 +2669,12 @@ input[type="checkbox"] {
 
 .no-results strong {
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .no-results p {
   margin: 0;
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .no-results button {
@@ -2673,7 +2683,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .chart-detail {
@@ -2704,13 +2714,13 @@ input[type="checkbox"] {
 
 .chart-detail__title h3 {
   margin: 0 0 2px;
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
 }
 
 .chart-detail__title p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .chart-detail__title button {
@@ -2731,7 +2741,7 @@ input[type="checkbox"] {
 .chart-detail__purpose {
   margin: 9px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--type-caption);
   line-height: 1.5;
 }
 
@@ -2746,7 +2756,7 @@ input[type="checkbox"] {
   gap: 7px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
   line-height: 1.45;
 }
 
@@ -2766,7 +2776,7 @@ input[type="checkbox"] {
 .export-contract > strong {
   display: block;
   margin-bottom: 7px;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .export-contract > div {
@@ -2782,7 +2792,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--primary-hover);
   background: var(--primary-soft);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .compatibility-check {
@@ -2798,7 +2808,7 @@ input[type="checkbox"] {
 
 .compatibility-check strong {
   display: block;
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .compatibility-check.is-incompatible {
@@ -2813,7 +2823,7 @@ input[type="checkbox"] {
   border-radius: 8px;
   color: oklch(1 0 0);
   background: var(--primary);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -2846,12 +2856,12 @@ input[type="checkbox"] {
 
 .focus-title h2 {
   margin: 0 0 1px;
-  font-size: 14px;
+  font-size: var(--type-heading);
 }
 
 .focus-title span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .focus-history-tools,
@@ -2868,7 +2878,7 @@ input[type="checkbox"] {
 .focus-version-label {
   padding: 0 8px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--type-control);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2882,7 +2892,7 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .focus-history-tools button:hover,
@@ -2954,12 +2964,12 @@ input[type="checkbox"] {
 }
 
 .export-menu strong {
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .export-menu small {
   color: var(--muted);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .focus-body {
@@ -3005,7 +3015,7 @@ input[type="checkbox"] {
 .scope-control > span {
   margin-right: 5px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .scope-control button {
@@ -3015,7 +3025,7 @@ input[type="checkbox"] {
   border-radius: 5px;
   color: var(--muted);
   background: transparent;
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .scope-control button.is-active {
@@ -3030,7 +3040,7 @@ input[type="checkbox"] {
   gap: 11px;
   margin-left: auto;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .stage-meta span,
@@ -3046,7 +3056,7 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .plot-stage {
@@ -3099,7 +3109,7 @@ input[type="checkbox"] {
   padding: 6px 8px;
   color: var(--ink);
   text-align: left;
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .draggable-legend > svg {
@@ -3146,7 +3156,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 4px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .compare-label--left {
@@ -3172,7 +3182,7 @@ input[type="checkbox"] {
   border: 0;
   color: var(--muted);
   background: transparent;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .zoom-status {
@@ -3200,12 +3210,12 @@ input[type="checkbox"] {
 }
 
 .parameter-panel > header strong {
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .parameter-panel > header span {
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .parameter-panel > header button {
@@ -3234,13 +3244,13 @@ input[type="checkbox"] {
   border-bottom: 2px solid transparent;
   color: var(--muted);
   background: transparent;
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .parameter-note {
   margin: 2px 0 0;
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
   line-height: 1.45;
 }
 
@@ -3285,7 +3295,7 @@ input[type="checkbox"] {
 .parameter-form-actions > span {
   display: block;
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
   line-height: 1.4;
 }
 
@@ -3295,7 +3305,7 @@ input[type="checkbox"] {
 
 .parameter-section h3 {
   margin: 0 0 9px;
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .parameter-subsection {
@@ -3307,7 +3317,7 @@ input[type="checkbox"] {
   padding: 8px 0 4px;
   color: var(--ink);
   cursor: pointer;
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   font-weight: 650;
 }
 
@@ -3317,7 +3327,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .parameter-section label > span {
@@ -3332,7 +3342,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--canvas);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .parameter-section select {
@@ -3363,13 +3373,13 @@ input[type="checkbox"] {
   padding: 0 5px;
   border: 0;
   background: transparent;
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .unit-input span {
   padding: 0 5px;
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .parameter-check {
@@ -3395,7 +3405,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--canvas);
   background: var(--primary);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   font-weight: 650;
 }
 
@@ -3420,7 +3430,7 @@ input[type="checkbox"] {
 .parameter-empty {
   margin: 4px 0;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   line-height: 1.5;
 }
 
@@ -3431,7 +3441,7 @@ input[type="checkbox"] {
   padding: 8px 11px;
   color: var(--muted);
   background: var(--surface);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   line-height: 1.45;
 }
 
@@ -3457,7 +3467,7 @@ input[type="checkbox"] {
   gap: 5px;
   margin: 6px 0;
   color: var(--success);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .parameter-panel > footer {
@@ -3474,7 +3484,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 /* Beautiful UI-inspired fine-tune inspector: one calm surface, compact controls. */
@@ -3488,8 +3498,8 @@ input[type="checkbox"] {
   background: var(--canvas);
 }
 
-.parameter-panel > header strong { font-size: 13px; }
-.parameter-panel > header span { font-size: 10px; }
+.parameter-panel > header strong { font-size: var(--type-body-emphasis); }
+.parameter-panel > header span { font-size: var(--type-caption); }
 
 .parameter-tabs {
   gap: 3px;
@@ -3501,7 +3511,7 @@ input[type="checkbox"] {
   min-height: 34px;
   border: 0;
   border-radius: 7px;
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .parameter-tabs button.is-active {
@@ -3515,12 +3525,12 @@ input[type="checkbox"] {
 }
 
 .parameter-section--target { background: #fafafa; }
-.parameter-section h3 { margin-bottom: 10px; font-size: 12px; }
-.parameter-subsection summary { font-size: 11px; }
+.parameter-section h3 { margin-bottom: 10px; font-size: var(--type-body); }
+.parameter-subsection summary { font-size: var(--type-control); }
 
 .parameter-section label {
   min-height: 40px;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .parameter-section select,
@@ -3529,11 +3539,11 @@ input[type="checkbox"] {
   width: 132px;
   height: 32px;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
-.unit-input input { font-size: 11px; }
-.unit-input span { font-size: 9.5px; }
+.unit-input input { font-size: var(--type-control); }
+.unit-input span { font-size: var(--type-caption); }
 
 .parameter-section input[type='color'] {
   width: 40px;
@@ -3542,18 +3552,18 @@ input[type="checkbox"] {
 }
 
 .parameter-note,
-.parameter-form-actions > span { font-size: 9.5px; }
+.parameter-form-actions > span { font-size: var(--type-caption); }
 
 .parameter-apply {
   min-height: 34px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .parameter-feedback {
   min-height: 44px;
   padding: 10px 14px;
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .parameter-form-actions {
@@ -3577,13 +3587,13 @@ input[type="checkbox"] {
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 3px 6px;
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .thumbnail-dock__label strong {
   grid-column: 2;
   color: var(--muted);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
   font-weight: 500;
 }
 
@@ -3630,7 +3640,7 @@ input[type="checkbox"] {
   padding: 2px;
   border-radius: 4px;
   background: oklch(1 0 0 / 0.9);
-  font-size: 7px;
+  font-size: var(--type-micro);
 }
 
 .thumbnail-strip label input {
@@ -3643,7 +3653,7 @@ input[type="checkbox"] {
   padding: 4px 5px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3656,7 +3666,7 @@ input[type="checkbox"] {
   gap: 3px;
   color: var(--danger);
   background: var(--danger-soft);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .dock-link {
@@ -3668,7 +3678,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 /* Project resource library */
@@ -3703,18 +3713,18 @@ input[type="checkbox"] {
   display: block;
   margin-bottom: 2px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .resource-library__header h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--type-heading);
 }
 
 .resource-library__header p {
   margin: 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .resource-library__header .icon-button {
@@ -3753,7 +3763,7 @@ input[type="checkbox"] {
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .resource-search input:focus-visible {
@@ -3769,7 +3779,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .resource-archive-filter input {
@@ -3799,7 +3809,7 @@ input[type="checkbox"] {
   border-bottom: 2px solid transparent;
   color: var(--muted);
   background: transparent;
-  font-size: 9px;
+  font-size: var(--type-meta);
   white-space: nowrap;
 }
 
@@ -3821,7 +3831,7 @@ input[type="checkbox"] {
   color: var(--faint);
   background: var(--surface-2);
   text-align: center;
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-kind-tabs button.is-active small {
@@ -3853,13 +3863,13 @@ input[type="checkbox"] {
 }
 
 .resource-list-pane > header strong {
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .resource-list-pane > header span {
   margin-left: auto;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .resource-list {
@@ -3956,17 +3966,17 @@ input[type="checkbox"] {
 
 .resource-list-copy strong {
   color: var(--ink-strong);
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .resource-list-copy small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-list-copy > span {
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-list-empty,
@@ -3987,12 +3997,12 @@ input[type="checkbox"] {
 .resource-list-empty strong,
 .resource-detail-empty strong {
   color: var(--ink);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .resource-list-empty span {
   max-width: 25ch;
-  font-size: 8px;
+  font-size: var(--type-micro);
   line-height: 1.5;
 }
 
@@ -4019,14 +4029,14 @@ input[type="checkbox"] {
 
 .resource-detail-header > div > span {
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-detail-header h3 {
   margin: 2px 0;
   overflow: hidden;
   color: var(--ink-strong);
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4035,7 +4045,7 @@ input[type="checkbox"] {
   margin: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4060,7 +4070,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--ink);
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .resource-rename button {
@@ -4069,7 +4079,7 @@ input[type="checkbox"] {
   border: 0;
   border-radius: 6px;
   background: var(--surface-2);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .resource-rename button[type="submit"] {
@@ -4090,7 +4100,7 @@ input[type="checkbox"] {
   border-bottom: 2px solid transparent;
   color: var(--muted);
   background: transparent;
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .resource-detail-tabs button.is-active {
@@ -4130,14 +4140,14 @@ input[type="checkbox"] {
 .resource-metadata dt {
   margin-bottom: 4px;
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-metadata dd {
   margin: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 9px;
+  font-size: var(--type-meta);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4168,7 +4178,7 @@ input[type="checkbox"] {
 .external-record-note h4,
 .resource-delete-blocker h4 {
   margin: 0;
-  font-size: 9.5px;
+  font-size: var(--type-caption);
 }
 
 .resource-conversations header span,
@@ -4177,7 +4187,7 @@ input[type="checkbox"] {
 .resource-lineage section > header span {
   margin-left: auto;
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-conversations > span {
@@ -4190,13 +4200,13 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--focus);
   background: var(--focus-soft);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-impact-summary p {
   margin: 0;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   line-height: 1.5;
 }
 
@@ -4213,14 +4223,14 @@ input[type="checkbox"] {
 .external-record-note p {
   margin: 3px 0 7px;
   color: var(--muted);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   line-height: 1.5;
 }
 
 .external-record-note code {
   color: var(--ink);
   font-family: inherit;
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .operation-chain ol {
@@ -4263,7 +4273,7 @@ input[type="checkbox"] {
   border-radius: 50%;
   color: var(--primary-hover);
   background: var(--primary-soft);
-  font-size: 8px;
+  font-size: var(--type-micro);
   font-weight: 700;
 }
 
@@ -4278,14 +4288,14 @@ input[type="checkbox"] {
 .operation-chain strong,
 .lineage-row strong,
 .lineage-current strong {
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 .operation-chain small,
 .lineage-row small,
 .lineage-current small {
   color: var(--muted);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-versions > header {
@@ -4296,7 +4306,7 @@ input[type="checkbox"] {
 .resource-versions > header p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-versions ol {
@@ -4326,18 +4336,18 @@ input[type="checkbox"] {
 }
 
 .resource-versions li > div strong {
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .resource-versions li > div p {
   margin: 3px 0;
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-versions li > div small {
   color: var(--faint);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-versions li > button {
@@ -4346,7 +4356,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-lineage {
@@ -4385,7 +4395,7 @@ input[type="checkbox"] {
   padding: 9px;
   color: var(--muted);
   background: var(--surface);
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-delete-blocker {
@@ -4411,7 +4421,7 @@ input[type="checkbox"] {
 .resource-delete-blocker__heading p {
   margin: 3px 0 0;
   color: var(--ink);
-  font-size: 8px;
+  font-size: var(--type-micro);
   line-height: 1.45;
 }
 
@@ -4447,12 +4457,12 @@ input[type="checkbox"] {
 
 .resource-delete-blocker li strong {
   color: var(--ink);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .resource-delete-blocker li small {
   color: var(--muted);
-  font-size: 7px;
+  font-size: var(--type-micro);
 }
 
 .resource-delete-blocker > div:last-child {
@@ -4471,7 +4481,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--danger);
   background: transparent;
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-actions {
@@ -4495,7 +4505,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: var(--muted);
   background: transparent;
-  font-size: 8px;
+  font-size: var(--type-micro);
 }
 
 .resource-actions button:hover {
@@ -4532,7 +4542,7 @@ input[type="checkbox"] {
   color: oklch(1 0 0);
   background: oklch(0.28 0.04 155);
   box-shadow: 0 4px 8px oklch(0.2 0.01 155 / 0.18);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
 }
 
 /* Task drawer */
@@ -4581,13 +4591,13 @@ input[type="checkbox"] {
 
 .task-drawer h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--type-title);
 }
 
 .task-drawer > header p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-drawer > header .icon-button {
@@ -4607,7 +4617,7 @@ input[type="checkbox"] {
   border-radius: 7px;
   color: var(--muted);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-tabs button.is-active {
@@ -4664,7 +4674,7 @@ input[type="checkbox"] {
 }
 
 .task-item__content strong {
-  font-size: 13.5px;
+  font-size: var(--type-body-emphasis);
 }
 
 .task-item__content header span {
@@ -4673,13 +4683,13 @@ input[type="checkbox"] {
   border-radius: 999px;
   color: var(--muted);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-item__content > p {
   margin: 4px 0 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-subitem {
@@ -4688,7 +4698,7 @@ input[type="checkbox"] {
   gap: 2px 10px;
   padding: 7px 0;
   border-top: 1px solid var(--border-soft);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-subitem > span {
@@ -4700,14 +4710,14 @@ input[type="checkbox"] {
 
 .task-subitem > small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .task-subitem > p {
   grid-column: 1 / -1;
   margin: 2px 0 0;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--type-body);
   line-height: 1.45;
 }
 
@@ -4720,19 +4730,19 @@ input[type="checkbox"] {
 .task-subitem__failure > p {
   margin: 2px 0 0;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--type-body);
   line-height: 1.45;
 }
 
 .task-subitem__failure > small {
   color: var(--muted-strong);
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .task-failure-details {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .task-failure-details summary {
@@ -4748,7 +4758,7 @@ input[type="checkbox"] {
 
 .task-failure-details small {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .task-item__actions {
@@ -4767,7 +4777,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--canvas);
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 600;
 }
 
@@ -4791,7 +4801,7 @@ input[type="checkbox"] {
   gap: 7px;
   margin-top: 6px;
   color: var(--faint);
-  font-size: 7px;
+  font-size: var(--type-micro);
 }
 
 .task-stage span {
@@ -4813,14 +4823,14 @@ input[type="checkbox"] {
   border-radius: 4px;
   color: var(--primary-hover);
   background: var(--surface);
-  font-size: 7.5px;
+  font-size: var(--type-micro);
 }
 
 .task-section-label {
   margin-top: 4px;
   padding: 9px 13px 3px;
   color: var(--faint);
-  font-size: 8.5px;
+  font-size: var(--type-meta);
   font-weight: 650;
 }
 
@@ -4836,7 +4846,7 @@ input[type="checkbox"] {
   border-radius: 9px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body);
   text-align: left;
 }
 
@@ -4852,7 +4862,7 @@ input[type="checkbox"] {
 .product-notice strong,
 .agent-outcome strong {
   color: var(--ink-strong);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .startup-core-alert span,
@@ -4884,7 +4894,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .product-conversation-feed {
@@ -4904,7 +4914,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .dataset-switcher select {
@@ -4943,14 +4953,14 @@ input[type="checkbox"] {
 
 .mapping-data-context h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--type-body-emphasis);
 }
 
 .mapping-data-context p {
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4963,7 +4973,7 @@ input[type="checkbox"] {
   gap: 16px;
   padding: 10px 14px 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .mapping-review__toolbar strong { color: var(--ink); }
@@ -4988,7 +4998,7 @@ input[type="checkbox"] {
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
-  font-size: 11.5px;
+  font-size: var(--type-body);
 }
 
 .mapping-preview-table th,
@@ -5018,7 +5028,7 @@ input[type="checkbox"] {
 .mapping-column-head > strong {
   overflow: hidden;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--type-body);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5026,7 +5036,7 @@ input[type="checkbox"] {
 .mapping-column-head > small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5045,7 +5055,7 @@ input[type="checkbox"] {
   border-radius: 999px;
   background: var(--canvas);
   color: #243b5a;
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 700;
 }
 
@@ -5102,7 +5112,7 @@ input[type="checkbox"] {
   display: block;
   padding: 5px 7px 7px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--type-control);
 }
 
 .mapping-role-menu > div {
@@ -5121,7 +5131,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   background: transparent;
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--type-control);
   text-align: left;
 }
 
@@ -5154,7 +5164,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   background: var(--canvas);
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .mapping-decision {
@@ -5176,14 +5186,14 @@ input[type="checkbox"] {
   display: block;
   margin-bottom: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
 .mapping-decision__copy > strong {
   display: block;
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--type-heading);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5194,7 +5204,7 @@ input[type="checkbox"] {
   gap: 8px;
   margin-top: 3px;
   color: var(--success);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .mapping-validation > span {
@@ -5219,7 +5229,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--canvas);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -5259,8 +5269,8 @@ input[type="checkbox"] {
   gap: 8px;
 }
 
-.chart-selection-strip strong { font-size: 12px; }
-.chart-selection-strip span { color: var(--muted); font-size: 11px; }
+.chart-selection-strip strong { font-size: var(--type-body); }
+.chart-selection-strip span { color: var(--muted); font-size: var(--type-control); }
 
 .chart-selection-strip button,
 .agent-plan__actions button:not(.primary-button) {
@@ -5270,7 +5280,7 @@ input[type="checkbox"] {
   border-radius: var(--radius-sm);
   background: var(--canvas);
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .chart-selection-strip button:hover,
@@ -5298,8 +5308,8 @@ input[type="checkbox"] {
 }
 
 .agent-plan__header > div { min-width: 0; flex: 1; }
-.agent-plan__header h3 { margin: 0; font-size: 14px; }
-.agent-plan__header div > span { color: var(--muted); font-size: 11px; }
+.agent-plan__header h3 { margin: 0; font-size: var(--type-heading); }
+.agent-plan__header div > span { color: var(--muted); font-size: var(--type-control); }
 
 .agent-plan__state {
   display: inline-flex;
@@ -5309,7 +5319,7 @@ input[type="checkbox"] {
   border-radius: 999px;
   color: var(--muted-strong);
   background: var(--surface-2);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -5350,7 +5360,7 @@ input[type="checkbox"] {
 .agent-context-card strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--type-body);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5371,12 +5381,12 @@ input[type="checkbox"] {
   gap: 12px;
   padding: 0 2px 9px;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .agent-plan__data-preview > header span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .agent-plan__data-preview > header > div {
@@ -5388,7 +5398,7 @@ input[type="checkbox"] {
 .agent-plan__data-preview > header small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5415,7 +5425,7 @@ input[type="checkbox"] {
 
 .agent-plan__data-preview--error p {
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--type-body);
   line-height: 1.5;
 }
 
@@ -5438,7 +5448,7 @@ input[type="checkbox"] {
   border-radius: 999px;
   background: var(--canvas);
   color: var(--ink-strong);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 700;
 }
 
@@ -5451,7 +5461,7 @@ input[type="checkbox"] {
 
 .agent-plan__bindings {
   padding: 10px 14px;
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .agent-plan__bindings > strong { display: block; margin-bottom: 7px; }
@@ -5477,7 +5487,7 @@ input[type="checkbox"] {
   border-radius: 0;
   color: var(--muted-strong);
   background: transparent;
-  font-size: 11.5px;
+  font-size: var(--type-body);
   box-shadow: none;
 }
 
@@ -5492,7 +5502,7 @@ input[type="checkbox"] {
   border-radius: 6px;
   color: #ffffff;
   background: var(--primary);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .activity-message button:hover { background: var(--primary-hover); }
@@ -5515,13 +5525,13 @@ input[type="checkbox"] {
 
 .activity-message__copy strong {
   color: var(--ink);
-  font-size: 11.5px;
+  font-size: var(--type-body);
   font-weight: 650;
 }
 
 .activity-message__copy small {
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--type-control);
   font-weight: 500;
 }
 
@@ -5576,25 +5586,25 @@ input[type="checkbox"] {
 .agent-plan-step--failed .agent-plan-step__mark,
 .agent-plan-step--stale .agent-plan-step__mark { color: var(--danger); background: var(--danger-soft); }
 .agent-plan-step > div { min-width: 0; flex: 1; }
-.agent-plan-step strong { font-size: 12px; font-weight: 650; }
+.agent-plan-step strong { font-size: var(--type-body); font-weight: 650; }
 .agent-plan-step__title {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 5px 8px;
 }
-.agent-plan-step__title > span { color: var(--muted); font-size: 11px; }
-.agent-plan-step p { margin: 3px 0 0; color: var(--danger); font-size: 11px; line-height: 1.45; }
+.agent-plan-step__title > span { color: var(--muted); font-size: var(--type-control); }
+.agent-plan-step p { margin: 3px 0 0; color: var(--danger); font-size: var(--type-control); line-height: 1.45; }
 .agent-plan-step p.agent-plan-step__output { color: var(--muted); font-family: var(--font-mono); }
 .agent-plan-step p.agent-plan-step__detail { color: var(--muted-strong); }
 .agent-plan-step__bindings { display: grid; gap: 4px; margin: 8px 0 0; }
 .agent-plan-step__bindings > div { display: grid; grid-template-columns: minmax(72px, .35fr) minmax(0, 1.65fr); gap: 8px; }
-.agent-plan-step__bindings dt { color: var(--muted); font-size: 11px; }
-.agent-plan-step__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 600; }
+.agent-plan-step__bindings dt { color: var(--muted); font-size: var(--type-control); }
+.agent-plan-step__bindings dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-body); font-weight: 600; }
 .agent-plan-step__bindings .agent-plan-step__section-label { display: block; }
 .agent-plan-step__bindings .agent-plan-step__section-label dt { color: var(--text); font-weight: 650; }
 .agent-plan-step__operations { margin-top: 8px; }
-.agent-plan-step__operations > strong { font-size: 10px; font-weight: 650; }
+.agent-plan-step__operations > strong { font-size: var(--type-caption); font-weight: 650; }
 .tool-chip-list,
 .agent-plan-step__changes {
   display: flex;
@@ -5615,7 +5625,7 @@ input[type="checkbox"] {
   border-radius: 7px;
   color: var(--muted-strong);
   background: var(--surface-2);
-  font-size: 10.5px;
+  font-size: var(--type-control);
   line-height: 1.3;
 }
 
@@ -5624,7 +5634,7 @@ input[type="checkbox"] {
   flex: 0 0 auto;
   color: var(--muted);
 }
-.agent-plan-step__attempt { color: var(--muted); font-size: 10px; }
+.agent-plan-step__attempt { color: var(--muted); font-size: var(--type-caption); }
 
 .agent-plan__warnings,
 .agent-plan__stale {
@@ -5632,7 +5642,7 @@ input[type="checkbox"] {
   padding: 8px 12px;
   color: var(--warning);
   background: var(--warning-soft);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .agent-plan__warnings p {
@@ -5658,7 +5668,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 5px;
   color: var(--success);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -5695,7 +5705,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .plot-actions {
@@ -5717,7 +5727,7 @@ input[type="checkbox"] {
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--canvas);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .plot-actions button:hover:not(:disabled),
@@ -5743,9 +5753,9 @@ input[type="checkbox"] {
 }
 
 .product-result-strip > div { min-width: 0; flex: 1; }
-.product-result-strip strong { font-size: 13px; }
-.product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
-.product-result-strip code { font-size: 12px; }
+.product-result-strip strong { font-size: var(--type-body-emphasis); }
+.product-result-strip p { margin: 3px 0 0; color: var(--muted); font-size: var(--type-body); }
+.product-result-strip code { font-size: var(--type-body); }
 
 .product-result-strip > .product-result-strip__actions {
   display: flex;
@@ -5783,9 +5793,9 @@ input[type="checkbox"] {
 
 .product-toast--success > svg { color: var(--success); }
 .product-toast--error > svg { color: var(--danger); }
-.product-toast strong { font-size: 13px; }
-.product-toast p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
-.product-toast span { display: block; margin-top: 5px; font-size: 12px; font-weight: 650; }
+.product-toast strong { font-size: var(--type-body-emphasis); }
+.product-toast p { margin: 3px 0 0; color: var(--muted); font-size: var(--type-body); }
+.product-toast span { display: block; margin-top: 5px; font-size: var(--type-body); font-weight: 650; }
 
 .product-toast__actions {
   grid-column: 2;
@@ -5803,7 +5813,7 @@ input[type="checkbox"] {
   border-radius: 7px;
   color: var(--ink);
   background: var(--canvas);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -5825,7 +5835,7 @@ input[type="checkbox"] {
   border-radius: 7px;
   color: var(--success);
   background: var(--success-soft);
-  font-size: 11px;
+  font-size: var(--type-control);
   font-weight: 650;
 }
 
@@ -5890,7 +5900,7 @@ input[type="checkbox"] {
 }
 
 .provider-settings > header > div { flex: 1; }
-.provider-settings h2 { margin: 0; font-size: 17px; }
+.provider-settings h2 { margin: 0; font-size: var(--type-title); }
 .provider-settings form {
   display: grid;
   gap: 12px;
@@ -5901,7 +5911,7 @@ input[type="checkbox"] {
   display: grid;
   gap: 5px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--type-body);
   font-weight: 600;
 }
 
@@ -5921,12 +5931,12 @@ input[type="checkbox"] {
   margin: -2px 0 0;
   max-width: 70ch;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-control);
   line-height: 1.5;
 }
 
-.provider-settings label small { color: var(--muted); font-size: 11px; font-weight: 400; }
-.provider-retention { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.provider-settings label small { color: var(--muted); font-size: var(--type-control); font-weight: 400; }
+.provider-retention { display: flex; align-items: flex-start; gap: 8px; color: var(--muted); font-size: var(--type-control); line-height: 1.5; }
 .provider-retention input { margin-top: 2px; }
 
 .provider-inline-status {
@@ -5935,13 +5945,13 @@ input[type="checkbox"] {
   padding: 9px 10px;
   border-radius: 7px;
   background: var(--surface);
-  font-size: 11px;
+  font-size: var(--type-control);
 }
 
 .provider-inline-status--error { background: var(--danger-soft); }
 .provider-inline-status--success { background: var(--success-soft); }
 .provider-settings form > footer { display: flex; justify-content: flex-end; gap: 8px; }
-.provider-settings form > footer > button:not(.primary-button) { padding: 0 10px; border: 0; background: transparent; font-size: 12px; }
+.provider-settings form > footer > button:not(.primary-button) { padding: 0 10px; border: 0; background: transparent; font-size: var(--type-body); }
 
 .task-empty {
   display: grid;
@@ -5950,10 +5960,10 @@ input[type="checkbox"] {
   padding: 30px 18px;
   color: var(--muted);
   text-align: center;
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
-.task-empty strong { color: var(--ink); font-size: 10px; }
+.task-empty strong { color: var(--ink); font-size: var(--type-caption); }
 
 .focus-real-preview {
   width: 100%;

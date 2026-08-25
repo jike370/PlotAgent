@@ -26,7 +26,7 @@
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .batch-inspector .back-button:hover {
@@ -44,7 +44,7 @@
   margin-bottom: 2px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -52,7 +52,7 @@
 .batch-inspector__title h1 {
   margin: 0;
   color: var(--ink-strong);
-  font-size: 15px;
+  font-size: var(--type-heading);
   line-height: 1.25;
 }
 
@@ -63,7 +63,7 @@
   gap: 16px;
   margin-left: auto;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-inspector__summary span {
@@ -75,7 +75,7 @@
 
 .batch-inspector__summary strong {
   color: var(--ink-strong);
-  font-size: 12px;
+  font-size: var(--type-body);
 }
 
 .batch-inspector__summary .is-success strong {
@@ -107,13 +107,13 @@
 
 .batch-inspector__identity span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-inspector__identity strong {
   overflow: hidden;
   color: var(--ink-strong);
-  font-size: 10px;
+  font-size: var(--type-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -122,7 +122,7 @@
   align-self: center;
   margin: 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
   line-height: 1.5;
 }
 
@@ -158,7 +158,7 @@
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .batch-search input:focus-visible {
@@ -179,7 +179,7 @@
   border-radius: 7px;
   color: var(--muted);
   background: var(--canvas);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-filter-select select {
@@ -187,13 +187,13 @@
   border: 0;
   color: var(--ink);
   background: transparent;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .batch-inspector__visible-count {
   margin-left: auto;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-result-list {
@@ -220,7 +220,7 @@
 
 .batch-result-item__index {
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--type-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -258,14 +258,14 @@
 .batch-result-item > div strong {
   overflow: hidden;
   color: var(--ink-strong);
-  font-size: 10px;
+  font-size: var(--type-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .batch-result-item > div span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--type-meta);
 }
 
 .batch-check-status {
@@ -275,7 +275,7 @@
   gap: 4px;
   padding: 0 7px;
   border-radius: 999px;
-  font-size: 9px;
+  font-size: var(--type-meta);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -309,12 +309,12 @@
 .batch-inspector__empty h2 {
   margin: 10px 0 5px;
   color: var(--ink-strong);
-  font-size: 14px;
+  font-size: var(--type-heading);
 }
 
 .batch-inspector__empty p {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 .batch-inspector__empty button {
@@ -324,7 +324,7 @@
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--canvas);
-  font-size: 10px;
+  font-size: var(--type-caption);
 }
 
 @media (max-width: 1100px) {
