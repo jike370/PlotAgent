@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="title">
+  <title id="title">fig-agent</title>
+  <rect width="32" height="32" rx="5" fill="#fff"/>
+  <path d="M7 24V8M7 24h18" fill="none" stroke="#101419" stroke-width="1.5"/>
+  <path d="m9.5 20 4.2-5.2 4.1 2.5 4.7-7.1" fill="none" stroke="#2454ff" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
+  <circle cx="9.5" cy="20" r="1.8" fill="#2454ff"/>
+  <circle cx="13.7" cy="14.8" r="1.8" fill="#2454ff"/>
+  <circle cx="17.8" cy="17.3" r="1.8" fill="#2454ff"/>
+  <circle cx="22.5" cy="10.2" r="2.2" fill="#f2db17" stroke="#101419" stroke-width="1"/>
+</svg>

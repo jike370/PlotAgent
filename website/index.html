@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="fig-agent 是面向科研数据的 Windows 本地绘图工具。一句话说明需求，批量生成科研图，并导出 PNG、SVG 和原生可编辑的 Origin OPJU 文件。"
+    />
+    <meta name="theme-color" content="#fbfcfe" />
+    <meta name="color-scheme" content="light" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:title" content="fig-agent｜一句话出图，Origin 原生导出" />
+    <meta property="og:description" content="34 种科研绘图模板，支持 PNG、SVG 和原生 OPJU 导出。" />
+    <meta property="og:url" content="https://fig-agent.cn/" />
+    <link rel="canonical" href="https://fig-agent.cn/" />
+    <link rel="icon" href="/assets/fig-agent-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/home.css?v=20260827-1" />
+    <title>fig-agent｜一句话出图，Origin 原生导出</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "fig-agent",
+        "applicationCategory": "ScienceApplication",
+        "operatingSystem": "Windows 11 x64",
+        "description": "面向科研数据的自动化与批量绘图工具，可导出 PNG、SVG 和原生可编辑的 Origin OPJU 文件。",
+        "url": "https://fig-agent.cn/",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "CNY",
+          "availability": "https://schema.org/PreOrder"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header">
+      <div class="shell site-header__inner">
+        <a class="brand" href="#top" aria-label="fig-agent 首页">
+          <img src="/assets/fig-agent-mark.svg" width="28" height="28" alt="" />
+          <span>fig-agent</span>
+        </a>
+
+        <nav class="site-nav" aria-label="主要导航">
+          <a href="#workflow">工作原理</a>
+          <a href="#templates">绘图模板</a>
+          <a href="#origin">Origin 导出</a>
+          <a href="#faq">常见问题</a>
+          <a href="#release">运行要求</a>
+        </nav>
+
+        <a
+          class="button button--primary header-action"
+          href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+        >
+          申请内测
+        </a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="shell hero__inner">
+          <div class="hero__copy">
+            <p class="hero__category">Windows 本地科研绘图工具</p>
+            <h1 id="hero-title">
+              <span>一句话出图</span>
+              <span>Origin 原生导出</span>
+            </h1>
+
+            <div class="hero__actions">
+              <a
+                class="button button--primary"
+                href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+              >
+                申请免费内测
+              </a>
+              <a class="button button--secondary" href="#workflow">查看工作原理</a>
+            </div>
+
+            <ul class="hero__facts" aria-label="产品概况">
+              <li>34 种绘图模板</li>
+              <li>PNG、SVG、OPJU</li>
+            </ul>
+          </div>
+
+          <figure class="product-shot product-shot--hero demo-player" data-demo-player>
+            <div class="window-bar" aria-hidden="true">
+              <span></span><span></span><span></span>
+              <strong>fig-agent · 本地项目</strong>
+            </div>
+            <div class="demo-player__viewport">
+              <video
+                muted
+                autoplay
+                loop
+                playsinline
+                preload="metadata"
+                poster="/assets/demo/plotagent-workflow-poster.webp"
+                aria-label="从拖入 XRD 数据到导出并打开 OPJU 的真实产品流程演示"
+              >
+                <source src="/assets/demo/plotagent-workflow.webm" type="video/webm" />
+                <source src="/assets/demo/plotagent-workflow.mp4" type="video/mp4" />
+              </video>
+              <button class="demo-player__control" type="button" data-demo-toggle aria-pressed="false">
+                <span aria-hidden="true">Ⅱ</span>
+                <span class="sr-only">暂停演示</span>
+              </button>
+            </div>
+            <figcaption>
+              <span>真实流程 · 导入、自然语言绘图、OPJU 导出</span>
+              <span class="asset-note">约 20 秒循环</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section how" id="workflow" aria-labelledby="workflow-title">
+        <div class="shell section-heading section-heading--centered">
+          <p class="section-label">工作原理</p>
+          <h2 id="workflow-title">三步完成一次绘图任务</h2>
+        </div>
+
+        <ol class="shell how__steps">
+          <li>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M5 24V8h22v16H5Z" />
+                <path d="m9 20 5-6 4 3 5-6" />
+              </svg>
+            </span>
+            <h3>选择或描述图类</h3>
+            <p>从 34 种模板中选择，也可以直接说出需要的图类。</p>
+          </li>
+          <li>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M6 7h20v14H13l-6 5v-5H6V7Z" />
+                <path d="M11 12h10M11 16h7" />
+              </svg>
+            </span>
+            <h3>说出绘图要求</h3>
+            <p>上传数据，用自然语言说明字段、批量关系和修改要求。</p>
+          </li>
+          <li>
+            <span class="step-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32">
+                <path d="M8 5h11l5 5v17H8V5Z" />
+                <path d="M19 5v6h6M12 20h8M16 15v8m-3-3 3 3 3-3" />
+              </svg>
+            </span>
+            <h3>导出结果</h3>
+            <p>支持 PNG、SVG，以及原生可编辑的 OPJU。</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section templates" id="templates" aria-labelledby="templates-title">
+        <div class="shell section-heading section-heading--centered">
+          <h2 id="templates-title">34 种科研绘图模板</h2>
+          <p>同一份样例数据，分别由 PlotAgent 的 Origin 与 Matplotlib 后端生成。</p>
+        </div>
+
+        <div class="shell template-toolbar" aria-label="选择模板预览后端">
+          <p><strong>当前显示</strong><span data-gallery-current>Origin 原生图</span></p>
+          <div class="template-toggle" role="group" aria-label="模板预览后端">
+            <button class="is-active" type="button" data-gallery-backend="origin" aria-pressed="true">Origin</button>
+            <button type="button" data-gallery-backend="matplotlib" aria-pressed="false">Matplotlib</button>
+          </div>
+        </div>
+
+        <div class="shell template-grid" data-template-gallery aria-live="polite"></div>
+        <noscript><p class="shell template-fallback">开启 JavaScript 后可浏览全部 34 种双后端模板。</p></noscript>
+      </section>
+
+      <section class="section origin" id="origin" aria-labelledby="origin-title">
+        <div class="shell origin__inner">
+          <div class="origin__copy">
+            <p class="section-label">Origin 原生导出</p>
+            <h2 id="origin-title">在 OriginPro 里继续编辑</h2>
+            <p>
+              OPJU 中保留数据工作表、坐标轴和图对象。需要修改数据或样式时，可以从生成结果继续，而不是重新绘图。
+            </p>
+            <p class="origin__requirement">OPJU 导出需要本机安装并授权可用的 OriginPro 2024。</p>
+          </div>
+
+          <figure class="origin-proof">
+            <img
+              src="/assets/templates/gallery/X38-origin.webp"
+              width="1024"
+              height="768"
+              alt="PlotAgent 使用 Origin 官方 Y 偏移模板生成的原生图"
+              loading="lazy"
+            />
+            <figcaption>Y 偏移堆积线图 · Origin 原生对象</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section faq" id="faq" aria-labelledby="faq-title">
+        <div class="shell faq__inner">
+          <div class="faq__heading">
+            <h2 id="faq-title">常见问题</h2>
+            <p>
+              没有找到答案？
+              <a href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20使用问题">联系开发者</a>
+            </p>
+          </div>
+
+          <div class="faq__list">
+            <details class="faq__item" open>
+              <summary>不会配置模型服务，怎么办？</summary>
+              <p>
+                fig-agent 内置智谱开放平台、DeepSeek 和阿里云百炼的配置项。选择服务和模型后，填写该平台提供的 API Key 即可；自定义服务还需要填写 Base URL 和模型 ID。正式测试版会提供逐步配置说明。
+              </p>
+              <div class="faq__resources">
+                <div class="faq__resource-row">
+                  <span>创建 API Key</span>
+                  <nav class="faq__links" aria-label="各模型厂商创建 API Key 的界面">
+                    <a
+                      href="https://open.bigmodel.cn/usercenter/proj-mgmt/apikeys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >智谱控制台</a>
+                    <a
+                      href="https://platform.deepseek.com/api_keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >DeepSeek 控制台</a>
+                    <a
+                      href="https://bailian.console.aliyun.com/cn-beijing/?tab=app#/api-key"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >阿里云百炼控制台</a>
+                  </nav>
+                </div>
+                <div class="faq__resource-row">
+                  <span>说明文档</span>
+                  <nav class="faq__links" aria-label="获取 API Key 的官方说明文档">
+                    <a
+                      href="https://docs.bigmodel.cn/cn/guide/develop/http/introduction"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >智谱文档</a>
+                    <a
+                      href="https://api-docs.deepseek.com/zh-cn/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >DeepSeek 文档</a>
+                    <a
+                      href="https://help.aliyun.com/zh/model-studio/get-api-key"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >阿里云百炼文档</a>
+                  </nav>
+                </div>
+              </div>
+            </details>
+
+            <details class="faq__item">
+              <summary>不配置模型服务可以使用吗？</summary>
+              <p>
+                可以导入数据、选择图类，并执行不依赖自然语言的既定流程。使用自然语言描述绘图和修改要求时，需要先配置可用的模型服务。
+              </p>
+            </details>
+
+            <details class="faq__item">
+              <summary>需要安装哪个版本的 Origin？</summary>
+              <p>
+                OriginLab 官方的 originpro Python 包要求本机安装 Origin 2021 或更高版本，因此 2021 版起具备当前调用路径所需的基础能力。fig-agent 目前只以 OriginPro 2024 作为 OPJU 导出的测试基线；2021—2023 版本尚未完成兼容性验证。PNG 和 SVG 导出不依赖 Origin。
+              </p>
+              <nav class="faq__links" aria-label="Origin Python 调用的官方说明">
+                <a
+                  href="https://docs.originlab.com/externalpython/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >OriginLab Python 调用说明</a>
+              </nav>
+            </details>
+
+            <details class="faq__item">
+              <summary>没有 Origin，或者只有学习版，能使用吗？</summary>
+              <p>
+                没有安装 Origin 也可以生成并导出 PNG 和 SVG。原生 OPJU 导出需要本机安装并授权可用的 OriginPro 2024。学习版是否支持所需的自动化接口尚未完成验证，因此暂不承诺 OPJU 导出可用。
+              </p>
+              <nav class="faq__links" aria-label="获取 Origin 的官方页面">
+                <a
+                  href="https://www.originlab.com/index.aspx?go=Company%2FDistributors&pid=841"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >中国区购买与支持</a>
+                <a
+                  href="https://www.originlab.com/originprolearning.aspx"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >申请 OriginPro 学习版</a>
+                <a
+                  href="https://cloud.originlab.com/demodownload.aspx"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >下载 OriginPro 试用版</a>
+              </nav>
+            </details>
+
+            <details class="faq__item">
+              <summary>fig-agent 会把数据上传到哪里？</summary>
+              <p>
+                项目文件、图表版本和导出结果保存在本机。使用自然语言任务时，指令、字段元数据和受控样本会发送到选择的模型服务；数据保留规则由该服务决定。
+              </p>
+            </details>
+
+            <details class="faq__item">
+              <summary>支持哪些系统和数据文件？</summary>
+              <p>
+                当前测试基线是 Windows 11 x64。支持 CSV、TSV、TXT、DAT、XLS、XLSX 和 XLSM。
+              </p>
+            </details>
+
+            <details class="faq__item">
+              <summary>测试版需要付费吗？</summary>
+              <p>
+                fig-agent 测试版免费。模型服务和 Origin 由第三方提供，是否收费取决于选择的服务和授权。
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section release" id="release" aria-labelledby="release-title">
+        <div class="shell release__inner">
+          <div class="release__copy">
+            <p class="release__status"><span></span>公开测试版尚未发布</p>
+            <h2 id="release-title">安装包正在准备</h2>
+            <p>产品将免费提供测试。发布后，下载页会显示版本号、文件大小、SHA-256 和下载地址。</p>
+            <div class="release__actions">
+              <a
+                class="button button--light"
+                href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+              >
+                申请免费内测
+              </a>
+              <a class="text-link text-link--light" href="/download/">查看发布进度</a>
+            </div>
+          </div>
+
+          <dl class="requirements">
+            <div><dt>系统</dt><dd>Windows 11 x64</dd></div>
+            <div><dt>输入</dt><dd>CSV、TSV、TXT、DAT、XLS、XLSX、XLSM</dd></div>
+            <div><dt>图片导出</dt><dd>PNG、SVG，不依赖 Origin</dd></div>
+            <div><dt>OPJU 导出</dt><dd>需要 OriginPro 2024</dd></div>
+            <div><dt>模型服务</dt><dd>自然语言任务需要用户配置可用服务</dd></div>
+          </dl>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell site-footer__inner">
+        <div class="brand brand--footer">
+          <img src="/assets/fig-agent-mark.svg" width="26" height="26" alt="" />
+          <span>fig-agent</span>
+        </div>
+        <p>一句话出图，Origin 原生导出。</p>
+        <nav aria-label="页脚导航">
+          <a href="/download/">发布进度</a>
+          <a href="/privacy/">隐私说明</a>
+          <a href="mailto:cyt_666@tju.edu.cn">联系开发者</a>
+        </nav>
+        <span>© 2026</span>
+      </div>
+    </footer>
+
+    <dialog class="template-dialog" data-template-dialog aria-labelledby="template-dialog-title">
+      <div class="template-dialog__header">
+        <div>
+          <span data-dialog-profile></span>
+          <h2 id="template-dialog-title" data-dialog-title></h2>
+          <p data-dialog-official></p>
+        </div>
+        <button type="button" data-dialog-close aria-label="关闭模板对比">×</button>
+      </div>
+      <div class="template-dialog__compare">
+        <figure>
+          <figcaption>Origin 原生图</figcaption>
+          <img data-dialog-origin alt="" />
+        </figure>
+        <figure>
+          <figcaption>Matplotlib 图</figcaption>
+          <img data-dialog-matplotlib alt="" />
+        </figure>
+      </div>
+      <div class="template-dialog__provenance">
+        <span data-dialog-template></span>
+        <span data-dialog-sample></span>
+        <a data-dialog-help target="_blank" rel="noopener noreferrer">查看 Origin 官方说明 ↗</a>
+      </div>
+    </dialog>
+
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script defer src="/main.js?v=20260827-1"></script>
+  </body>
+</html>

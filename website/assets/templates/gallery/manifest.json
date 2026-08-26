@@ -1,0 +1,546 @@
+[
+  {
+    "profile_id": "K01",
+    "chinese_name": "折线图",
+    "official_name": "Line Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/line-graph/",
+    "official_entry": "Plot > Basic 2D: Line",
+    "origin_templates": [
+      {
+        "filename": "LINE.otpu",
+        "sha256": "76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K02",
+    "chinese_name": "线+符号图",
+    "official_name": "Line+Symbol Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/linesym-graph/",
+    "official_entry": "Plot > Basic 2D: Line + Symbol",
+    "origin_templates": [
+      {
+        "filename": "LINESYMB.otpu",
+        "sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K03",
+    "chinese_name": "二维散点图",
+    "official_name": "2D Scatter Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/2dscatter-graph/",
+    "official_entry": "Plot > Basic 2D: Scatter",
+    "origin_templates": [
+      {
+        "filename": "SCATTER.OTP",
+        "sha256": "efef85d7c3db5028c565a57e15c86f97d6ebeded6d779c1cdb11328a7fbd4a99",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K04",
+    "chinese_name": "索引大小气泡与颜色映射图",
+    "official_name": "Indexed Size (Bubble) and Color Map Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/bubble-color-map-graph/",
+    "official_entry": "Plot > Basic 2D: Bubble + Color Mapped",
+    "origin_templates": [
+      {
+        "filename": "bubble.otpu",
+        "sha256": "abc20768493ef817b567bd3e58bb0c3da1a8ec59c56f0d1b92c2341479560b44",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K06",
+    "chinese_name": "XY双向误差棒图",
+    "official_name": "XY Error Bar Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/xy-errbar-graph/",
+    "official_entry": "Plot > Basic 2D: XY Error",
+    "origin_templates": [
+      {
+        "filename": "ERRBAR.otpu",
+        "sha256": "c17ebd8f68f8585c3bb4c431e75f4dc1724e3f54ee1fd7d0977b6cadcf1c599b",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used Response/Error directly; row index and symmetric X error are deterministic adaptations"
+  },
+  {
+    "profile_id": "K07",
+    "chinese_name": "误差带图",
+    "official_name": "Error Band Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/error-band-graph/",
+    "official_entry": "Plot > Basic 2D: Error Band",
+    "origin_templates": [
+      {
+        "filename": "ERRORBAND.otp",
+        "sha256": "dfd36bf19bf3cf81bebd7d2b7d04a0ef05f07f90243678ddf3d03eded342c763",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "selected Year and three official series as center/lower/upper"
+  },
+  {
+    "profile_id": "K08",
+    "chinese_name": "柱状图",
+    "official_name": "Column Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/column-graph/",
+    "official_entry": "Plot > Bar, Pie, Area: Column",
+    "origin_templates": [
+      {
+        "filename": "COLUMN.otpu",
+        "sha256": "ec9e654e886056a466c3447afeab950d371ac6f297d5e325b25e99b7a3d769cd",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  },
+  {
+    "profile_id": "K09",
+    "chinese_name": "分组柱状图（索引数据）",
+    "official_name": "Grouped Columns",
+    "official_help_url": "https://docs.originlab.com/origin-help/grouped-column-index-data/",
+    "official_entry": "Plot > Categorical: Grouped Columns...",
+    "origin_templates": [
+      {
+        "filename": "gColumn.otpu",
+        "sha256": "7178d8b38efdb448909d3e0956d12347ef9340773be3c8f4625fe5b4cca06d0e",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  },
+  {
+    "profile_id": "K10",
+    "chinese_name": "堆积柱状图",
+    "official_name": "Stacked Column Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/stack-column-graph/",
+    "official_entry": "Plot > Bar, Pie, Area: Stacked Column",
+    "origin_templates": [
+      {
+        "filename": "STACKCOLUMN.otp",
+        "sha256": "3ffd84ea777e414c60daab6e3b162b207379b94341ef1497c144a725f0caa264",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/African_population.dat",
+    "sample_adaptation": "melted the first four age groups and three population series into indexed long form"
+  },
+  {
+    "profile_id": "K11",
+    "chinese_name": "100%堆积柱状图",
+    "official_name": "100% Stacked Column Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/100-stack-column-graph/",
+    "official_entry": "Plot > Bar, Pie, Area: 100% Stacked Column",
+    "origin_templates": [
+      {
+        "filename": "StackColP.otp",
+        "sha256": "2094be00706be51883e7d5f8212e79e5eb1ac01ff66af45ba4953761ba8fe7d3",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/African_population.dat",
+    "sample_adaptation": "melted the first four age groups and three population series into indexed long form"
+  },
+  {
+    "profile_id": "K12",
+    "chinese_name": "列散点图（条带图）",
+    "official_name": "Column Scatter",
+    "official_help_url": "https://docs.originlab.com/origin-help/column-scatter/",
+    "official_entry": "Plot > Basic 2D: Column Scatter",
+    "origin_templates": [
+      {
+        "filename": "ColumnScatter.otp",
+        "sha256": "e9bfbf3b74bc78db041208505bf1c1b32b387378cc8aac91462d017a662c425d",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Box Chart.dat",
+    "sample_adaptation": "unpivoted OCT/NOV/DEC columns; missing markers were omitted"
+  },
+  {
+    "profile_id": "K13",
+    "chinese_name": "箱线图",
+    "official_name": "Box Chart Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/boxchart-graph/",
+    "official_entry": "Plot > Statistical: Box Chart",
+    "origin_templates": [
+      {
+        "filename": "BOX.OTP",
+        "sha256": "a1f26e68a6a070aba0769905c6b143766a51abd0d7e6039ad93de49ab600daaa",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Box Chart.dat",
+    "sample_adaptation": "unpivoted OCT/NOV/DEC columns; missing markers were omitted"
+  },
+  {
+    "profile_id": "K14",
+    "chinese_name": "小提琴图",
+    "official_name": "Violin Plot",
+    "official_help_url": "https://docs.originlab.com/origin-help/violin-plot/",
+    "official_entry": "Plot > Statistical: Violin Plot",
+    "origin_templates": [
+      {
+        "filename": "Violin.otpu",
+        "sha256": "ee71ef5fb2bf15cfc403444494f1779999df31d43c0a3e24001cb35b838bc1eb",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Box Chart.dat",
+    "sample_adaptation": "unpivoted OCT/NOV/DEC columns; missing markers were omitted"
+  },
+  {
+    "profile_id": "K15",
+    "chinese_name": "直方图",
+    "official_name": "Histogram",
+    "official_help_url": "https://docs.originlab.com/origin-help/histogram-graph/",
+    "official_entry": "Plot > Statistical: Histogram",
+    "origin_templates": [
+      {
+        "filename": "Hist.otpu",
+        "sha256": "cc1d7edd9f07f8bb0e1b0fe6f9ea0f36439afa912d209efc29329df9c2f00cfa",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Histogram2.dat",
+    "sample_adaptation": "used the first 48 official Weight observations"
+  },
+  {
+    "profile_id": "K18",
+    "chinese_name": "面积图",
+    "official_name": "Area Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/area-graph/",
+    "official_entry": "Plot > Basic 2D: Area",
+    "origin_templates": [
+      {
+        "filename": "AREA.otpu",
+        "sha256": "c14ad432ffd60db09f6763b7b988de4aa554dcf0d9772b18334970fb83eddaec",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K19",
+    "chinese_name": "日期时间折线图",
+    "official_name": "Line Graph with date/time X",
+    "official_help_url": "https://docs.originlab.com/origin-help/line-graph/",
+    "official_entry": "Plot > Basic 2D: Line",
+    "origin_templates": [
+      {
+        "filename": "LINE.otpu",
+        "sha256": "76a7ce886e2290d29444ac3a92c736a2057d2583aea8867091db439cb23dc648",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "K20",
+    "chinese_name": "热图",
+    "official_name": "Heatmap",
+    "official_help_url": "https://docs.originlab.com/origin-help/heat_map/",
+    "official_entry": "Plot > Contour: Heatmap",
+    "origin_templates": [
+      {
+        "filename": "Heat_Map.otpu",
+        "sha256": "9bd8240ca582bbedfec797ea27b1ec5c2906939e304fa343cd1821bae2ffbb9f",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Contour.dat",
+    "sample_adaptation": "selected the upper-left 7×7 block and converted the official matrix to long form"
+  },
+  {
+    "profile_id": "K21",
+    "chinese_name": "带标签热图（给定相关矩阵）",
+    "official_name": "Heatmap with Labels",
+    "official_help_url": "https://docs.originlab.com/origin-help/heatmap-labels/",
+    "official_entry": "Plot > Contour: Heatmap with Labels",
+    "origin_templates": [
+      {
+        "filename": "Heat_Map_With_Labels.otpu",
+        "sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "computed a Pearson correlation matrix from four official time-series columns"
+  },
+  {
+    "profile_id": "K22",
+    "chinese_name": "填色等高线图",
+    "official_name": "Color Fill Contour",
+    "official_help_url": "https://docs.originlab.com/origin-help/colorfill-contour-graph/",
+    "official_entry": "Plot > Contour, Heatmap: Contour - Color Fill",
+    "origin_templates": [
+      {
+        "filename": "CONTOUR.otpu",
+        "sha256": "b4915054edd419955245e485b606784dbb6b4965dd6359b45603e00a866628e2",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Contour.dat",
+    "sample_adaptation": "selected the upper-left 7×7 block and converted the official matrix to long form"
+  },
+  {
+    "profile_id": "K24",
+    "chinese_name": "Trellis分面图",
+    "official_name": "Trellis Plot",
+    "official_help_url": "https://docs.originlab.com/origin-help/trellis/",
+    "official_entry": "Plot > Categorical > Trellis Plot",
+    "origin_templates": [
+      {
+        "filename": "Grouped.otp",
+        "sha256": "b3a1999cc9e95e55d661863e60efbcc792af415bc83b0962f01f1636d35c7af0",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "melted three official series into facet/x/y long form"
+  },
+  {
+    "profile_id": "S34",
+    "chinese_name": "Nyquist图",
+    "official_name": "Nyquist Plot",
+    "official_help_url": "https://cloud.originlab.com/fileexchange/index.aspx?C=0",
+    "official_entry": "Origin 2024: Plot > Basic 2D > Line+Symbol",
+    "origin_templates": [
+      {
+        "filename": "LINESYMB.otpu",
+        "sha256": "2f1292a939eac92cd0dc820309885caccfa53293d1db78d18447a5b5b329fed1",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Signal Processing/Correlation.dat",
+    "sample_adaptation": "adapted two official numeric signal columns into monotone real/imaginary coordinates; frequency is a deterministic index scale"
+  },
+  {
+    "profile_id": "S61",
+    "chinese_name": "带标签热图（混淆矩阵语义）",
+    "official_name": "Heatmap with Labels",
+    "official_help_url": "https://docs.originlab.com/origin-help/heatmap-labels/",
+    "official_entry": "Plot > Contour: Heatmap with Labels",
+    "origin_templates": [
+      {
+        "filename": "Heat_Map_With_Labels.otpu",
+        "sha256": "d1a7fcd8af232aef9ca348eb178466a13a744eb700da7d49d39cfbe16c935c7d",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Statistics/Fisher's Iris Data.dat",
+    "sample_adaptation": "derived a 3×3 confusion matrix using a fixed petal-length threshold classifier"
+  },
+  {
+    "profile_id": "X02",
+    "chinese_name": "垂线图",
+    "official_name": "Vertical Drop Line",
+    "official_help_url": "https://docs.originlab.com/origin-help/vertical-drop-line/",
+    "official_entry": "Plot > Basic 2D > Vertical Drop Line",
+    "origin_templates": [
+      {
+        "filename": "DROPLINE.OTP",
+        "sha256": "69cbcf9349249092e2e32c8955c88c0a265ac47a46811885593d9eced643299f",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Template.dat",
+    "sample_adaptation": "selected evenly spaced rows; derived only required grouping/modifier roles"
+  },
+  {
+    "profile_id": "X03",
+    "chinese_name": "棒棒糖图",
+    "official_name": "Lollipop Plot",
+    "official_help_url": "https://docs.originlab.com/origin-help/lollipop-plot/",
+    "official_entry": "Plot > Basic 2D > Lollipop Plot",
+    "origin_templates": [
+      {
+        "filename": "Lollipop.otpu",
+        "sha256": "f76fc89b9438947bbcd601b53e03cf16732a931621143b469233e584f88ba58b",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used Response and deterministic ±Error series"
+  },
+  {
+    "profile_id": "X05",
+    "chinese_name": "蜂群图",
+    "official_name": "Beeswarm Plot",
+    "official_help_url": "https://docs.originlab.com/origin-help/beeswarm-plot/",
+    "official_entry": "Plot > Statistical > Beeswarm Plot",
+    "origin_templates": [
+      {
+        "filename": "Beeswarm.otpu",
+        "sha256": "301dd6c8c2938b4459bcad1bc04233e1c24d7aaf94f53474db1231692769a979",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Box Chart.dat",
+    "sample_adaptation": "unpivoted OCT/NOV/DEC columns; missing markers were omitted"
+  },
+  {
+    "profile_id": "X09",
+    "chinese_name": "浮动柱状图",
+    "official_name": "Floating Column Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/floating-column-graph/",
+    "official_entry": "Plot > Bar Pie Area > Floating Column",
+    "origin_templates": [
+      {
+        "filename": "FloatCol.otp",
+        "sha256": "f1ea445735f9cf3fa93ed3de9ff187db0fc83ccba92578e6939fbafafeddb3f6",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  },
+  {
+    "profile_id": "X13",
+    "chinese_name": "人口金字塔（龙卷风/蝴蝶图）",
+    "official_name": "Population Pyramid Graph (Tornado Chart)",
+    "official_help_url": "https://docs.originlab.com/origin-help/population-pyramid-graph/",
+    "official_entry": "Plot > Statistical > Population Pyramid",
+    "origin_templates": [
+      {
+        "filename": "PopulationPyramid.otpu",
+        "sha256": "2c5958a91130d62cf8a6708f197bfd6248a3b22d81fc68eed1abe5f10988fbab",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/African_population.dat",
+    "sample_adaptation": "used the official age group, male-2010 and female-2010 columns directly"
+  },
+  {
+    "profile_id": "X23",
+    "chinese_name": "双Y轴Y-Y图",
+    "official_name": "2Ys Y-Y Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/2ys-y-y-graph/",
+    "official_entry": "Plot > Multi-Panel/Axis > 2Ys Y-Y",
+    "origin_templates": [
+      {
+        "filename": "DOUBLEY.OTP",
+        "sha256": "487547eb206e4645f3380a9a021ceb7fbcf4ec4d1fdb0a870d1eb0cde0c7641b",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "selected evenly spaced official years and the chart-required series columns"
+  },
+  {
+    "profile_id": "X24",
+    "chinese_name": "帕累托图（分箱数据）",
+    "official_name": "Pareto Chart - Binned Data",
+    "official_help_url": "https://docs.originlab.com/origin-help/paretochart-bindata/",
+    "official_entry": "Plot > Statistical > Pareto > Binned Data",
+    "origin_templates": [
+      {
+        "filename": "ParetoBin.otpu",
+        "sha256": "fa991237fbf2f5a0139b4acd6ba44372928f55922a8c347941d3a6442559ba84",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  },
+  {
+    "profile_id": "X35",
+    "chinese_name": "双Y轴柱状图",
+    "official_name": "2Ys Column",
+    "official_help_url": "https://docs.originlab.com/origin-help/2ys-column-graph/",
+    "official_entry": "Plot > Multi-Panel/Axis > 2Ys Column",
+    "origin_templates": [
+      {
+        "filename": "2Ys_Col.otpu",
+        "sha256": "cba0737aaa4c2ab24a62062cfe37c095c5651d9048519b3fc2a3e9ccaa058ca9",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  },
+  {
+    "profile_id": "X36",
+    "chinese_name": "双Y轴柱线图",
+    "official_name": "2Ys Column-Line Symbol",
+    "official_help_url": "https://docs.originlab.com/origin-help/2ys-column-linesym-graph/",
+    "official_entry": "Plot > Multi-Panel/Axis > 2Ys Column-LineSymbol",
+    "origin_templates": [
+      {
+        "filename": "2Ys_ColSymb.otpu",
+        "sha256": "6e951a3dd1f08cb2122cac48ce37476eef54d54c9fb424211e9fce39c677e1ab",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "selected evenly spaced official years and the chart-required series columns"
+  },
+  {
+    "profile_id": "X38",
+    "chinese_name": "Y偏移堆叠线图",
+    "official_name": "Stacked Lines by Y Offsets",
+    "official_help_url": "https://docs.originlab.com/origin-help/stacklineyoffset-graph",
+    "official_entry": "Plot > Basic 2D > Stacked Lines by Y Offsets",
+    "origin_templates": [
+      {
+        "filename": "OffsetStackY.otp",
+        "sha256": "c6d7548cf7389e5d53282c6d1873aa2e8e184de96ae54d2cd71937f0a56d98d3",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "selected evenly spaced official years and the chart-required series columns"
+  },
+  {
+    "profile_id": "X39",
+    "chinese_name": "线条序列图",
+    "official_name": "Line Series Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/line-series-graph/",
+    "official_entry": "Plot > Basic 2D > Line Series",
+    "origin_templates": [
+      {
+        "filename": "BoxLser.otpu",
+        "sha256": "8396fd58435c4ded363b889d7eb3c8cf8a3b22e82eb539e8cc85f6b58481ec83",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/Vertical_2_Panel_Line.txt",
+    "sample_adaptation": "selected evenly spaced official years and the chart-required series columns"
+  },
+  {
+    "profile_id": "X40",
+    "chinese_name": "前后对比图",
+    "official_name": "Before and After Graph",
+    "official_help_url": "https://docs.originlab.com/origin-help/before-after-graph/",
+    "official_entry": "Plot > Basic 2D > Before - After",
+    "origin_templates": [
+      {
+        "filename": "BeforeAfter.otpu",
+        "sha256": "d37a1c2949696f29cd2a2fcf856a2c8b5f8be29e8ab040a83a9c2c9f0e262c0b",
+        "role": "primary"
+      }
+    ],
+    "origin_sample": "Graphing/GroupBar1.txt",
+    "sample_adaptation": "used official Treatment/Sex/Response/Error values; interval and paired endpoints are deterministic derivations"
+  }
+]
