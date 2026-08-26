@@ -47,7 +47,7 @@
 
 上述改版在冻结前已完成完整确定性门禁：Python `887 passed`、Vitest `30 files / 292 tests`，contracts codegen、Ruff、mypy（184 个源文件）、Node/Web TypeScript、ESLint（排除用户未跟踪 `website/`）和 production build 全部通过。该结果只允许建立新候选，不替代真实 Pi 入口、52 项 Electron 黑盒或最终 SEQ-70。
 
-产品负责人随后撤销“所有 Origin 图、所有原生图层机械强制四侧全边框”的共享默认规则，并确认接受完整重跑成本。2026-08-26 再次审查后，现行产品合同改为：24 个标准单层笛卡尔 Profile 补齐四侧轴线；矩阵/色图、原生 Trellis、中央轴和重叠双轴共 10 个 Profile 保留官方模板拓扑。只有缺失边需要写入，显式 `set_axis(axis_line_visible=...)` 继续覆盖目标侧，fresh-reopen 必须核对产品默认与显式覆盖。`ac1ca68` 已完成的 UI 黑盒只保留为旧候选证据，不向新候选继承 PASS。
+产品负责人随后撤销“所有 Origin 图、所有原生图层机械强制四侧全边框”的共享默认规则，并确认接受完整重跑成本。2026-08-26 再次审查后，现行产品合同改为：24 个标准单层笛卡尔 Profile 补齐四侧轴线，上、右只保留干净外框，不显示主/次刻度线或刻度值；矩阵/色图、原生 Trellis、中央轴和重叠双轴共 10 个 Profile 保留官方模板拓扑。只有缺失边需要写入，显式 `set_axis(axis_line_visible=...)` 继续覆盖目标侧，fresh-reopen 必须核对产品默认与显式覆盖。`ac1ca68` 已完成的 UI 黑盒只保留为旧候选证据，不向新候选继承 PASS。
 
 ### 1.1 冻结范围与覆盖账本
 

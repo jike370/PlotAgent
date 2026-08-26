@@ -31,6 +31,7 @@ from plotagent.engine.backends.origin.visual_t1 import (
     _series_numeric_tolerance,
     _updated_tick_bits,
     _verify_origin_product_frame,
+    _verify_origin_product_opposite_axes,
 )
 from plotagent.engine.contracts import (
     AddAnnotation,
@@ -72,9 +73,21 @@ _VISUAL_ACTION_NAMES = (
 class _OriginFrameLayer:
     def __init__(self, zero_based_index: int) -> None:
         self._index = zero_based_index
+        self.properties = {
+            "x.showLabels": 3,
+            "y.showLabels": 3,
+            "x2.ticks": 10,
+            "y2.ticks": 10,
+        }
 
     def index(self) -> int:
         return self._index
+
+    def get_int(self, name: str) -> int:
+        return self.properties[name]
+
+    def set_int(self, name: str, value: int) -> None:
+        self.properties[name] = value
 
 
 class _OriginFrameGraph(list[_OriginFrameLayer]):
@@ -414,6 +427,74 @@ def test_origin_product_frame_boxes_only_eligible_cartesian_profiles(
 
     assert all(product_frame.values())
     assert writes == [(1, 2, True), (1, 3, True)]
+    assert graph[0].properties == {
+        "x.showLabels": 1,
+        "y.showLabels": 1,
+        "x2.ticks": 0,
+        "y2.ticks": 0,
+    }
+
+
+def test_origin_product_frame_verifies_clean_top_and_right_sides() -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0),))
+    graph[0].properties.update(
+        {
+            "x.showLabels": 1,
+            "y.showLabels": 1,
+            "x2.ticks": 0,
+            "y2.ticks": 0,
+        }
+    )
+
+    snapshot = _verify_origin_product_opposite_axes(graph, "K03")
+
+    assert snapshot == {
+        "top.ticks": 0,
+        "top.labels": False,
+        "right.ticks": 0,
+        "right.labels": False,
+    }
+
+
+@pytest.mark.parametrize(
+    ("property_name", "value", "side"),
+    (
+        ("x2.ticks", 2, "top"),
+        ("y2.ticks", 2, "right"),
+        ("x.showLabels", 3, "top"),
+        ("y.showLabels", 3, "right"),
+    ),
+)
+def test_origin_product_frame_rejects_opposite_ticks_or_labels(
+    property_name: str,
+    value: int,
+    side: str,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0),))
+    graph[0].properties.update(
+        {
+            "x.showLabels": 1,
+            "y.showLabels": 1,
+            "x2.ticks": 0,
+            "y2.ticks": 0,
+            property_name: value,
+        }
+    )
+
+    with pytest.raises(RuntimeError, match=f"side={side}"):
+        _verify_origin_product_opposite_axes(graph, "K03")
+
+
+def test_origin_product_frame_rejects_layer_drift_for_boxed_profiles() -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
+    template_frame = {
+        (layer_index, axis_code): axis_code in {0, 1}
+        for layer_index in (1, 2)
+        for axis_code in (0, 1, 2, 3)
+    }
+
+    with pytest.raises(RuntimeError, match="exactly one native graph layer"):
+        _apply_origin_product_frame(object(), graph, "K03", template_frame)
 
 
 def test_origin_product_frame_policy_partitions_the_34_profile_catalog() -> None:

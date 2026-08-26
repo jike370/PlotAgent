@@ -170,6 +170,9 @@ def apply_origin_visual_actions(
         effective_actions,
         product_frame,
     )
+    snapshot["origin_product_opposite_axes"] = (
+        _verify_origin_product_opposite_axes(reopened, document.profile_id)
+    )
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
     elif applied_invariant is not None:
@@ -483,11 +486,53 @@ def _apply_origin_product_frame(
     expected = dict(template_frame)
     if profile_id not in _ORIGIN_FOUR_SIDED_FRAME_PROFILES:
         return expected
+    layers = _layers(graph)
+    if len(layers) != 1:
+        raise RuntimeError(
+            "Origin boxed product frame requires exactly one native graph layer"
+        )
     for (layer_index, axis_code), visible in template_frame.items():
         if not visible:
             set_axis_line_show(op, graph.name, layer_index, axis_code, True)
         expected[(layer_index, axis_code)] = True
+    layer = layers[0]
+    # A boxed single-axis chart uses the top and right sides as clean frame
+    # lines, not as additional semantic axes. Origin keeps tick and label
+    # state per opposite axis, so clear those states explicitly after showing
+    # the missing frame lines.
+    layer.set_int("x2.ticks", 0)
+    layer.set_int("y2.ticks", 0)
+    layer.set_int("x.showLabels", layer.get_int("x.showLabels") & ~2)
+    layer.set_int("y.showLabels", layer.get_int("y.showLabels") & ~2)
     return expected
+
+
+def _verify_origin_product_opposite_axes(
+    graph: Any,
+    profile_id: str,
+) -> dict[str, int | bool]:
+    """Verify clean top/right frame sides for boxed single-axis charts."""
+
+    if profile_id not in _ORIGIN_FOUR_SIDED_FRAME_PROFILES:
+        return {}
+    layers = _layers(graph)
+    if len(layers) != 1:
+        raise RuntimeError(
+            "Origin boxed product frame requires exactly one native graph layer"
+        )
+    layer = layers[0]
+    snapshot: dict[str, int | bool] = {}
+    for side, axis_name in (("top", "x"), ("right", "y")):
+        ticks = int(layer.get_int(f"{axis_name}2.ticks"))
+        labels = bool(layer.get_int(f"{axis_name}.showLabels") & 2)
+        if ticks != 0 or labels:
+            raise RuntimeError(
+                "Origin boxed product frame opposite axis is not clean: "
+                f"side={side}, ticks={ticks}, labels={int(labels)}"
+            )
+        snapshot[f"{side}.ticks"] = ticks
+        snapshot[f"{side}.labels"] = labels
+    return snapshot
 
 
 def _origin_frame_expectations(
