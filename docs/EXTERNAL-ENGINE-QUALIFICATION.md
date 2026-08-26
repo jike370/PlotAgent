@@ -2,11 +2,11 @@
 
 > 分支：`codex/external-engine-sdk-mcp`
 >
-> 实现提交：`5c7f0cf`、`f66fba5`
+> 当前资格提交：`e8d1018`
 >
-> 基线：`b6cea2d`
+> 桌面证据基线：`a0ce683`
 >
-> 日期：2026-08-26
+> 日期：2026-08-27
 
 ## 1. 结论
 
@@ -21,6 +21,7 @@
 
 - **SDK/MCP 本地引擎 V1：PASS**；
 - **当前桌面候选：不受本分支影响，仍以原候选证据为准**；
+- **独立 wheel 的工程资格：PASS**；
 - **合并/正式发布：尚未判定**。仍需一个真实外部 Agent Host 的自然语言多轮调用验收，
   以及决定 SDK/MCP 以独立 wheel 还是随桌面安装包附带。
 
@@ -70,38 +71,53 @@ PLOTAGENT_ENGINE_EXPORT_ROOT
 ### 4.1 源码门禁
 
 - Ruff：PASS；
-- mypy：195 个 Python 源文件，PASS；
-- Python 全量：`902 passed in 665.78s`；
+- mypy：203 个 Python 源文件，PASS；
+- Python 全量：`920 passed in 723.96s`；
 - Vitest：31 个文件、296 项，全部 PASS；
 - TypeScript：node/web 两套 `tsc --noEmit`，PASS；
-- SDK/MCP 定向：8/8 PASS；
+- ESLint、Electron production build、Windows release tools：PASS；
+- 128 字符 SDK engine root 的 prepared-view 定向回归：PASS；
 - SDK 与 MCP 的 34 图目录结果等价；
 - MCP 官方 stdio initialize、list_tools、call_tool：PASS。
 
 ### 4.2 独立 wheel
 
-- wheel：`build/external-engine-sdk-mcp/wheel/plotagent-0.1.0-py3-none-any.whl`；
-- SHA-256：`04EC9CC77F36D625EEC49529C5348F262384018717B0E28A90A66944E6BA316F`；
+- wheel：`D:\v3-test\outputs\plotv3-release-e8d1018-20260826-external\wheel\plotagent-0.1.0-py3-none-any.whl`；
+- SHA-256：`D39F46C0463A82C5F4C0ACA2FDE0DB27918731FF93E2AA31A97A1E9859664211`；
 - 在新 venv 中使用 `[mcp]` 安装：PASS；
 - 安装后的 MCP：server `plotagent-engine`、version `1.0`、15 tools、health PASS；
-- 安装后的 SDK：导入 Excel → 创建 K01 → PNG，PASS；
-- 外部 `@图1` 在重开 SDK 后保持，PASS。
+- 安装后的 SDK 与 MCP 都完成：导入 Excel → 检查真实字段 → prepared view → 无副作用校验
+  → 创建 K01 → 标题编辑至 v2 → PNG/SVG/OPJU；
+- 两套接口返回的文件大小、SHA-256、图版本和稳定 `@图1` 均与磁盘实物一致；
+- 关闭并重开两个 engine root 后，项目 v3、图 v2 和 `@图1` 均保持。
 
 ### 4.3 原生 OPJU
 
-- 安装后的 SDK 创建 K01 v2，并应用标题编辑 `Installed SDK`；
-- OPJU：`build/external-engine-sdk-mcp/installed-sdk-edited.opju`；
-- 大小：29,867 bytes；
-- SHA-256：`7A61742D87D5C65A6C4C194AED3284FC3B233D6F7CC0A02E72DD34D0C974E6E0`；
+- 安装后的 SDK 创建 K01 v2，并应用标题编辑 `Installed SDK release candidate`；
+- OPJU：`D:\v3-test\outputs\plotv3-release-e8d1018-20260826-external\sdk-e2e\exports\installed-sdk-release.opju`；
+- 大小：29,917 bytes；
+- SHA-256：`6DBDA16CE67A7BFCF0BC648C531F2171FC8AFB95C6E02B9E0C14EC98D10C5D82`；
 - 独立 Origin 进程 fresh-reopen：1 graph、1 worksheet、0 matrix；
-- 标题读回：`Installed SDK`、visible；
-- fresh-reopen 结果：`build/external-engine-sdk-mcp/installed-sdk-edited-fresh.json`；
-- fresh PNG：`build/external-engine-sdk-mcp/installed-sdk-edited-fresh.png`，25,601 bytes，
-  SHA-256 `B4D2203C2239105D96F9A942F853222676D8B59B69DE2ECCBB6DB18BB79FBE9`。
+- 标题读回：`Installed SDK release candidate`、visible；
+- fresh-reopen 结果：`D:\v3-test\outputs\plotv3-release-e8d1018-20260826-external\sdk-e2e\fresh-reopen.json`；
+- fresh PNG：27,004 bytes，SHA-256
+  `A6DDF8778EA27A2D24FD5D65EF5AC55C581D9B238F4726B2322EA7CA11125DBB`；
+- MCP 同候选 OPJU：29,927 bytes，SHA-256
+  `3AD30CFD91F8ED03C6F1405B4200D9A2381E1062B85E796DADD16BF01D9095BE`。
 
 独立安装首次 OPJU 验证发现 Origin worker 实际依赖 `pandas`，但原项目依赖清单未声明。
 本分支只补齐 `pyproject.toml` 的运行依赖，没有修改 renderer；重建 wheel 后 OPJU 与
 fresh-reopen 通过。
+
+### 4.4 深路径 prepared view 回归
+
+旧候选在深路径安装后，最终 Parquet 路径仍可创建，但事务临时文件重复拼接 64 位内容哈希、
+32 位 UUID 和任务目录，超过 Windows 传统路径长度，SDK 将底层 `OSError` 安全包装为
+`DATA_WORKSPACE_IO_FAILED`。最终实现让 external extension 显式使用工作区根目录下的短事务
+文件，再同卷原子替换到最终不可变路径；桌面默认 `agent-data-v2` 路径与事务布局不变。
+
+`e8d1018` 已在 128 字符 engine root、独立安装 wheel 和 MCP stdio 三条路径上完成
+stage/apply/preview/commit，并确认 external index 存在、项目内没有桌面 `agent-data-v2` 副本。
 
 ## 5. 尚未由本报告证明
 

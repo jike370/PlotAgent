@@ -41,10 +41,11 @@
 - Origin backend 必须从官方模板/菜单/X-Function 创建原生对象，保存 OPJU 后用新会话重开读回。
 - 任何其他 Agent 可以绕过 Pi，通过 MCP/SDK 直接使用同一 Workflow/Engine 合同；仍受本地权限、确认、版本与能力校验。默认外部接口不嵌套第二个 PlotAgent Agent：外部 Agent 保持理解、规划、追问和确认的决策权，PlotAgent 负责确定性数据/绘图工具、执行、版本、读回与交付。
 - 外部接口的核心运行产物是持久化、版本化的图实例引用；用户主要交付物是包含原生工作表、图页和数据绑定且通过 fresh-reopen 的 OPJU。PNG/SVG、数据处理、字段绑定、readback、文件大小和哈希构成可审计结果包。
-- SDK/MCP 正在独立分支实现，仍不属于当前桌面候选的已交付能力。它们复用现有 Core/Engine，
+- SDK/MCP 已在独立分支形成通过工程资格的 wheel 候选，仍不属于当前桌面候选的已交付能力。
+  它们复用现有 Core/Engine，
   仅将外部路径授权、MCP 会话和外部数据工作区放在 extension core；不得为了外部接入改变
   桌面 Pi、IPC、renderer 或 UI 行为。旧 35 图外部接口分支只作为设计与测试方法参考，
-  不继承其 GO 结论。
+  不继承其 GO 结论。正式对外发布仍需真实外部 Agent Host 验收并决定独立 wheel 或安装包附带。
 
 ## F. 当前视觉范围
 

@@ -1,6 +1,6 @@
 # PlotAgent 外部 Agent 绘图引擎接口
 
-> 状态：`codex/external-engine-sdk-mcp` 独立分支正在实现；不属于当前桌面候选，未完成本文件第 8 节资格前不得宣称正式交付。
+> 状态：`codex/external-engine-sdk-mcp` 的 `e8d1018` 已通过独立 wheel 工程资格；不属于当前桌面候选，真实外部 Agent Host 验收和交付形态仍未完成。
 >
 > 适用范围：外部 Agent 通过 MCP 或 SDK 使用当前 34 图 PlotAgent 绘图引擎。
 >
@@ -212,15 +212,17 @@ MCP 工具调用不能通过长时间阻塞伪装完整任务。数据量大或�
 ## 9. 当前交付状态
 
 - 当前桌面候选已经交付并验证内置 Agent + 本地绘图引擎主链。
-- `codex/external-engine-sdk-mcp` 从已验收桌面提交 `b6cea2d` 分出，新增 `plotagent.sdk`、
+- `codex/external-engine-sdk-mcp` 基于已验收桌面候选继续维护 `plotagent.sdk`、
   `plotagent.mcp_server` 和外部专用 extension core；未修改 Electron、桌面 RPC、内置 Pi、
   Engine Profile 或 renderer。
 - SDK 使用调用者提供的独立 engine root；MCP 另外限制 import roots 和 export root。外部
   数据整理复用正式 `StagedDataWorkspace`/`EngineDataViewRepository`，但不注册为桌面 RPC。
 - 当前确定性增量已覆盖 SDK 生命周期、真实导入/检查、34 图目录、无副作用验证、确定性
   数据整理到 renderer、版本持久化、稳定 `@图N`、PNG 导出、路径隔离、MCP 工具发现、
-  stdio initialize 以及 SDK/MCP 目录等价；Python 全量、前端全量、独立 wheel 安装和
-  K01 OPJU live/fresh-reopen 已通过。真实外部 Agent Host 的自然语言多轮调用仍是合并前
+  stdio initialize 以及 SDK/MCP 目录等价；`e8d1018` 的 Python 920 项、Vitest 296 项、
+  前端构建、独立 wheel 安装、SDK/MCP 三格式端到端和 K01 OPJU fresh-reopen 已通过。
+  深路径 prepared view 已由 external-only 短事务路径关闭，桌面默认工作区不变。真实外部
+  Agent Host 的自然语言多轮调用仍是合并前
   剩余门禁，详见独立资格报告。
 - 旧 `codex/external-engine-interfaces` 分支曾验证 35 图时期 SDK/HTTP/MCP 的协议可行性，但它早于当前 34 图 renderer、数据、Agent、版本和导出合同，不得直接合入或复用 GO 结论。
 - 本分支始终以当前 Core/Engine Profile 为唯一真源；若外部能力可在 extension core 完成，
