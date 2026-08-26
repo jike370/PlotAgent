@@ -147,10 +147,14 @@ def test_sdk_rejects_stale_validation_without_mutation(tmp_path: Path) -> None:
 def test_sdk_prepares_and_commits_deterministic_data_for_the_renderer(
     tmp_path: Path,
 ) -> None:
-    short_root = Path(".pytest-tmp") / (
-        "sdk-prepare-" + hashlib.sha256(str(tmp_path).encode()).hexdigest()[:12]
+    base = (Path(".pytest-tmp") / "external-sdk").resolve()
+    unique_prefix = (
+        "sdk-prepare-" + hashlib.sha256(str(tmp_path).encode()).hexdigest()[:12] + "-"
     )
-    with PlotAgentSDK(short_root) as sdk:
+    padding = "x" * max(8, 128 - len(str(base)) - len(unique_prefix) - 1)
+    deep_root = base / f"{unique_prefix}{padding}"
+    assert len(str(deep_root)) >= 128
+    with PlotAgentSDK(deep_root) as sdk:
         project = sdk.create_project(idempotency_key="prepare")
         project_id = cast(str, project["project_id"])
         opened = sdk.open_project(project_id)
@@ -182,8 +186,8 @@ def test_sdk_prepares_and_commits_deterministic_data_for_the_renderer(
             source=source,
             field_ids=numeric,
         )
-        assert (short_root.resolve() / "external-data-v1" / "index.sqlite3").is_file()
-        assert not any((short_root.resolve() / "projects").glob("*/tmp/agent-data-v2"))
+        assert (deep_root / "external-data-v1" / "index.sqlite3").is_file()
+        assert not any((deep_root / "projects").glob("*/tmp/agent-data-v2"))
         source_handle = cast(dict[str, Any], staged["handle"])
         transformed = sdk.apply_data_operation(
             project_id,

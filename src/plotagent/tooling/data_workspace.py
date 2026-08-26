@@ -480,7 +480,11 @@ class StagedDataWorkspace:
         path = self._artifact_path(handle)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = False
-        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        # Keep the transactional file at the workspace root with a compact name.
+        # The final artifact path already contains a task hash and a SHA-256 name;
+        # repeating both plus a UUID can exceed the traditional Windows path limit
+        # even when the project itself can still be imported successfully.
+        temporary = self._root / f".{uuid.uuid4().hex}.tmp"
         try:
             with temporary.open("xb") as output:
                 output.write(payload)
