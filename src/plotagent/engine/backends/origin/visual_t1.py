@@ -85,6 +85,39 @@ _ORIGIN_FRAME_AXIS_NAMES = {
     2: "top",
     3: "right",
 }
+# PlotAgent uses a boxed product default for conventional single-layer
+# Cartesian charts.  Matrix/color plots, native Trellis, centered-axis charts,
+# and overlaid dual-axis templates keep their official Origin frame topology;
+# mechanically boxing every native layer would create duplicate or misleading
+# internal borders in those families.
+_ORIGIN_FOUR_SIDED_FRAME_PROFILES = frozenset(
+    {
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K06",
+        "K07",
+        "K08",
+        "K09",
+        "K10",
+        "K11",
+        "K12",
+        "K13",
+        "K14",
+        "K15",
+        "K18",
+        "K19",
+        "S34",
+        "X02",
+        "X03",
+        "X05",
+        "X09",
+        "X38",
+        "X39",
+        "X40",
+    }
+)
 
 
 def apply_origin_visual_actions(
@@ -109,6 +142,12 @@ def apply_origin_visual_actions(
         raise RuntimeError("Origin could not reopen the project for T1 visual edits")
     graph = _graph(op)
     template_frame = _capture_origin_template_frame(op, graph)
+    product_frame = _apply_origin_product_frame(
+        op,
+        graph,
+        document.profile_id,
+        template_frame,
+    )
     for action in effective_actions:
         _apply_action(op, graph, document, action)
     applied_invariant = (
@@ -125,11 +164,11 @@ def apply_origin_visual_actions(
         raise RuntimeError("Origin could not fresh-reopen the T1 visual project")
     reopened = _graph(op)
     snapshot = _verify_actions(op, reopened, document, effective_actions)
-    snapshot["origin_template_frame"] = _verify_origin_template_frame(
+    snapshot["origin_product_frame"] = _verify_origin_product_frame(
         op,
         reopened,
         effective_actions,
-        template_frame,
+        product_frame,
     )
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
@@ -433,12 +472,30 @@ def _capture_origin_template_frame(
     }
 
 
+def _apply_origin_product_frame(
+    op: Any,
+    graph: Any,
+    profile_id: str,
+    template_frame: dict[tuple[int, int], bool],
+) -> dict[tuple[int, int], bool]:
+    """Apply the boxed product default only to eligible Cartesian profiles."""
+
+    expected = dict(template_frame)
+    if profile_id not in _ORIGIN_FOUR_SIDED_FRAME_PROFILES:
+        return expected
+    for (layer_index, axis_code), visible in template_frame.items():
+        if not visible:
+            set_axis_line_show(op, graph.name, layer_index, axis_code, True)
+        expected[(layer_index, axis_code)] = True
+    return expected
+
+
 def _origin_frame_expectations(
     graph: Any,
     actions: tuple[PlotEngineAction, ...],
-    template_frame: dict[tuple[int, int], bool],
+    product_frame: dict[tuple[int, int], bool],
 ) -> dict[tuple[int, int], bool]:
-    expected = dict(template_frame)
+    expected = dict(product_frame)
     current_keys = {
         (_layer_index(layer), axis_code)
         for layer in _layers(graph)
@@ -456,17 +513,17 @@ def _origin_frame_expectations(
     return expected
 
 
-def _verify_origin_template_frame(
+def _verify_origin_product_frame(
     op: Any,
     graph: Any,
     actions: tuple[PlotEngineAction, ...],
-    template_frame: dict[tuple[int, int], bool],
+    product_frame: dict[tuple[int, int], bool],
 ) -> dict[str, bool]:
-    """Verify template defaults survived except for explicit user overrides."""
+    """Verify the product default plus any explicit user overrides persisted."""
 
     snapshot: dict[str, bool] = {}
     for (layer_index, axis_code), expected in _origin_frame_expectations(
-        graph, actions, template_frame
+        graph, actions, product_frame
     ).items():
         observed = bool(
             read_axis_line_show(op, graph.name, layer_index, axis_code)
@@ -474,7 +531,7 @@ def _verify_origin_template_frame(
         side = _ORIGIN_FRAME_AXIS_NAMES[axis_code]
         if observed != expected:
             raise RuntimeError(
-                "Origin template frame did not persist: "
+                "Origin product frame did not persist: "
                 f"layer={layer_index}, side={side}, "
                 f"expected={int(expected)}, observed={int(observed)}"
             )

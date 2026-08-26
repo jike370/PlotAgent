@@ -20,6 +20,8 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visuals_before_save,
 )
 from plotagent.engine.backends.origin.visual_t1 import (
+    _ORIGIN_FOUR_SIDED_FRAME_PROFILES,
+    _apply_origin_product_frame,
     _apply_series,
     _capture_origin_template_frame,
     _centered_levels,
@@ -28,7 +30,7 @@ from plotagent.engine.backends.origin.visual_t1 import (
     _legend_column_count,
     _series_numeric_tolerance,
     _updated_tick_bits,
-    _verify_origin_template_frame,
+    _verify_origin_product_frame,
 )
 from plotagent.engine.contracts import (
     AddAnnotation,
@@ -47,6 +49,7 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineReadback
+from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.engine.repository import document_ref
 from plotagent.engine.visual_t1 import (
     effective_visual_actions,
@@ -388,7 +391,80 @@ def test_origin_template_frame_reads_every_side_without_normalizing_it(
     assert len(snapshot) == 8
 
 
-def test_origin_template_frame_fresh_readback_respects_explicit_axis_override(
+def test_origin_product_frame_boxes_only_eligible_cartesian_profiles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0),))
+    template_frame = {
+        (1, axis_code): axis_code in {0, 1}
+        for axis_code in (0, 1, 2, 3)
+    }
+    writes: list[tuple[int, int, bool]] = []
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_axis_line_show",
+        lambda _op, _graph_name, layer_index, axis_code, visible: writes.append(
+            (layer_index, axis_code, visible)
+        ),
+    )
+
+    product_frame = _apply_origin_product_frame(
+        object(), graph, "K03", template_frame
+    )
+
+    assert all(product_frame.values())
+    assert writes == [(1, 2, True), (1, 3, True)]
+
+
+def test_origin_product_frame_policy_partitions_the_34_profile_catalog() -> None:
+    preserved = {
+        "K20",
+        "K21",
+        "K22",
+        "K24",
+        "S61",
+        "X13",
+        "X23",
+        "X24",
+        "X35",
+        "X36",
+    }
+    catalog = {profile.profile_id for profile in ENGINE_PROFILES}
+
+    assert len(_ORIGIN_FOUR_SIDED_FRAME_PROFILES) == 24
+    assert len(preserved) == 10
+    assert _ORIGIN_FOUR_SIDED_FRAME_PROFILES.isdisjoint(preserved)
+    assert _ORIGIN_FOUR_SIDED_FRAME_PROFILES | preserved == catalog
+
+
+@pytest.mark.parametrize(
+    "profile_id",
+    ("K20", "K21", "K22", "K24", "S61", "X13", "X23", "X24", "X35", "X36"),
+)
+def test_origin_product_frame_preserves_special_template_topology(
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+) -> None:
+    graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
+    template_frame = {
+        (layer_index, axis_code): axis_code in {0, 1}
+        for layer_index in (1, 2)
+        for axis_code in (0, 1, 2, 3)
+    }
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_axis_line_show",
+        lambda *_args: pytest.fail("special templates must not be normalized"),
+    )
+
+    product_frame = _apply_origin_product_frame(
+        object(), graph, profile_id, template_frame
+    )
+
+    assert product_frame == template_frame
+
+
+def test_origin_product_frame_fresh_readback_respects_explicit_axis_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0), _OriginFrameLayer(1)))
@@ -406,13 +482,13 @@ def test_origin_template_frame_fresh_readback_respects_explicit_axis_override(
         ),
     )
 
-    template_frame = {
+    product_frame = {
         (layer_index, axis_code): axis_code in {0, 1}
         for layer_index in (1, 2)
         for axis_code in (0, 1, 2, 3)
     }
-    snapshot = _verify_origin_template_frame(
-        object(), graph, (action,), template_frame
+    snapshot = _verify_origin_product_frame(
+        object(), graph, (action,), product_frame
     )
 
     assert snapshot["layer:1.bottom"] is True
@@ -420,7 +496,7 @@ def test_origin_template_frame_fresh_readback_respects_explicit_axis_override(
     assert snapshot["layer:2.right"] is True
 
 
-def test_origin_template_frame_fails_when_an_unedited_side_does_not_persist(
+def test_origin_product_frame_fails_when_an_unedited_side_does_not_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0),))
@@ -430,11 +506,11 @@ def test_origin_template_frame_fails_when_an_unedited_side_does_not_persist(
         lambda _op, _graph_name, _layer_index, axis_code: int(axis_code != 2),
     )
 
-    template_frame = {
+    product_frame = {
         (1, axis_code): True for axis_code in (0, 1, 2, 3)
     }
     with pytest.raises(RuntimeError, match="side=top"):
-        _verify_origin_template_frame(object(), graph, (), template_frame)
+        _verify_origin_product_frame(object(), graph, (), product_frame)
 
 
 def test_origin_series_edit_ungroups_multi_plot_layer_before_visible_style() -> None:
