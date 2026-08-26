@@ -62,6 +62,7 @@ class StagedDataWorkspace:
         project: ProjectStore,
         *,
         workspace_root: str | Path | None = None,
+        compact_transaction_paths: bool = False,
         clock: Callable[[], datetime] | None = None,
         ttl_seconds: int = 3_600,
     ) -> None:
@@ -70,6 +71,7 @@ class StagedDataWorkspace:
         self._project = project
         self._clock = clock or (lambda: datetime.now(UTC))
         self._ttl_seconds = ttl_seconds
+        self._compact_transaction_paths = compact_transaction_paths
         self._root = (
             project.tmp_root / "agent-data-v2"
             if workspace_root is None
@@ -480,11 +482,13 @@ class StagedDataWorkspace:
         path = self._artifact_path(handle)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = False
-        # Keep the transactional file at the workspace root with a compact name.
-        # The final artifact path already contains a task hash and a SHA-256 name;
-        # repeating both plus a UUID can exceed the traditional Windows path limit
-        # even when the project itself can still be imported successfully.
-        temporary = self._root / f".{uuid.uuid4().hex}.tmp"
+        if self._compact_transaction_paths:
+            # External SDK roots are caller-selected and may already be deep. The
+            # final artifact path contains a task hash and a SHA-256 name, so do not
+            # repeat both plus a UUID in the transactional filename on Windows.
+            temporary = self._root / f".{uuid.uuid4().hex}.tmp"
+        else:
+            temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
         try:
             with temporary.open("xb") as output:
                 output.write(payload)

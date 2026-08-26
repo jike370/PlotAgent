@@ -205,6 +205,7 @@ class ExternalEngineCore(DesktopApplication):
         return StagedDataWorkspace(
             project_store,
             workspace_root=self.root / "external-data-v1",
+            compact_transaction_paths=True,
         )
 
     @staticmethod
