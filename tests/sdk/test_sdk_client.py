@@ -182,6 +182,8 @@ def test_sdk_prepares_and_commits_deterministic_data_for_the_renderer(
             source=source,
             field_ids=numeric,
         )
+        assert (short_root.resolve() / "external-data-v1" / "index.sqlite3").is_file()
+        assert not any((short_root.resolve() / "projects").glob("*/tmp/agent-data-v2"))
         source_handle = cast(dict[str, Any], staged["handle"])
         transformed = sdk.apply_data_operation(
             project_id,

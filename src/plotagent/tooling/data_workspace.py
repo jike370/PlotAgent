@@ -61,6 +61,7 @@ class StagedDataWorkspace:
         self,
         project: ProjectStore,
         *,
+        workspace_root: str | Path | None = None,
         clock: Callable[[], datetime] | None = None,
         ttl_seconds: int = 3_600,
     ) -> None:
@@ -69,8 +70,12 @@ class StagedDataWorkspace:
         self._project = project
         self._clock = clock or (lambda: datetime.now(UTC))
         self._ttl_seconds = ttl_seconds
-        self._root = project.tmp_root / "agent-data-v2"
-        self._root.mkdir(exist_ok=True)
+        self._root = (
+            project.tmp_root / "agent-data-v2"
+            if workspace_root is None
+            else Path(workspace_root).resolve()
+        )
+        self._root.mkdir(parents=True, exist_ok=True)
         self._writer_thread_id = threading.get_ident()
         self._connection: sqlite3.Connection | None = sqlite3.connect(
             self._root / "index.sqlite3",

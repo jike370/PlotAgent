@@ -98,6 +98,7 @@ def test_staged_handles_are_immutable_chained_task_scoped_and_restart_safe(
                 field_ids=("field:x", "field:y"),
                 provider=provider,
             )
+            assert (project.tmp_root / "agent-data-v2" / "index.sqlite3").is_file()
             assert source_handle.operation_kind == "source"
             assert source_handle.data == original.data
             assert len(source_handle.lineage) == 1

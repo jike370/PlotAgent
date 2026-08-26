@@ -17,6 +17,7 @@ from plotagent.desktop_core.application import DesktopApplication
 from plotagent.engine.contracts import EngineDataRef
 from plotagent.engine.data import ProjectEngineDataProvider
 from plotagent.sdk.errors import PlotAgentSDKError
+from plotagent.storage.project import ProjectStore
 from plotagent.tooling.data_workspace import StagedDataWorkspace
 from plotagent.tooling.data_workspace_ops import DataWorkspaceError
 
@@ -38,7 +39,7 @@ class ExternalEngineCore(DesktopApplication):
         data_ref = (
             source if isinstance(source, EngineDataRef) else EngineDataRef.model_validate(source)
         )
-        with StagedDataWorkspace(session.store) as workspace:
+        with self._external_workspace(session.store) as workspace:
             handle = workspace.stage_source(
                 task_id=self._task_id(project_id, workspace_id),
                 task_version=1,
@@ -67,7 +68,7 @@ class ExternalEngineCore(DesktopApplication):
             if not isinstance(operation, Mapping)
             else _OPERATION_ADAPTER.validate_python(dict(operation))
         )
-        with StagedDataWorkspace(session.store) as workspace:
+        with self._external_workspace(session.store) as workspace:
             handle = workspace.apply(
                 task_id=self._task_id(project_id, workspace_id),
                 task_version=1,
@@ -89,7 +90,7 @@ class ExternalEngineCore(DesktopApplication):
         handle_id: str,
     ) -> dict[str, Any]:
         session = self._external_session(project_id)
-        with StagedDataWorkspace(session.store) as workspace:
+        with self._external_workspace(session.store) as workspace:
             handle = workspace.inspect(
                 handle_id,
                 task_id=self._task_id(project_id, workspace_id),
@@ -114,7 +115,7 @@ class ExternalEngineCore(DesktopApplication):
         limit: int = 5,
     ) -> dict[str, Any]:
         session = self._external_session(project_id)
-        with StagedDataWorkspace(session.store) as workspace:
+        with self._external_workspace(session.store) as workspace:
             preview = workspace.preview(
                 handle_id,
                 task_id=self._task_id(project_id, workspace_id),
@@ -141,7 +142,7 @@ class ExternalEngineCore(DesktopApplication):
         """Publish one prepared view so a subsequent CreatePlot can bind it."""
 
         session = self._external_session(project_id)
-        with StagedDataWorkspace(session.store) as workspace:
+        with self._external_workspace(session.store) as workspace:
             handle, view = workspace.get(
                 handle_id,
                 task_id=self._task_id(project_id, workspace_id),
@@ -199,6 +200,12 @@ class ExternalEngineCore(DesktopApplication):
             code = getattr(error, "code", "PROJECT_NOT_OPEN")
             message = getattr(error, "message", "The project is not open.")
             raise PlotAgentSDKError(str(code), str(message)) from None
+
+    def _external_workspace(self, project_store: ProjectStore) -> StagedDataWorkspace:
+        return StagedDataWorkspace(
+            project_store,
+            workspace_root=self.root / "external-data-v1",
+        )
 
     @staticmethod
     def _task_id(project_id: str, workspace_id: str) -> str:
