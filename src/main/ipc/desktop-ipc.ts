@@ -42,7 +42,7 @@ import { isTaskCancellable, type TaskTracker } from '../tasks/task-state.js'
 const IMPORT_FILTERS = [
   { name: '数值数据', extensions: ['csv', 'tsv', 'txt', 'dat', 'xls', 'xlsx', 'xlsm'] },
 ]
-const PROJECT_FILTERS = [{ name: 'PlotAgent 项目', extensions: ['plotproj'] }]
+const PROJECT_FILTERS = [{ name: 'fig-agent 项目', extensions: ['plotproj'] }]
 const PRIVATE_RESULT_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
 const ARTIFACT_PATH_KEY = /^(?:artifact|preview|output)_path$/i
 const ABSOLUTE_PATH_VALUE = /^(?:[A-Za-z]:[\\/]|\\\\|file:\/\/)/i
@@ -65,7 +65,7 @@ export function safeExportDefaultPath(suggestedFileName: string, extension: 'png
   const bounded = [...sanitized].slice(0, MAX_EXPORT_FILE_STEM_CHARACTERS).join('')
     .replace(/[ .-]+$/gu, '')
   const stem = bounded.length === 0 || WINDOWS_RESERVED_FILE_STEM.test(bounded)
-    ? 'PlotAgent-export'
+    ? 'fig-agent-export'
     : bounded
   return `${stem}${suffix}`
 }
@@ -367,7 +367,7 @@ function originDiagnostic(code: string, fallback: string): string {
     VERSION_UNSUPPORTED: '当前 Origin 版本不受支持。请安装产品要求的版本后重新检测。',
     LICENSE_UNAVAILABLE: 'Origin 许可证当前不可用。请启动 Origin 完成许可证验证后重新检测。',
     CAPABILITY_MISSING: 'Origin 缺少导出所需能力。请修复 Origin 安装后重新检测。',
-    TEMPLATE_OR_FONT_MISSING: 'Origin 导出模板或字体不完整。请修复 PlotAgent 安装后重新检测。',
+    TEMPLATE_OR_FONT_MISSING: 'Origin 导出模板或字体不完整。请修复 fig-agent 安装后重新检测。',
     START_FAILURE: 'Origin 无法启动。请关闭残留的 Origin 进程后重新检测。',
   }
   return messages[code] ?? (fallback || 'Origin 环境未通过检测。请检查安装与许可证后重新检测。')
@@ -677,7 +677,7 @@ export function registerDesktopIpc({
     const owner = getWindow()
     if (owner === undefined) return invalidDataArgument('主窗口不可用。')
     const choice = await dialog.showOpenDialog(owner, {
-      title: '打开 PlotAgent 项目',
+      title: '打开 fig-agent 项目',
       properties: ['openFile'],
       filters: [...PROJECT_FILTERS],
     })

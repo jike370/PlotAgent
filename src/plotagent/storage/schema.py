@@ -404,7 +404,7 @@ def migrate_project_schema(connection: sqlite3.Connection) -> None:
     except (sqlite3.DatabaseError, TypeError, ValueError) as exc:
         raise StorageProblem(
             StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
-            "数据库没有受支持的 PlotAgent schema 标识。",
+            "数据库没有受支持的 fig-agent schema 标识。",
         ) from exc
     if rows.get("schema_kind") != "plotagent-project":
         return
@@ -498,7 +498,7 @@ def validate_schema(
     except (sqlite3.DatabaseError, TypeError, ValueError) as exc:
         raise StorageProblem(
             StorageErrorCode.SCHEMA_VERSION_UNSUPPORTED,
-            "数据库没有受支持的 PlotAgent schema 标识。",
+            "数据库没有受支持的 fig-agent schema 标识。",
         ) from exc
     if (
         rows.get("schema_kind") != expected_kind

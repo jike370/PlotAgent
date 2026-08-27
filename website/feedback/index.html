@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="提交 fig-agent Windows 测试版的问题、兼容性反馈和功能建议。" />
+    <meta name="theme-color" content="#17283e" />
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="canonical" href="https://fig-agent.cn/feedback/" />
+    <link rel="icon" href="/assets/fig-agent-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260827-2" />
+    <title>提交测试反馈｜fig-agent</title>
+  </head>
+  <body class="subpage">
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="/" aria-label="返回 fig-agent 首页">
+          <img src="/assets/fig-agent-mark.svg" width="30" height="30" alt="" />
+          <span>fig-agent</span>
+        </a>
+        <a class="header-cta" href="/">返回官网</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="subpage-hero subpage-hero--feedback" aria-labelledby="feedback-title">
+        <p class="subpage-status"><i aria-hidden="true"></i> Windows 公开测试</p>
+        <h1 id="feedback-title">提交测试反馈</h1>
+        <p>告诉我问题发生在哪一步。表单不会读取项目文件、原始数据或运行日志。</p>
+      </section>
+
+      <section class="subpage-content feedback-content" aria-labelledby="feedback-form-title">
+        <div class="feedback-guidance">
+          <h2 id="feedback-form-title">问题信息</h2>
+          <p>请不要填写 API Key、密码、原始科研数据、文件名或本机路径。需要进一步排查时，我会通过你留下的联系方式单独沟通。</p>
+        </div>
+
+        <form class="feedback-form" data-feedback-form novalidate>
+          <input type="hidden" name="appVersion" value="0.1.0" />
+          <input type="hidden" name="openedAt" value="" />
+          <div class="feedback-honeypot" aria-hidden="true">
+            <input name="company" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+          </div>
+
+          <div class="feedback-form__grid">
+            <label>
+              <span>反馈类型</span>
+              <select name="category" required>
+                <option value="bug">遇到问题</option>
+                <option value="compatibility">兼容性反馈</option>
+                <option value="suggestion">功能建议</option>
+              </select>
+            </label>
+
+            <label>
+              <span>发生环节</span>
+              <select name="stage" required>
+                <option value="install">安装或启动</option>
+                <option value="model">配置模型服务</option>
+                <option value="import">导入数据</option>
+                <option value="generate">生成或修改图表</option>
+                <option value="export-image">导出 PNG / SVG</option>
+                <option value="export-opju">导出 OPJU</option>
+                <option value="other">其他</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Windows 版本</span>
+              <select name="windowsVersion" required>
+                <option value="windows-11">Windows 11</option>
+                <option value="windows-10">Windows 10</option>
+                <option value="other">其他</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Origin 版本</span>
+              <select name="originVersion" required>
+                <option value="origin-2024">Origin 2024</option>
+                <option value="origin-2021-2023">Origin 2021—2023</option>
+                <option value="not-installed">未安装 Origin</option>
+                <option value="other">其他版本</option>
+              </select>
+            </label>
+
+            <label class="feedback-form__wide">
+              <span>模型服务</span>
+              <select name="modelProvider" required>
+                <option value="not-configured">尚未配置</option>
+                <option value="zhipu">智谱开放平台</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="bailian">阿里云百炼</option>
+                <option value="custom">自定义在线服务</option>
+                <option value="local">本地模型服务</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            <span>发生了什么</span>
+            <textarea name="description" rows="6" minlength="20" maxlength="4000" required placeholder="例如：选择 K20 热图并提交任务后，任务停在“正在生成”，重新打开项目后仍然无法继续。"></textarea>
+          </label>
+
+          <label>
+            <span>如何复现（选填）</span>
+            <textarea name="reproduction" rows="4" maxlength="3000" placeholder="按顺序写下操作步骤，不需要粘贴数据内容。"></textarea>
+          </label>
+
+          <div class="feedback-form__grid">
+            <label>
+              <span>诊断 ID（选填）</span>
+              <input name="diagnosticId" type="text" maxlength="120" placeholder="失败卡片中显示的诊断 ID" />
+            </label>
+
+            <label>
+              <span>联系方式（选填）</span>
+              <input name="contact" type="text" maxlength="160" autocomplete="off" placeholder="邮箱、微信或 QQ" />
+            </label>
+          </div>
+
+          <label class="feedback-consent">
+            <input name="consent" type="checkbox" required />
+            <span>我已阅读<a href="/privacy/" target="_blank" rel="noopener">隐私说明</a>，同意将本次填写的信息用于处理测试反馈。</span>
+          </label>
+
+          <div class="feedback-submit">
+            <button class="button button--primary" type="submit" data-feedback-submit>提交反馈</button>
+            <p data-feedback-status role="status" aria-live="polite"></p>
+          </div>
+        </form>
+
+        <section class="feedback-success" data-feedback-success hidden tabindex="-1">
+          <p class="subpage-status"><i aria-hidden="true"></i> 已收到</p>
+          <h2>反馈已提交</h2>
+          <p>感谢你帮助完善 fig-agent。若留下了联系方式，我会在需要补充信息时联系你。</p>
+          <a class="button button--secondary" href="/">返回官网</a>
+        </section>
+
+        <p class="feedback-fallback">如果表单无法提交，可发送邮件至 <a href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%200.1.0%20测试反馈">cyt_666@tju.edu.cn</a>。</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <a class="brand brand--footer" href="/">
+          <img src="/assets/fig-agent-mark.svg" width="26" height="26" alt="" />
+          <span>fig-agent</span>
+        </a>
+      </div>
+      <div class="site-footer__links">
+        <a href="/download/">下载</a>
+        <a href="/privacy/">隐私说明</a>
+      </div>
+      <p class="site-footer__copyright">© <span data-current-year>2026</span> fig-agent</p>
+    </footer>
+
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script defer src="/main.js?v=20260827-2"></script>
+    <script defer src="/feedback.js?v=20260827-1"></script>
+  </body>
+</html>

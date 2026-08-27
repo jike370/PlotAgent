@@ -1,6 +1,30 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.fig-agent.cn"
+        }
+      ],
+      "destination": "https://fig-agent.cn/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.fig-agent.cn"
+        }
+      ],
+      "destination": "https://fig-agent.cn/:path*",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

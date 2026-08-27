@@ -640,7 +640,7 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('starts with three local entry points and no account or invitation gate', async () => {
     render(<App />)
-  expect(await screen.findByRole('region', { name: '开始使用 PlotAgent' })).toBeInTheDocument()
+  expect(await screen.findByRole('region', { name: '开始使用 fig-agent' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '示例' })).toBeEnabled()
     expect(screen.getByRole('button', { name: /^导入/ })).toBeEnabled()
     expect(screen.getByRole('button', { name: '打开已有 .plotproj' })).toBeEnabled()
@@ -652,7 +652,7 @@ describe('PlotAgent real desktop workflow', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await screen.findByRole('region', { name: '开始使用 PlotAgent' })
+    await screen.findByRole('region', { name: '开始使用 fig-agent' })
     await user.click(screen.getByRole('button', { name: /任务中心/ }))
     const taskDialog = screen.getByRole('dialog', { name: '任务中心' })
     expect(within(taskDialog).getByText('当前没有进行中的任务')).toBeInTheDocument()
@@ -684,7 +684,7 @@ describe('PlotAgent real desktop workflow', () => {
     Reflect.deleteProperty(window, 'plotAgentDesktop')
     render(<App />)
 
-    expect(screen.getByText('PlotAgent · 开发预览')).toBeInTheDocument()
+    expect(screen.getByText('fig-agent · 开发预览')).toBeInTheDocument()
     const sampleButton = screen.getByRole('button', { name: '示例' })
     await waitFor(() => expect(sampleButton).toBeEnabled())
     await user.click(sampleButton)
@@ -3259,7 +3259,7 @@ describe('PlotAgent real desktop workflow', () => {
 
   it('updates task count from real task events', async () => {
     render(<App />)
-    await screen.findByRole('region', { name: '开始使用 PlotAgent' })
+    await screen.findByRole('region', { name: '开始使用 fig-agent' })
     act(() => taskListener?.({ schemaVersion: DESKTOP_API_VERSION, eventType: 'task.state', taskId: 'task:one', sequence: 1, state: 'running', progress: { completed: 1, total: 3, unit: 'plots' } }))
     expect(screen.getByRole('button', { name: /任务中心.*1/ })).toBeInTheDocument()
   })

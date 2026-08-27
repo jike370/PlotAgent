@@ -30,8 +30,8 @@ describe('desktop product IPC boundary', () => {
       .toBe('图1-X38-Y偏移堆叠线图-v11.opju')
     expect(safeExportDefaultPath('plot:workflow/one*?.opju', 'opju'))
       .toBe('plot-workflow-one.opju')
-    expect(safeExportDefaultPath('CON.opju', 'opju')).toBe('PlotAgent-export.opju')
-    expect(safeExportDefaultPath('  ...  ', 'png')).toBe('PlotAgent-export.png')
+    expect(safeExportDefaultPath('CON.opju', 'opju')).toBe('fig-agent-export.opju')
+    expect(safeExportDefaultPath('  ...  ', 'png')).toBe('fig-agent-export.png')
     expect(safeExportDefaultPath(`图1-${'长'.repeat(180)}.svg`, 'svg').length).toBeLessThanOrEqual(124)
   })
 

@@ -23,8 +23,8 @@ describe('resolveCoreLaunchSpec', () => {
   })
 
   it('uses the bundled onedir sidecar in packaged builds', () => {
-    const appPath = join('C:', 'Program Files', 'PlotAgent', 'resources', 'app.asar')
-    const resourcesPath = join('C:', 'Program Files', 'PlotAgent', 'resources')
+    const appPath = join('C:', 'Program Files', 'fig-agent', 'resources', 'app.asar')
+    const resourcesPath = join('C:', 'Program Files', 'fig-agent', 'resources')
     const spec = resolveCoreLaunchSpec({
       appPath,
       resourcesPath,

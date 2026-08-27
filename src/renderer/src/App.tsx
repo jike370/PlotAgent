@@ -12,6 +12,7 @@ import type {
   WorkflowPlotSelection,
 } from '../../shared/desktop-contract'
 import { MAX_WORKFLOW_SOURCES } from '../../shared/desktop-contract'
+import { PUBLIC_PRODUCT_NAME } from '../../shared/branding'
 import { chartCatalog, type ChartType } from './data/chartCatalog'
 import {
   disambiguateDatasetDisplayNames,
@@ -224,7 +225,7 @@ function ProviderSettings({ busy, configured, notice, motionState = 'entered', o
           <label>模型厂商<select data-autofocus aria-label="模型厂商" value={providerId} onChange={(event) => chooseProvider(event.target.value as ProviderPresetId)}>{providerPresets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}<option value="custom">自定义兼容服务</option></select></label>
           {preset ? <>
             <label>模型<select aria-label="模型" required value={modelId} onChange={(event) => setModelId(event.target.value)}>{preset.models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.availability}</option>)}</select></label>
-            <p className="provider-preset-note">{preset.description} 连接地址已由 PlotAgent 配置。</p>
+            <p className="provider-preset-note">{preset.description} 连接地址已由 {PUBLIC_PRODUCT_NAME} 配置。</p>
           </> : <>
             <label>Base URL<input type="url" required placeholder="https://provider.example/v1 或 http://127.0.0.1:8000/v1" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label>
             <label>Model ID<input type="text" required placeholder="model-id" value={modelId} onChange={(event) => setModelId(event.target.value)} /></label>
@@ -244,7 +245,7 @@ export function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>('workspace')
   const [core, setCore] = useState<CoreStatus>(api ? initialCore : {
     phase: 'failed', restartAttempt: 0,
-    error: { code: 'CORE_NOT_READY', message: '桌面桥接不可用，请从 PlotAgent 桌面应用启动。', retryable: false },
+    error: { code: 'CORE_NOT_READY', message: `桌面桥接不可用，请从 ${PUBLIC_PRODUCT_NAME} 桌面应用启动。`, retryable: false },
   })
   const [projects, setProjects] = useState<ProductProject[]>([])
   const [project, setProject] = useState<ProductProject>()
@@ -1502,7 +1503,7 @@ export function App(): React.JSX.Element {
   const exportArtifact = async (format: 'png' | 'svg' | 'opju'): Promise<void> => {
     if (!api || !project || plot === undefined) return
     if (previewMode) {
-      setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: '请在 PlotAgent 桌面应用中验证真实文件导出。' })
+      setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: `请在 ${PUBLIC_PRODUCT_NAME} 桌面应用中验证真实文件导出。` })
       return
     }
     let exportPlot = plot
@@ -1680,7 +1681,7 @@ export function App(): React.JSX.Element {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#conversation-main">跳到绘图对话</a>
-      <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>PlotAgent</span></div>
+      <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>{PUBLIC_PRODUCT_NAME}</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
           <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />

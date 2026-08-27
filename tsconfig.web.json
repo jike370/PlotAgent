@@ -18,5 +18,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src/renderer/src", "src/shared/desktop-contract.ts"]
+  "include": ["src/renderer/src", "src/shared/branding.ts", "src/shared/desktop-contract.ts"]
 }

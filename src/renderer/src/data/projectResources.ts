@@ -59,7 +59,7 @@ export const projectResources: ProjectResource[] = [
     conversations: ['温度响应批量绘图', '数据质量复核'],
     versions: [
       { id: 'manifest-v2', label: '导入清单 v2', detail: '补充 temperature 单位为 °C，原始文件未更改', createdAt: '今天 14:35', author: '你' },
-      { id: 'manifest-v1', label: '导入清单 v1', detail: '复制 4 个 CSV 到本机项目并计算校验值', createdAt: '今天 14:32', author: 'PlotAgent' },
+      { id: 'manifest-v1', label: '导入清单 v1', detail: '复制 4 个 CSV 到本机项目并计算校验值', createdAt: '今天 14:32', author: 'fig-agent' },
     ],
   },
   {
@@ -95,8 +95,8 @@ export const projectResources: ProjectResource[] = [
       { label: '按组归一化', detail: '以各 condition 的起始值为基准' },
     ],
     versions: [
-      { id: 'derived-v2', label: 'v2 当前版本', detail: '增加按 condition 归一化字段 fluorescence_norm', createdAt: '今天 14:38', author: 'PlotAgent' },
-      { id: 'derived-v1', label: 'v1', detail: '完成字段类型清洗并移除 7 个无效观测', createdAt: '今天 14:36', author: 'PlotAgent' },
+      { id: 'derived-v2', label: 'v2 当前版本', detail: '增加按 condition 归一化字段 fluorescence_norm', createdAt: '今天 14:38', author: 'fig-agent' },
+      { id: 'derived-v1', label: 'v1', detail: '完成字段类型清洗并移除 7 个无效观测', createdAt: '今天 14:36', author: 'fig-agent' },
     ],
   },
   {
@@ -116,7 +116,7 @@ export const projectResources: ProjectResource[] = [
       { label: '计算汇总统计', detail: '均值、标准差、n' },
     ],
     versions: [
-      { id: 'summary-v1', label: 'v1 当前版本', detail: '首次生成分组汇总表', createdAt: '今天 14:40', author: 'PlotAgent' },
+      { id: 'summary-v1', label: 'v1 当前版本', detail: '首次生成分组汇总表', createdAt: '今天 14:40', author: 'fig-agent' },
     ],
   },
   {
@@ -148,7 +148,7 @@ export const projectResources: ProjectResource[] = [
     versions: [
       { id: 'chart-a-v3', label: 'v3 当前版本', detail: '图例移至右上，线宽调整为 0.8 pt', createdAt: '今天 14:51', author: '你' },
       { id: 'chart-a-v2', label: 'v2', detail: '应用 Nature 双栏字体与尺寸', createdAt: '今天 14:46', author: '你' },
-      { id: 'chart-a-v1', label: 'v1', detail: '根据批次 B-024 首次生成', createdAt: '今天 14:43', author: 'PlotAgent' },
+      { id: 'chart-a-v1', label: 'v1', detail: '根据批次 B-024 首次生成', createdAt: '今天 14:43', author: 'fig-agent' },
     ],
   },
   {
@@ -163,7 +163,7 @@ export const projectResources: ProjectResource[] = [
     conversations: ['温度响应批量绘图'],
     versions: [
       { id: 'chart-b-v2', label: 'v2 当前版本', detail: '改用标准差误差线并显示 n', createdAt: '今天 14:49', author: '你' },
-      { id: 'chart-b-v1', label: 'v1', detail: '使用分组汇总数据首次生成', createdAt: '今天 14:44', author: 'PlotAgent' },
+      { id: 'chart-b-v1', label: 'v1', detail: '使用分组汇总数据首次生成', createdAt: '今天 14:44', author: 'fig-agent' },
     ],
   },
   {
@@ -194,7 +194,7 @@ export const projectResources: ProjectResource[] = [
     conversations: ['温度响应批量绘图'],
     externalPath: 'D:\\exports\\temperature_series',
     versions: [
-      { id: 'export-v1', label: '导出记录', detail: '生成 3 个 PNG 与 3 个 SVG，记录外部保存位置', createdAt: '今天 15:18', author: 'PlotAgent' },
+      { id: 'export-v1', label: '导出记录', detail: '生成 3 个 PNG 与 3 个 SVG，记录外部保存位置', createdAt: '今天 15:18', author: 'fig-agent' },
     ],
   },
 ]

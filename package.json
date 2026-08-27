@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "PlotAgent Windows desktop prototype",
+  "description": "fig-agent Windows scientific plotting desktop application",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -50,7 +50,7 @@
   },
   "build": {
     "appId": "cn.plotagent.desktop",
-    "productName": "PlotAgent",
+    "productName": "fig-agent",
     "directories": {
       "output": "release/windows/electron"
     },
@@ -72,7 +72,7 @@
         "to": "core/core-boundary.json"
       }
     ],
-    "artifactName": "PlotAgent-${version}-${arch}-setup.${ext}",
+    "artifactName": "fig-agent-${version}-${arch}-setup.${ext}",
     "win": {
       "target": [
         {

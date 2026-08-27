@@ -35,6 +35,7 @@ import type {
   TaskEvent,
   WorkflowPlotSelection,
 } from '../../../shared/desktop-contract'
+import { PUBLIC_PRODUCT_NAME } from '../../../shared/branding'
 import { MAX_WORKFLOW_SOURCES } from '../../../shared/desktop-contract'
 import { chartCatalog, type ChartType } from '../data/chartCatalog'
 import type {
@@ -265,7 +266,7 @@ function Startup({
   const offline = core.phase !== 'ready'
   return (
     <div className="conversation-scroll conversation-scroll--empty">
-      <section className="startup-empty" aria-label="开始使用 PlotAgent">
+      <section className="startup-empty" aria-label={`开始使用 ${PUBLIC_PRODUCT_NAME}`}>
         {offline && (
           <div className="startup-core-alert" role="status">
             {core.phase === 'starting' || core.phase === 'restarting'
@@ -1327,7 +1328,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       {project && notice?.kind === 'success' && exportRecord && <ProductToast key={exportRecord.exportId} notice={notice} record={exportRecord} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />}
 
       {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
-      {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? 'PlotAgent · 开发预览' : 'PlotAgent 0.1.0 · 无需账号'}</span></div>}
+      {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? `${PUBLIC_PRODUCT_NAME} · 开发预览` : `${PUBLIC_PRODUCT_NAME} 0.1.0 · 无需账号`}</span></div>}
     </main>
   )
 }

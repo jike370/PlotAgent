@@ -179,7 +179,7 @@ def _build_card(profile: EngineProfile, recipe: OriginRecipe) -> ChartKnowledgeC
     )
     evidence = ChartEvidenceRef(
         evidence_id=f"evidence:{profile_id}.origin2024",
-        title=f"Origin 官方 {recipe.official_name} 说明与 PlotAgent 审核证据",
+        title=f"Origin 官方 {recipe.official_name} 说明与 fig-agent 审核证据",
         official_url=recipe.official_help_url,
         reviewed_product_version="OriginPro-2024-10.1.0.178",
         evidence_digest=canonical_hash(recipe),

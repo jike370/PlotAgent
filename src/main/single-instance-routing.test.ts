@@ -8,7 +8,7 @@ describe('single-instance file routing', () => {
   it('extracts only supported project packages and resolves relative paths', () => {
     const cwd = resolve('C:\\workspace')
     const paths = extractOpenFileArguments([
-      'PlotAgent.exe',
+      'fig-agent.exe',
       '--inspect=9229',
       'project.plotproj',
       'notes.csv',

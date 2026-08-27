@@ -197,7 +197,7 @@ class DesktopEngineSession:
         if destination.name != action.output_name:
             raise ValueError("the authorized destination name differs from output_name")
         if destination.exists():
-            raise FileExistsError("PlotAgent does not overwrite an existing export.")
+            raise FileExistsError("fig-agent does not overwrite an existing export.")
         if not destination.parent.is_dir():
             raise FileNotFoundError("the authorized export directory does not exist")
         stored = self.documents.get(action.target, action.expected_plot_version)

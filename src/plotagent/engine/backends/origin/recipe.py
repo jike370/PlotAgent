@@ -952,7 +952,7 @@ _RECIPES = (
             "optional N subject label retained as unselected metadata",
             "Y Before",
             "Y After",
-            "PlotAgent supported subset: exactly one adjacent Y-column pair",
+            "fig-agent supported subset: exactly one adjacent Y-column pair",
         ),
         (
             "PID 206 native BoxChart plot group",

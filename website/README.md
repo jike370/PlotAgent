@@ -1,24 +1,36 @@
 # fig-agent 官网
 
-这是一个无构建依赖的静态网站，可直接部署到 Vercel Hobby。
+这是一个以静态页面为主的网站；测试反馈通过 Vercel Function 写入私有 Vercel Blob。
 
 ## 本地预览
 
-在仓库根目录运行：
+安装网站依赖后，在 `website` 目录运行：
 
 ```powershell
-python -m http.server 4173 --directory website
+pnpm install --ignore-workspace
+vercel dev --listen 4173
 ```
 
-然后访问 `http://localhost:4173/`。
+然后访问 `http://localhost:4173/`。只检查静态页面时仍可使用 Python HTTP Server，但反馈接口不会工作。
 
 ## 部署
 
-最简单的方式是在 Vercel Drop 中上传整个 `website` 目录。部署完成后，把 `fig-agent.cn` 和 `www.fig-agent.cn` 绑定到该项目。
+在 `website` 目录运行 `vercel --prod`。部署完成后，把 `fig-agent.cn` 和 `www.fig-agent.cn` 绑定到该项目。
+
+## 测试反馈
+
+- 页面：`/feedback/`
+- 接口：`/api/feedback`
+- 私有存储：Vercel Blob `fig-agent-feedback`，香港区域
+- 数据路径：`feedback/YYYY-MM-DD/<feedback-id>.json`
+
+表单只接收问题类型、发生环节、环境版本、描述、复现步骤、诊断 ID 和可选联系方式，不接收文件或运行日志。API 会限制字段与长度，并拒绝疑似 API Key、密码或凭据。
+
+在 Vercel 项目的 Storage 页面打开 `fig-agent-feedback` 即可查看反馈。问题处理完成后删除记录，任何记录最长保留 180 天。
 
 ## 产品演示
 
-首页使用真实界面素材组成三幕循环：自然语言输入特写、PlotAgent 绘图结果、Origin 原生结果。
+首页使用真实界面素材组成三幕循环：自然语言输入特写、fig-agent 绘图结果、Origin 原生结果。
 
 - `assets/demo/plotagent-input-context.png`
 - `assets/demo/plotagent-input-focus.png`
@@ -29,7 +41,7 @@ python -m http.server 4173 --directory website
 
 ## 34 图模板图库
 
-`assets/templates/gallery/manifest.json` 记录 34 个图类的名称、Origin 官方模板和样例数据来源。每个图类都包含 PlotAgent 实际生成的两张预览：
+`assets/templates/gallery/manifest.json` 记录 34 个图类的名称、Origin 官方模板和样例数据来源。每个图类都包含 fig-agent 实际生成的两张预览：
 
 - `<图类 ID>-origin.webp`
 - `<图类 ID>-matplotlib.webp`

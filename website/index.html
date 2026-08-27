@@ -31,8 +31,11 @@
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "CNY",
-          "availability": "https://schema.org/PreOrder"
-        }
+          "availability": "https://schema.org/InStock"
+        },
+        "softwareVersion": "0.1.0",
+        "downloadUrl": "https://fig-agent.cn/download/",
+        "fileSize": "196364876"
       }
     </script>
   </head>
@@ -55,9 +58,9 @@
 
         <a
           class="button button--primary header-action"
-          href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+          href="/download/"
         >
-          申请内测
+          下载测试版
         </a>
       </div>
     </header>
@@ -76,9 +79,9 @@
             <div class="hero__actions">
               <a
                 class="button button--primary"
-                href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+                href="/download/"
               >
-                申请免费内测
+                免费下载
               </a>
               <a class="button button--secondary" href="#workflow">查看工作原理</a>
             </div>
@@ -98,7 +101,7 @@
             <div
               class="hero-sequence"
               role="img"
-              aria-label="从自然语言需求，到 PlotAgent 绘图结果，再到 Origin 原生图的三步演示"
+              aria-label="从自然语言需求，到 fig-agent 绘图结果，再到 Origin 原生图的三步演示"
             >
               <div class="hero-sequence__frame hero-sequence__frame--input">
                 <img
@@ -118,17 +121,17 @@
               </div>
               <div class="hero-sequence__frame hero-sequence__frame--agent">
                 <img
-                  src="/assets/demo/plotagent-agent-result.png"
-                  width="1442"
-                  height="923"
+                  src="/assets/demo/plotagent-agent-result-v2.png"
+                  width="1440"
+                  height="1031"
                   alt=""
                 />
               </div>
               <div class="hero-sequence__frame hero-sequence__frame--origin">
                 <img
-                  src="/assets/demo/plotagent-origin-result.png"
-                  width="1127"
-                  height="892"
+                  src="/assets/demo/plotagent-origin-result-v2.png"
+                  width="1139"
+                  height="879"
                   alt=""
                 />
               </div>
@@ -200,7 +203,7 @@
             <h2 id="faq-title">常见问题</h2>
             <p>
               没有找到答案？
-              <a href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20使用问题">联系开发者</a>
+              <a href="/feedback/">提交测试反馈</a>
             </p>
           </div>
 
@@ -326,17 +329,17 @@
       <section class="section release" id="release" aria-labelledby="release-title">
         <div class="shell release__inner">
           <div class="release__copy">
-            <p class="release__status"><span></span>公开测试版尚未发布</p>
-            <h2 id="release-title">安装包正在准备</h2>
-            <p>产品将免费提供测试。发布后，下载页会显示版本号、文件大小、SHA-256 和下载地址。</p>
+            <p class="release__status"><span></span>Windows 测试版已发布</p>
+            <h2 id="release-title">下载 fig-agent 0.1.0</h2>
+            <p>适用于 Windows 11 x64，当前免费提供测试。下载页包含文件大小、SHA-256 和安装提示。</p>
             <div class="release__actions">
               <a
                 class="button button--light"
-                href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%20内测申请"
+                href="/download/"
               >
-                申请免费内测
+                查看下载信息
               </a>
-              <a class="text-link text-link--light" href="/download/">查看发布进度</a>
+              <a class="text-link text-link--light" href="/feedback/">提交测试反馈</a>
             </div>
           </div>
 
@@ -359,7 +362,8 @@
         </div>
         <p>原始数据直接导入，一句话完成批量绘图和 OPJU 修改。</p>
         <nav aria-label="页脚导航">
-          <a href="/download/">发布进度</a>
+          <a href="/download/">下载</a>
+          <a href="/feedback/">测试反馈</a>
           <a href="/privacy/">隐私说明</a>
           <a href="mailto:cyt_666@tju.edu.cn">联系开发者</a>
         </nav>

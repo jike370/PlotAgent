@@ -386,7 +386,7 @@ class PlotAgentSDK:
         request_id: str | None = None,
     ) -> dict[str, JsonValue]:
         if self._closed:
-            raise PlotAgentSDKError("SDK_CLOSED", "The PlotAgent SDK is closed.")
+            raise PlotAgentSDKError("SDK_CLOSED", "The fig-agent SDK is closed.")
         context = RpcContext(
             request_id=request_id or "req:sdk." + uuid.uuid4().hex,
             tasks=self._tasks,
@@ -400,7 +400,7 @@ class PlotAgentSDK:
         if not isinstance(result, dict):
             raise PlotAgentSDKError(
                 "SDK_RESPONSE_INVALID",
-                "The PlotAgent engine returned an invalid response.",
+                "The fig-agent engine returned an invalid response.",
             )
         return result
 
@@ -411,7 +411,7 @@ class PlotAgentSDK:
         **kwargs: object,
     ) -> dict[str, JsonValue]:
         if self._closed:
-            raise PlotAgentSDKError("SDK_CLOSED", "The PlotAgent SDK is closed.")
+            raise PlotAgentSDKError("SDK_CLOSED", "The fig-agent SDK is closed.")
         try:
             with self._lock:
                 result = callback(*args, **kwargs)

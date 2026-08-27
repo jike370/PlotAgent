@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 
 import type { CoreStatus } from '../../../shared/desktop-contract'
+import { PUBLIC_PRODUCT_NAME } from '../../../shared/branding'
 import type { ProductProject } from '../data/productState'
 
 interface SidebarProps {
@@ -189,7 +190,7 @@ export function Sidebar({
     <aside className="sidebar" aria-label="项目与对话">
       <div className="sidebar__brand">
         <span className="brand-mark" aria-hidden="true"><FlaskConical size={17} strokeWidth={1.9} /></span>
-        <span className="brand-wordmark"><strong>PlotAgent</strong></span>
+        <span className="brand-wordmark"><strong>{PUBLIC_PRODUCT_NAME}</strong></span>
         <span className="prototype-badge">内测</span>
       </div>
 

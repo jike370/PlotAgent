@@ -52,12 +52,12 @@ def create_server(settings: McpServerSettings) -> MCPServer[PlotAgentSDK]:
 
     server: MCPServer[PlotAgentSDK] = MCPServer(
         "plotagent-engine",
-        title="PlotAgent Scientific Plotting Engine",
+        title="fig-agent Scientific Plotting Engine",
         description=(
             "Inspect scientific data and create, edit, version and export native plots."
         ),
         instructions=(
-            "You are the planning Agent; PlotAgent is the deterministic plotting engine. "
+            "You are the planning Agent; fig-agent is the deterministic plotting engine. "
             "Inspect data and chart capabilities before constructing actions. Never invent "
             "field, project or plot identifiers. Validate an action before execution when "
             "the user has not already confirmed the exact bindings and changes. On a version "

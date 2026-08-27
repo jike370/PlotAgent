@@ -712,7 +712,7 @@ class DesktopWorkflowService:
             "profile_contracts": hints,
         }
         return (
-            "你是 PlotAgent 的任务编排 Agent。根据 workflow_context 生成一个 TaskDraft。"
+            "你是 fig-agent 的任务编排 Agent。根据 workflow_context 生成一个 TaskDraft。"
             "只能使用上下文中的别名、允许的图类、封闭数据操作和视觉动作；"
             "不得输出代码、SQL、文件路径或 renderer 参数。"
             "不要猜测数据内容；需要事实时调用只读检查工具。"

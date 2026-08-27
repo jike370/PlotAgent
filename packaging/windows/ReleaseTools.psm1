@@ -187,7 +187,7 @@ function New-ReleaseManifest {
 
     $manifest = [ordered]@{
         format_version = 1
-        product = 'PlotAgent'
+        product = 'fig-agent'
         version = $Version
         git_commit = $GitCommit
         source_dirty = $SourceDirty
@@ -216,7 +216,7 @@ function Get-ReleaseArtifactIntegrityIssues {
     )
 
     $issues = [Collections.Generic.List[string]]::new()
-    if ($Manifest.format_version -ne 1 -or $Manifest.product -ne 'PlotAgent') {
+    if ($Manifest.format_version -ne 1 -or $Manifest.product -ne 'fig-agent') {
         $issues.Add('manifest: unsupported format or product')
         return @($issues)
     }
@@ -391,7 +391,10 @@ function Get-ElectronBuilderConfigurationIssues {
     if ($PackageJson.build.directories.output -ne 'release/windows/electron') {
         $issues.Add('electron-builder output must stay under release/windows/electron')
     }
-    if ($PackageJson.build.artifactName -ne 'PlotAgent-${version}-${arch}-setup.${ext}') {
+    if ($PackageJson.build.productName -ne 'fig-agent') {
+        $issues.Add('electron-builder product name is not the public fig-agent brand')
+    }
+    if ($PackageJson.build.artifactName -ne 'fig-agent-${version}-${arch}-setup.${ext}') {
         $issues.Add('electron-builder artifact name is not the fixed Windows release name')
     }
     $allowedFiles = @('out/**/*', 'package.json')

@@ -10,7 +10,7 @@ def test_packaged_matrix_targets_only_the_frozen_release_layout() -> None:
         / "windows"
         / "electron"
         / "win-unpacked"
-        / "PlotAgent.exe"
+        / "fig-agent.exe"
     )
     assert (
         packaged.DESKTOP_EXECUTABLE.parent

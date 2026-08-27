@@ -58,7 +58,7 @@ def create_app(
         yield
 
     app = FastAPI(
-        title="PlotAgent Beta Control Plane",
+        title="fig-agent Beta Control Plane",
         version="1",
         debug=False,
         lifespan=lifespan,

@@ -1,6 +1,6 @@
-# PlotAgent
+# fig-agent
 
-面向通用科研用户的对话式绘图 Agent。用户上传数据并明确选择图形，Agent 生成结果、接受自然语言修改，并导出 PNG、SVG 和 Origin `.opju` 文件。
+面向通用科研用户的对话式绘图 Agent。用户上传数据并明确选择图形，Agent 生成结果、接受自然语言修改，并导出 PNG、SVG 和 Origin `.opju` 文件。内部 Python 包、协议与历史工程标识继续使用 `plotagent`，以保持兼容。
 
 当前仓库包含一个可运行的 Windows 桌面应用、34 张正式单图、durable Agent task/TaskIntent/TaskPlan 编排、Pi 模型运行时、Matplotlib 预览/PNG/SVG，以及受控 Origin 原生 OPJU 自动化。界面覆盖项目、数据导入、对话、批量任务、字段确认、聚焦编辑、撤销/重做、任务状态和 Origin 不可用降级；不提供组合图或多面板自由编排。
 
@@ -76,13 +76,13 @@ pnpm install --frozen-lockfile
 $certificatePassword = Read-Host "PFX password" -AsSecureString
 .\scripts\release-windows.ps1 `
   -Sign `
-  -CertificatePath C:\authorized\plotagent-code-signing.pfx `
+  -CertificatePath C:\authorized\fig-agent-code-signing.pfx `
   -CertificatePassword $certificatePassword `
   -TimestampServer https://authorized.example/timestamp
 
 .\scripts\verify-windows-release.ps1 `
   -ManifestPath .\release\windows\publish\release-manifest.json `
-  -AllowedPublisher "CN=Approved PlotAgent Publisher, O=Example"
+  -AllowedPublisher "CN=Approved fig-agent Publisher, O=Example"
 ```
 
 签名入口要求 Git worktree 干净；unsigned development manifest 会如实记录 `source_dirty`，不能作为 RC 来源声明。

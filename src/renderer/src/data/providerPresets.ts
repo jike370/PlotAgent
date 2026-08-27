@@ -19,7 +19,7 @@ export const providerPresets: ReadonlyArray<ProviderPreset> = Object.freeze([
     id: 'zhipu',
     name: '智谱开放平台',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    description: '官方免费模型，适合先完成 PlotAgent 工具调用检查。',
+    description: '官方免费模型，适合先完成 fig-agent 工具调用检查。',
     models: [
       { id: 'glm-4.7-flash', name: 'GLM-4.7-Flash', availability: '免费' },
     ],

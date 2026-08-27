@@ -142,7 +142,7 @@ def register_domain_tools(gateway: ToolGateway) -> tuple[str, ...]:
         (
             "tool:list_chart_catalog",
             "list_chart_catalog",
-            "List PlotAgent's reviewed chart profiles and their public field-role contracts.",
+            "List fig-agent's reviewed chart profiles and their public field-role contracts.",
             ListChartCatalogInput,
             ListChartCatalogOutput,
             _list_catalog,

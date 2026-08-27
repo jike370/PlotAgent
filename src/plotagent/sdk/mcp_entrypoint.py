@@ -9,7 +9,7 @@ def main() -> None:
     except ModuleNotFoundError as error:
         if error.name == "mcp":
             raise SystemExit(
-                "PlotAgent MCP is optional. Install it with: pip install 'plotagent[mcp]'"
+                "fig-agent MCP is optional. Install it with: pip install 'plotagent[mcp]'"
             ) from None
         raise
     create_server(McpServerSettings.from_environment()).run(transport="stdio")

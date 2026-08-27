@@ -21,7 +21,7 @@ RELEASE_ROOT = REPOSITORY / "release" / "windows"
 PUBLISH_ROOT = RELEASE_ROOT / "publish"
 MANIFEST_PATH = PUBLISH_ROOT / "release-manifest.json"
 UNPACKED_ROOT = RELEASE_ROOT / "electron" / "win-unpacked"
-DESKTOP_EXECUTABLE = UNPACKED_ROOT / "PlotAgent.exe"
+DESKTOP_EXECUTABLE = UNPACKED_ROOT / "fig-agent.exe"
 CORE_EXECUTABLE = (
     UNPACKED_ROOT
     / "resources"
@@ -454,6 +454,7 @@ def _desktop_case(output: Path, configured_origin: Path) -> PackagedResult:
     try:
         deadline = time.monotonic() + 30
         window: int | None = None
+        # PlotAgent remains the compatibility storage directory for existing installs.
         catalog = case_root / "appdata" / "local" / "PlotAgent" / "catalog.sqlite3"
         while time.monotonic() < deadline:
             if process.poll() is not None:

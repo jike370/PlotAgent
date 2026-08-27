@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } from 'electron'
@@ -20,6 +21,16 @@ import { registerResourceProtocol } from './security/resource-protocol.js'
 import { ensureBundledSampleSource } from './sample-source.js'
 import { TaskTracker } from './tasks/task-state.js'
 import { IPC_CHANNELS } from '../shared/desktop-contract.js'
+import {
+  LEGACY_USER_DATA_DIRECTORY_NAME,
+  PUBLIC_PRODUCT_NAME,
+} from '../shared/branding.js'
+
+if (app.isPackaged) {
+  const legacyUserDataPath = join(app.getPath('appData'), LEGACY_USER_DATA_DIRECTORY_NAME)
+  mkdirSync(legacyUserDataPath, { recursive: true })
+  app.setPath('userData', legacyUserDataPath)
+}
 
 let mainWindow: BrowserWindow | undefined
 let agentRuntimeDiagnosticWriter: AgentRuntimeDiagnosticWriter | undefined
@@ -82,7 +93,7 @@ function createWindow(): BrowserWindow {
     minHeight: 720,
     show: false,
     backgroundColor: '#ffffff',
-    title: 'PlotAgent',
+    title: PUBLIC_PRODUCT_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#f4f7f5',

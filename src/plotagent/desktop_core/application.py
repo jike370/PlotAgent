@@ -147,6 +147,9 @@ class DesktopApplication:
 
     @staticmethod
     def _default_root() -> Path:
+        # Preserve the established on-disk location after the public product
+        # name changes to fig-agent. Renaming this directory would make existing
+        # projects and provider settings appear to be missing.
         local_app_data = os.environ.get("LOCALAPPDATA")
         if local_app_data:
             return Path(local_app_data).resolve() / "PlotAgent"
