@@ -1,4 +1,4 @@
-/* global document, fetch, window */
+/* global document, fetch */
 
 const gallery = document.querySelector('[data-template-gallery]');
 const backendButtons = Array.from(document.querySelectorAll('[data-gallery-backend]'));
@@ -116,31 +116,6 @@ if (dialog) {
     if (event.target === dialog) dialog.close();
   });
   dialog.addEventListener('close', () => lastGalleryTrigger?.focus());
-}
-
-const demo = document.querySelector('[data-demo-player]');
-if (demo) {
-  const video = demo.querySelector('video');
-  const toggle = demo.querySelector('[data-demo-toggle]');
-  const icon = toggle.querySelector('[aria-hidden]');
-  const label = toggle.querySelector('.sr-only');
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-  const updateDemoControl = () => {
-    const paused = video.paused;
-    toggle.setAttribute('aria-pressed', String(paused));
-    icon.textContent = paused ? '▶' : 'Ⅱ';
-    label.textContent = paused ? '播放演示' : '暂停演示';
-  };
-
-  if (reducedMotion.matches) video.pause();
-  toggle.addEventListener('click', () => {
-    if (video.paused) video.play();
-    else video.pause();
-  });
-  video.addEventListener('play', updateDemoControl);
-  video.addEventListener('pause', updateDemoControl);
-  updateDemoControl();
 }
 
 for (const year of document.querySelectorAll('[data-current-year]')) {

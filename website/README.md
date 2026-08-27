@@ -18,13 +18,14 @@ python -m http.server 4173 --directory website
 
 ## 产品演示
 
-首页使用约 20 秒的真实工作流循环，覆盖多文件导入、自然语言绘图、任务确认、结果生成、OPJU 导出，以及在 OriginPro 中打开图和工作表：
+首页使用真实界面素材组成三幕循环：自然语言输入特写、PlotAgent 绘图结果、Origin 原生结果。
 
-- `assets/demo/plotagent-workflow.webm`
-- `assets/demo/plotagent-workflow.mp4`
-- `assets/demo/plotagent-workflow-poster.webp`
+- `assets/demo/plotagent-input-context.png`
+- `assets/demo/plotagent-input-focus.png`
+- `assets/demo/plotagent-agent-result.png`
+- `assets/demo/plotagent-origin-result.png`
 
-视频默认静音循环播放，提供暂停按钮；系统启用“减少动态效果”时仅显示封面。
+三幕通过 CSS 淡化转场循环播放；系统启用“减少动态效果”时仅显示第一幕。
 
 ## 34 图模板图库
 
