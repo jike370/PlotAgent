@@ -32,10 +32,10 @@ vercel dev --listen 4173
 
 首页使用真实界面素材组成三幕循环：自然语言输入特写、fig-agent 绘图结果、Origin 原生结果。
 
-- `assets/demo/plotagent-input-context.png`
+- `assets/demo/figagent-input-context.jpg`
 - `assets/demo/plotagent-input-focus.png`
-- `assets/demo/plotagent-agent-result.png`
-- `assets/demo/plotagent-origin-result.png`
+- `assets/demo/figagent-agent-result.jpg`
+- `assets/demo/plotagent-origin-result-v2.png`
 
 三幕通过 CSS 淡化转场循环播放；系统启用“减少动态效果”时仅显示第一幕。
 
