@@ -143,6 +143,12 @@ a {
   justify-self: end;
 }
 
+.windows-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
 .button {
   display: inline-flex;
   min-height: 44px;
@@ -172,6 +178,39 @@ a {
 
 .button--primary:hover {
   background: #233651;
+}
+
+.button--windows {
+  gap: 9px;
+}
+
+.button--windows-download {
+  min-height: 58px;
+  display: inline-grid;
+  grid-template-columns: 24px auto;
+  grid-template-rows: auto auto;
+  column-gap: 11px;
+  align-content: center;
+  padding: 8px 18px;
+}
+
+.button--windows-download .windows-icon {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 22px;
+  height: 22px;
+}
+
+.button--windows-download strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.button--windows-download small {
+  color: #c9d3e1;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .button--secondary {
@@ -213,7 +252,6 @@ a {
   gap: 68px;
 }
 
-.hero__category,
 .section-label {
   margin: 0 0 18px;
   color: var(--blue);
@@ -1138,11 +1176,6 @@ a {
     gap: 46px;
   }
 
-  .hero__category {
-    margin-bottom: 14px;
-    font-size: 12px;
-  }
-
   .hero h1 {
     font-size: clamp(2.1rem, 10vw, 2.8rem);
     letter-spacing: -0.06em;
@@ -1298,6 +1331,10 @@ a {
   .brand img {
     width: 25px;
     height: 25px;
+  }
+
+  .button--windows.header-action span {
+    display: none;
   }
 
   .hero__actions .button {

@@ -78,6 +78,7 @@ const desktop = {
     ipcRenderer.invoke(IPC_CHANNELS.providerConfigure, input),
   clearProvider: () => ipcRenderer.invoke(IPC_CHANNELS.providerClear),
   getOriginStatus: () => ipcRenderer.invoke(IPC_CHANNELS.originStatus),
+  selectOriginExecutable: () => ipcRenderer.invoke(IPC_CHANNELS.originSelect),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.projectList),
   createProject: (input: ProjectCreateInput) => ipcRenderer.invoke(IPC_CHANNELS.projectCreate, input),
   renameProject: (input: ProjectRenameInput) => ipcRenderer.invoke(IPC_CHANNELS.projectRename, input),

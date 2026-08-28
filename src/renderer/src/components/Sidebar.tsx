@@ -29,7 +29,8 @@ interface SidebarProps {
   core: CoreStatus
   agentConfigured: boolean
   taskCount: number
-  originStatus: 'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'
+  originStatus: OriginUiStatus
+  originDisplayName?: string
   busyAction?: string
   previewMode?: boolean
   onProjectChange: (projectId: string) => void
@@ -38,8 +39,10 @@ interface SidebarProps {
   onDeleteProject: (projectId: string) => Promise<boolean>
   onTaskCenter: () => void
   onConfigureAgent: () => void
-  onRefreshOrigin: () => void
+  onSelectOrigin: () => void
 }
+
+export type OriginUiStatus = 'unknown' | 'checking' | 'available' | 'missing' | 'unavailable' | 'incompatible' | 'exporting'
 
 interface ProjectOverlay {
   projectId: string
@@ -68,10 +71,12 @@ function lastOpenedLabel(value: string | undefined): string {
 }
 
 const originLabels = {
-  unknown: ['Origin 尚未检测', '重新检测'],
+  unknown: ['Origin 尚未检测', '选择程序'],
   checking: ['正在检测 Origin', '请稍候'],
-  available: ['Origin 可用', '重新检测'],
-  unavailable: ['Origin 不可用', '重新检测'],
+  available: ['Origin 可用', '更改'],
+  missing: ['未找到 Origin', '选择程序'],
+  unavailable: ['Origin 不可用', '重新选择'],
+  incompatible: ['Origin 版本不兼容', '不兼容'],
   exporting: ['正在调用 Origin', '请勿关闭应用'],
 } as const
 
@@ -82,6 +87,7 @@ export function Sidebar({
   agentConfigured,
   taskCount,
   originStatus,
+  originDisplayName,
   busyAction,
   previewMode = false,
   onProjectChange,
@@ -90,7 +96,7 @@ export function Sidebar({
   onDeleteProject,
   onTaskCenter,
   onConfigureAgent,
-  onRefreshOrigin,
+  onSelectOrigin,
 }: SidebarProps): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [pinnedProjectIds, setPinnedProjectIds] = useState(initialPinnedProjects)
@@ -98,7 +104,10 @@ export function Sidebar({
   const [hoverInfo, setHoverInfo] = useState<ProjectOverlay>()
   const [renaming, setRenaming] = useState<{ projectId: string; name: string }>()
   const hoverTimer = useRef<number | undefined>(undefined)
-  const origin = originLabels[originStatus]
+  const fallbackOrigin = originLabels[originStatus]
+  const origin = originDisplayName && ['available', 'incompatible', 'exporting'].includes(originStatus)
+    ? [originDisplayName, fallbackOrigin[1]] as const
+    : fallbackOrigin
   const visibleProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
     const filtered = normalizedQuery
@@ -112,7 +121,7 @@ export function Sidebar({
     : originStatus === 'checking' || originStatus === 'exporting' ? LoaderCircle : TriangleAlert
   const originActionLabel = originStatus === 'checking' || originStatus === 'exporting'
     ? origin[0]
-    : `${origin[0]}，重新检测`
+    : `${origin[0]}，选择 Origin 程序`
   const menuProject = menu ? projects.find((item) => item.projectId === menu.projectId) : undefined
   const hoverProject = hoverInfo ? projects.find((item) => item.projectId === hoverInfo.projectId) : undefined
 
@@ -315,11 +324,11 @@ export function Sidebar({
           <span>模型服务</span>
           <span className="footer-meta">{agentConfigured ? '已配置' : '未配置'}</span>
         </button>
-        <button className={`origin-row origin-row--${originStatus}`} type="button" onClick={onRefreshOrigin} disabled={originStatus === 'checking' || originStatus === 'exporting'} aria-label={originActionLabel}>
+        <button className={`origin-row origin-row--${originStatus}`} type="button" onClick={onSelectOrigin} disabled={originStatus === 'checking' || originStatus === 'exporting'} aria-label={originActionLabel}>
           <OriginIcon className={originStatus === 'checking' || originStatus === 'exporting' ? 'spin' : undefined} size={16} aria-hidden="true" />
           <span>{origin[0]}</span><span className="footer-meta">{origin[1]}</span>
         </button>
-        <div className="build-row"><span>{previewMode ? '界面预览' : '本地单实例'}</span><span className="footer-meta">{previewMode ? '内存示例' : '0.1.0 内测'}</span></div>
+        <div className="build-row"><span>{previewMode ? '界面预览' : '本地单实例'}</span><span className="footer-meta">{previewMode ? '内存示例' : '0.1.1 内测'}</span></div>
       </div>
     </aside>
   )

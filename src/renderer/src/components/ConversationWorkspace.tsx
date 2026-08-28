@@ -119,11 +119,11 @@ interface ConversationWorkspaceProps {
   onRunWorkflowPlan: (planId: string) => void
   onResumeWorkflowPlan: (planId: string) => void
   onConfigureAgent: () => void
-  onExport: (format: 'png' | 'svg' | 'opju') => void
+  onExport: (plot: ProductPlot, format: 'png' | 'svg' | 'opju') => void
   onOpenExport: (resourceId: string) => void
   onRevealExport: (resourceId: string) => void
   onCreateBatch: () => void
-  onOpenFocus: () => void
+  onOpenFocus: (plot: ProductPlot) => void
   onOpenTasks: () => void
   onCancelTask: (taskId: string) => void
   onAcceptPartialTask: (taskId: string) => void
@@ -621,7 +621,8 @@ function MappingObject({
 function PlotObject({
   plot,
   plotNumber,
-  interactive,
+  active,
+  latest,
   className,
   busyAction,
   previewMode,
@@ -631,29 +632,31 @@ function PlotObject({
   onCreateBatch,
 }: Pick<ConversationWorkspaceProps, 'plot' | 'busyAction' | 'previewMode' | 'onExport' | 'onOpenLibrary' | 'onOpenFocus' | 'onCreateBatch'> & {
   plotNumber: number
-  interactive: boolean
+  active: boolean
+  latest: boolean
   className?: string
 }): React.JSX.Element {
   if (!plot) return <div />
   const plotChart = chartCatalog.find((item) => item.id === plot.chartId)
+  const exportBusy = busyAction?.startsWith('export-') ?? false
   return (
     <section className={`object-block product-plot-object${className ? ` ${className}` : ''}`} aria-label={`@图${plotNumber} ${plotChart?.name ?? plot.chartId} v${plot.plotVersion}`}>
       <header className="object-header">
         <span className="object-icon object-icon--batch"><FileChartColumn size={17} /></span>
         <div><h3>@图{plotNumber} · {plotChart?.name ?? plot.chartId} · v{plot.plotVersion}</h3></div>
-        <span className={interactive ? 'status-label status-label--success' : 'status-label'}><Check size={13} />{interactive ? (previewMode ? '界面预览' : '已渲染') : '历史版本'}</span>
+        <span className={latest ? 'status-label status-label--success' : 'status-label'}><Check size={13} />{latest ? (previewMode ? '界面预览' : '已渲染') : '历史版本'}</span>
       </header>
       <div className="product-preview">
         {plot.preview?.url ? <img key={`${plot.plotId}:${plot.plotVersion}:${plot.preview.resourceId}`} src={plot.preview.url} alt={`${plotChart?.name ?? plot.chartId} ${previewMode ? '界面预览' : '真实渲染预览'}`} /> : <div className="preview-pending"><LoaderCircle className="spin" size={20} /><span>等待受控预览资源</span></div>}
       </div>
-      {interactive && <footer className="plot-actions">
-        <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>
-        <button type="button" onClick={onOpenFocus}><Settings2 size={15} />编辑图形</button>
-        <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>
+      {latest && <footer className="plot-actions">
+        {active && <button type="button" onClick={onOpenLibrary}><Library size={15} />选择其他图形</button>}
+        <button type="button" onClick={() => onOpenFocus(plot)}><Settings2 size={15} />编辑图形</button>
+        {active && <button type="button" onClick={onCreateBatch}><Images size={15} />创建批次</button>}
         <span />
         {(['png', 'svg', 'opju'] as const).map((format) => (
-          <button key={format} type="button" onClick={() => onExport(format)} disabled={busyAction === `export-${format}`}>
-            {busyAction === `export-${format}` ? <LoaderCircle className="spin" size={15} /> : <Download size={15} />}导出 {format.toLocaleUpperCase('en-US')}
+          <button key={format} type="button" onClick={() => onExport(plot, format)} disabled={exportBusy}>
+            {busyAction === `export-${format}:${plot.plotId}` ? <LoaderCircle className="spin" size={15} /> : <Download size={15} />}导出 {format.toLocaleUpperCase('en-US')}
           </button>
         ))}
       </footer>}
@@ -1043,7 +1046,7 @@ function ActivityMessage({
   else if (busyAction === 'plot-patch') label = task?.state === 'committing' ? '正在保存新版本…' : '正在验证图形修改…'
   else if (busyAction === 'undo') label = '正在创建撤销版本…'
   else if (busyAction === 'redo') label = '正在创建重做版本…'
-  else if (busyAction === 'export-opju') label = task?.state === 'committing'
+  else if (busyAction.startsWith('export-opju')) label = task?.state === 'committing'
     ? 'OPJU 已生成，正在完成保存…'
     : '正在生成并验证 OPJU…'
   else if (busyAction.startsWith('export-')) label = '正在生成导出文件…'
@@ -1140,6 +1143,13 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       return candidate ? [{ reference, plot: candidate }] : []
     })
   }, [plot, plotReferences, props.projectPlots])
+  const latestPlotVersions = useMemo(() => {
+    const latestById = new Map<string, number>()
+    for (const candidate of [...props.projectPlots, ...(plot ? [plot] : [])]) {
+      latestById.set(candidate.plotId, Math.max(latestById.get(candidate.plotId) ?? 0, candidate.plotVersion))
+    }
+    return latestById
+  }, [plot, props.projectPlots])
 
   const updateTimeline = useCallback((update: (current: ConversationTimelineItem[]) => ConversationTimelineItem[]): void => {
     if (!project) return
@@ -1313,7 +1323,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               const motionClass = hydratedTimelineIds.has(item.id) ? undefined : 'motion-timeline-enter'
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} animate={item.role === 'agent' && motionClass !== undefined} />
               if (item.type === 'plan') return <AgentMessage className={motionClass} key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={() => setPlanRevisionOpen(true)} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
-              if (item.type === 'plot') return <PlotObject className={motionClass} key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} interactive={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} />
+              if (item.type === 'plot') return <PlotObject className={motionClass} key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} active={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} latest={latestPlotVersions.get(item.plot.plotId) === item.plot.plotVersion} />
               return <ExportResult className={motionClass} key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
@@ -1328,7 +1338,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       {project && notice?.kind === 'success' && exportRecord && <ProductToast key={exportRecord.exportId} notice={notice} record={exportRecord} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />}
 
       {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
-      {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? `${PUBLIC_PRODUCT_NAME} · 开发预览` : `${PUBLIC_PRODUCT_NAME} 0.1.0 · 无需账号`}</span></div>}
+      {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? `${PUBLIC_PRODUCT_NAME} · 开发预览` : `${PUBLIC_PRODUCT_NAME} 0.1.1 · 无需账号`}</span></div>}
     </main>
   )
 }

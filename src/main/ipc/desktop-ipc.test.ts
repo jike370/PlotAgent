@@ -14,6 +14,7 @@ import {
   ORIGIN_EXPORT_REQUEST_TIMEOUT_MS,
   ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
   preflightOriginExport,
+  requestOriginConfigure,
   requestOriginExport,
   requestPlotList,
   readImportClarification,
@@ -145,7 +146,7 @@ describe('desktop product IPC boundary', () => {
       ok: false,
       error: {
         code: 'ORIGIN_UNAVAILABLE',
-        message: '未找到受支持的 Origin。请安装 Origin，或将便携版放置于 D:\\origin 后重新检测。',
+        message: '未找到已配置的 Origin 程序。请选择本机 OriginPro 2024 的主程序（如 Origin64.exe）。',
         retryable: false,
       },
     })
@@ -229,6 +230,136 @@ describe('desktop product IPC boundary', () => {
         retryable: false,
       },
     })
+  })
+
+  it('reports a detected unsupported Origin without exposing its local path', async () => {
+    expect(normalizeOriginStatus({
+      status: 'error',
+      target_path: 'D:\\private\\probe.opju',
+      environment: {
+        display_name: 'OriginPro 2025b',
+        display_version: '10.2.5',
+        install_dir: 'G:\\origin\\ORIGIN1',
+        executable_path: 'G:\\origin\\ORIGIN1\\Origin64.exe',
+        discovery_source: 'configured',
+      },
+      error: {
+        code: 'VERSION_UNSUPPORTED',
+        message: 'unsupported',
+        retryable: false,
+      },
+    })).toEqual({
+      status: 'error',
+      display_name: 'OriginPro 2025b',
+      display_version: '10.2.5',
+      discovery_source: 'configured',
+      error: {
+        code: 'VERSION_UNSUPPORTED',
+        message: '已检测到 OriginPro 2025b（10.2.5），fig-agent 目前仅支持 OriginPro 2024。',
+        retryable: false,
+      },
+    })
+  })
+
+  it('sends the user-selected executable only to the trusted Core configure method', async () => {
+    const request = vi.fn(async () => ({
+      status: 'ready',
+      target_path: 'D:\\private\\probe.opju',
+      environment: {
+        display_name: 'OriginPro 2024',
+        display_version: '10.1.0',
+        install_dir: 'G:\\Origin',
+        executable_path: 'G:\\Origin\\Origin64.exe',
+        discovery_source: 'configured',
+      },
+    }))
+    const supervisor = {
+      request,
+      toPublicResult: vi.fn(),
+    } as unknown as PythonCoreSupervisor
+
+    await expect(requestOriginConfigure(
+      supervisor,
+      'G:\\Origin\\Origin64.exe',
+    )).resolves.toEqual({
+      ok: true,
+      value: {
+        status: 'ready',
+        display_name: 'OriginPro 2024',
+        display_version: '10.1.0',
+        discovery_source: 'configured',
+      },
+    })
+    expect(request).toHaveBeenCalledWith(
+      'origin.configure',
+      { executable_path: 'G:\\Origin\\Origin64.exe' },
+      ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+    )
+  })
+
+  it('opens a native executable picker and configures the selected Origin program', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>()
+    const selected = 'G:\\origin\\ORIGIN1\\ORIGIN101.EXE'
+    const showOpenDialog = vi.fn(async () => ({ canceled: false, filePaths: [selected] }))
+    const request = vi.fn(async (method: string) => {
+      if (method === 'origin.configure') {
+        return {
+          status: 'ready',
+          target_path: 'D:\\private\\probe.opju',
+          environment: {
+            display_name: 'OriginPro 2024',
+            display_version: '10.1.0',
+            install_dir: 'G:\\origin\\ORIGIN1',
+            executable_path: selected,
+            discovery_source: 'configured',
+          },
+        }
+      }
+      throw new Error(`unexpected method ${method}`)
+    })
+    registerDesktopIpc({
+      ipcMain: {
+        handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
+          handlers.set(channel, handler)
+        }),
+        removeHandler: vi.fn(),
+      } as never,
+      supervisor: {
+        request,
+        toPublicResult: vi.fn(),
+        getStatus: vi.fn(() => ({ phase: 'ready', restartAttempt: 0 })),
+        retry: vi.fn(() => false),
+      } as unknown as PythonCoreSupervisor,
+      tasks: {
+        snapshot: vi.fn(() => ({ tasks: [], activeTaskCount: 0, hasCommittingTask: false })),
+        get: vi.fn(),
+      } as never,
+      closeController: { respond: vi.fn() } as never,
+      dialog: {
+        showOpenDialog,
+        showMessageBox: vi.fn(),
+        showSaveDialog: vi.fn(),
+      } as never,
+      getWindow: () => ({}) as never,
+      resources: new InMemoryResourceRegistry(),
+      ensureSampleSource: vi.fn(),
+      agentFoundationRuntime: { ownsTask: vi.fn(() => false) } as never,
+      openPath: vi.fn(async () => ''),
+      revealPath: vi.fn(),
+    })
+
+    const response = await handlers.get(IPC_CHANNELS.originSelect)?.({})
+
+    expect(response).toMatchObject({ ok: true, value: { status: 'ready' } })
+    expect(showOpenDialog).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      properties: ['openFile'],
+      filters: [{ name: 'Origin 程序', extensions: ['exe'] }],
+    }))
+    expect(request).toHaveBeenCalledWith(
+      'origin.configure',
+      { executable_path: selected },
+      ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+    )
   })
 
   it('returns one named terminal outcome for every file in a mixed import selection', async () => {

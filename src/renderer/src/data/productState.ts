@@ -78,6 +78,9 @@ export type ProductOriginAvailability =
     code: string
     message: string
     retryable: boolean
+    displayName?: string
+    displayVersion?: string
+    discoverySource?: string
   }
 
 export interface ProductSeriesStyle {
@@ -1449,6 +1452,9 @@ export function readOriginAvailability(value: JsonValue): ProductOriginAvailabil
     code: stringValue(value.error, 'code') ?? 'UNKNOWN',
     message: stringValue(value.error, 'message') ?? 'Origin 环境未通过检测。',
     retryable: value.error.retryable !== false,
+    displayName: stringValue(value, 'display_name'),
+    displayVersion: stringValue(value, 'display_version'),
+    discoverySource: stringValue(value, 'discovery_source'),
   }
 }
 

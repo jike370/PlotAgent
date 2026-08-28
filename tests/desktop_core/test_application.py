@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pytest
 
+import plotagent.engine.backends.origin.environment as origin_environment
 from plotagent.contracts.agent_tasks import (
     AgentIntentReady,
     ProfileSelectionDecision,
@@ -102,6 +103,93 @@ def _create_open(harness: ApplicationHarness) -> tuple[str, int]:
     project_id = cast(str, created["project_id"])
     opened = harness.call("projects.open", {"project_id": project_id})
     return project_id, cast(int, opened["project_version"])
+
+
+def test_origin_executable_selection_is_persisted_and_reused(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    install_dir = tmp_path / "Origin 安装"
+    install_dir.mkdir()
+    executable = install_dir / "Origin64.exe"
+    executable.write_bytes(b"fixture executable")
+    monkeypatch.setattr(origin_environment, "_file_version", lambda _path: (10, 1, 0, 178))
+
+    configured = harness.call("origin.configure", {"executable_path": str(executable)})
+    restored = harness.call("origin.status", {})
+
+    assert configured["status"] == "ready"
+    assert configured["environment"]["display_name"] == "OriginPro 2024"
+    assert restored["status"] == "ready"
+    assert restored["environment"]["executable_path"] == str(executable)
+
+
+def test_origin_executable_selection_survives_core_restart(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "Origin64.exe"
+    executable.write_bytes(b"fixture executable")
+    monkeypatch.setattr(origin_environment, "_file_version", lambda _path: (10, 1, 0, 178))
+    root = tmp_path / "persistent-app"
+
+    first = ApplicationHarness(root)
+    try:
+        configured = first.call("origin.configure", {"executable_path": str(executable)})
+        assert configured["status"] == "ready"
+    finally:
+        first.close()
+
+    second = ApplicationHarness(root)
+    try:
+        restored = second.call("origin.status", {})
+        assert restored["status"] == "ready"
+        assert restored["environment"]["executable_path"] == str(executable)
+    finally:
+        second.close()
+
+
+def test_unsupported_selected_origin_is_remembered_as_detected_but_incompatible(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "Origin64.exe"
+    executable.write_bytes(b"fixture executable")
+    monkeypatch.setattr(origin_environment, "_file_version", lambda _path: (10, 2, 5, 212))
+
+    configured = harness.call("origin.configure", {"executable_path": str(executable)})
+    restored = harness.call("origin.status", {})
+
+    assert configured["status"] == "error"
+    assert configured["error"]["code"] == "VERSION_UNSUPPORTED"
+    assert configured["environment"]["display_name"] == "OriginPro 2025b"
+    assert restored["status"] == "error"
+    assert restored["environment"]["display_version"] == "10.2.5"
+
+
+def test_invalid_origin_selection_does_not_replace_the_saved_supported_path(
+    harness: ApplicationHarness,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "Origin64.exe"
+    executable.write_bytes(b"fixture executable")
+    monkeypatch.setattr(origin_environment, "_file_version", lambda _path: (10, 1, 0, 178))
+    configured = harness.call("origin.configure", {"executable_path": str(executable)})
+    assert configured["status"] == "ready"
+
+    rejected = harness.call(
+        "origin.configure",
+        {"executable_path": str(tmp_path / "missing" / "Origin64.exe")},
+    )
+    restored = harness.call("origin.status", {})
+
+    assert rejected["status"] == "error"
+    assert rejected["error"]["code"] == "NOT_INSTALLED"
+    assert restored["status"] == "ready"
+    assert restored["environment"]["executable_path"] == str(executable)
 
 
 def test_workflow_source_boundary_accepts_sixty_four_and_rejects_sixty_five() -> None:

@@ -1,4 +1,6 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["hkg1"],
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [

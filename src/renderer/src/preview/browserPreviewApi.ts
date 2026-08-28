@@ -197,8 +197,14 @@ function createBrowserPreviewApi(): PlotAgentDesktopApi {
     clearProvider: async () => ok({ configured: true, mode: 'browser_preview' }),
     getOriginStatus: async () => ok({
       status: 'ready',
-      display_name: 'OriginPro',
-      display_version: 'Preview',
+      display_name: 'OriginPro 2024',
+      display_version: '10.1.0',
+      discovery_source: 'browser_preview',
+    }),
+    selectOriginExecutable: async () => ok({
+      status: 'ready',
+      display_name: 'OriginPro 2024',
+      display_version: '10.1.0',
       discovery_source: 'browser_preview',
     }),
     listProjects: async () => ok({ projects: [...projects.values()].map(projectSummary) }),

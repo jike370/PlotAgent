@@ -87,6 +87,7 @@ type ProductHandler = Callable[[RpcContext, RpcJsonValue | None], RpcJsonValue]
 
 _PROVIDER_SETTING_KEY = "agent.provider.active"
 _CUSTOM_PROVIDER_CONFIG_ID = "custom.default"
+_ORIGIN_EXECUTABLE_SETTING_KEY = "origin.executable.selected"
 
 
 def _preview_scalar(value: object) -> RpcJsonValue:
@@ -203,6 +204,7 @@ class DesktopApplication:
             "provider.configure": self._provider_configure,
             "provider.clear": self._provider_clear,
             "origin.status": self._origin_status,
+            "origin.configure": self._origin_configure,
         }
         for method, handler in handlers.items():
             registry.register(method, self._guard(handler))
@@ -603,7 +605,45 @@ class DesktopApplication:
     def _origin_status(self, _context: RpcContext, params: RpcJsonValue | None) -> RpcJsonValue:
         _object(params, required=set())
         probe_target = self.root / ".origin-environment-probe.opju"
-        return cast(RpcJsonValue, preflight_origin(probe_target).to_dict())
+        return cast(
+            RpcJsonValue,
+            preflight_origin(
+                probe_target,
+                configured_executable=self._saved_origin_executable(),
+            ).to_dict(),
+        )
+
+    def _origin_configure(
+        self, _context: RpcContext, params: RpcJsonValue | None
+    ) -> RpcJsonValue:
+        values = _object(params, required={"executable_path"})
+        executable = Path(_text(values["executable_path"], "executable_path")).resolve()
+        probe_target = self.root / ".origin-environment-probe.opju"
+        result = preflight_origin(probe_target, configured_executable=executable)
+        if result.status == "ready" or result.environment is not None:
+            self.catalog.set_setting(
+                _ORIGIN_EXECUTABLE_SETTING_KEY,
+                json.dumps(
+                    {"executable_path": str(executable)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ),
+            )
+        return cast(RpcJsonValue, result.to_dict())
+
+    def _saved_origin_executable(self) -> str | None:
+        encoded = self.catalog.get_setting(_ORIGIN_EXECUTABLE_SETTING_KEY)
+        if encoded is None:
+            return None
+        try:
+            value = json.loads(encoded)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(value, dict):
+            return None
+        executable = value.get("executable_path")
+        return executable if isinstance(executable, str) and executable else None
 
     def _engine_catalog_get(
         self, _context: RpcContext, params: RpcJsonValue | None
@@ -735,6 +775,7 @@ class DesktopApplication:
                     values.get("expected_existing_sha256"),
                     "expected_existing_sha256",
                 ),
+                configured_executable=self._saved_origin_executable(),
             )
             if preflight.status != "ready":
                 raise RpcServiceError(preflight.error.code.value, preflight.error.message)

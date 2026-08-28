@@ -499,9 +499,15 @@ function fakeDesktop(overrides: Partial<PlotAgentDesktopApi> = {}): PlotAgentDes
     clearProvider: vi.fn(async () => ok({ configured: false, mode: 'local_only' })),
     getOriginStatus: vi.fn(async () => ok({
       status: 'ready',
-      display_name: 'OriginPro',
-      display_version: '2025b',
+      display_name: 'OriginPro 2024',
+      display_version: '10.1.0',
       discovery_source: 'portable',
+    })),
+    selectOriginExecutable: vi.fn(async () => ok({
+      status: 'ready',
+      display_name: 'OriginPro 2024',
+      display_version: '10.1.0',
+      discovery_source: 'configured',
     })),
     listProjects: vi.fn(async () => ok({ projects: [] })),
     createProject: vi.fn(async () => ok({ project_id: 'project:test', display_name: '新建科研绘图项目', is_open: false })),
@@ -858,7 +864,7 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     expect(await screen.findByText('本地 Core')).toBeInTheDocument()
     expect(screen.getByText('已连接')).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /Origin 可用，重新检测/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /OriginPro 2024 10\.1\.0，选择 Origin 程序/ })).toBeInTheDocument()
     const trigger = await screen.findByRole('button', { name: '模型服务 已配置' })
     await user.click(trigger)
     expect(screen.getByRole('dialog', { name: '模型服务' })).toBeInTheDocument()
@@ -1535,13 +1541,60 @@ describe('PlotAgent real desktop workflow', () => {
     render(<App />)
     await openSampleAndCreatePlot(user)
 
-    expect(await screen.findByRole('button', { name: /Origin 不可用，重新检测/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Origin 不可用，选择 Origin 程序/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '导出 OPJU' }))
 
     expect(getOriginStatus).toHaveBeenCalled()
     expect(api.exportOrigin).not.toHaveBeenCalled()
     expect((await screen.findAllByText('Origin 不可用')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/启动 Origin 完成许可证验证后重新检测/)).toBeInTheDocument()
+  })
+
+  it('lets the user select Origin and immediately reflects the persisted compatible version', async () => {
+    const user = userEvent.setup()
+    const selectOriginExecutable = vi.fn(async () => ok({
+      status: 'ready',
+      display_name: 'OriginPro 2024',
+      display_version: '10.1.0',
+      discovery_source: 'configured',
+    }))
+    installApi(fakeDesktop({
+      getOriginStatus: vi.fn(async () => ok({
+        status: 'error',
+        error: {
+          code: 'NOT_INSTALLED',
+          message: '未找到已配置的 Origin 程序。请选择本机 OriginPro 2024 的主程序（如 Origin64.exe）。',
+          retryable: false,
+        },
+      })),
+      selectOriginExecutable,
+    }))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '未找到 Origin，选择 Origin 程序' }))
+
+    expect(selectOriginExecutable).toHaveBeenCalledTimes(1)
+    expect(await screen.findByRole('button', { name: 'OriginPro 2024 10.1.0，选择 Origin 程序' })).toBeInTheDocument()
+  })
+
+  it('distinguishes a detected incompatible Origin from a missing installation', async () => {
+    installApi(fakeDesktop({
+      getOriginStatus: vi.fn(async () => ok({
+        status: 'error',
+        display_name: 'OriginPro 2025b',
+        display_version: '10.2.5',
+        discovery_source: 'configured',
+        error: {
+          code: 'VERSION_UNSUPPORTED',
+          message: '已检测到 OriginPro 2025b（10.2.5），fig-agent 目前仅支持 OriginPro 2024。',
+          retryable: false,
+        },
+      })),
+    }))
+    render(<App />)
+
+    expect(await screen.findByRole('button', { name: 'OriginPro 2025b 10.2.5，选择 Origin 程序' })).toBeInTheDocument()
+    expect(screen.queryByText('未找到 Origin')).not.toBeInTheDocument()
   })
 
   it('creates a persistent batch plan from dataset-specific immutable bindings', async () => {
@@ -2144,6 +2197,202 @@ describe('PlotAgent real desktop workflow', () => {
     expect(await screen.findByRole('heading', { name: '@图2 · 折线图 · v1' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '@图3 · 折线图 · v1' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '@图4 · 折线图 · v1' })).toBeInTheDocument()
+  })
+
+  it('keeps actions on every independent latest plot and exports the clicked plot target', async () => {
+    const user = userEvent.setup()
+    let outputsReady = false
+    let exportIndex = 0
+    const outputPlots = [
+      enginePlotFixture('plot:batch.one', 1, 'K01', 5),
+      enginePlotFixture('plot:batch.two', 1, 'K01', 5),
+      enginePlotFixture('plot:batch.three', 1, 'K01', 5),
+    ]
+    const exportPngSvg = vi.fn(async (input) => {
+      exportIndex += 1
+      return ok({
+        export_id: `export:multi.${exportIndex}`,
+        plot_id: input.target.id,
+        plot_version: input.target.version,
+        artifact: {
+          resource: {
+            resourceId: `resource:multi.${exportIndex}`,
+            kind: 'export',
+            fileName: `plot-${exportIndex}.${input.format}`,
+          },
+          content_hash: 'a'.repeat(64),
+          size: 1_024,
+        },
+      })
+    })
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(threeOutputBatchPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(threeOutputBatchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => {
+        outputsReady = true
+        return ok({ task_plan: threeOutputBatchPlanFixture('succeeded') })
+      }),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(
+        input.plotId,
+        input.plotVersion,
+        'K01',
+        5,
+      ))),
+      listPlots: vi.fn(async () => ok({
+        project_version: 5,
+        plots: outputsReady ? outputPlots : [],
+      })),
+      exportPngSvg,
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '分别生成三张折线图')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    const firstOutput = await screen.findByRole('region', { name: '@图2 折线图 v1' })
+    const secondOutput = screen.getByRole('region', { name: '@图3 折线图 v1' })
+    expect(within(firstOutput).getByText('已渲染')).toBeInTheDocument()
+    expect(within(secondOutput).getByText('已渲染')).toBeInTheDocument()
+    expect(within(firstOutput).getByRole('button', { name: '编辑图形' })).toBeInTheDocument()
+    expect(within(secondOutput).getByRole('button', { name: '编辑图形' })).toBeInTheDocument()
+
+    await user.click(within(firstOutput).getByRole('button', { name: '导出 PNG' }))
+    await waitFor(() => expect(exportPngSvg).toHaveBeenCalledTimes(1))
+    await user.click(within(secondOutput).getByRole('button', { name: '导出 SVG' }))
+    await waitFor(() => expect(exportPngSvg).toHaveBeenCalledTimes(2))
+
+    expect(exportPngSvg).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      target: { kind: 'plot', id: 'plot:batch.one', version: 1 },
+      format: 'png',
+    }))
+    expect(exportPngSvg).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      target: { kind: 'plot', id: 'plot:batch.two', version: 1 },
+      format: 'svg',
+    }))
+  })
+
+  it('opens the editor for the independent plot whose card was clicked', async () => {
+    const user = userEvent.setup()
+    const pending = profiledCreatePlanFixture(['K01', 'K03'], 'awaiting_confirmation', 'plan:multi-edit')
+    const ready = profiledCreatePlanFixture(['K01', 'K03'], 'ready', 'plan:multi-edit')
+    const succeeded = profiledCreatePlanFixture(['K01', 'K03'], 'succeeded', 'plan:multi-edit', 1)
+    installApi(fakeDesktop({
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(pending))),
+      confirmTaskPlan: vi.fn(async () => ok(ready)),
+      runTaskPlan: vi.fn(async () => ok({ task_plan: succeeded })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(
+        input.plotId,
+        input.plotVersion,
+        input.plotId.endsWith('.1') ? 'K01' : 'K03',
+        3,
+      ))),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(
+      screen.getByRole('textbox', { name: '描述绘图要求' }),
+      '数据一画 K01 折线图，数据二画 K03 散点图。',
+    )
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+
+    const linePlot = await screen.findByRole('region', { name: '@图2 折线图 v1' })
+    await user.click(within(linePlot).getByRole('button', { name: '编辑图形' }))
+    expect(await screen.findByRole('img', { name: '折线图 Core 预览' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '关闭聚焦编辑' }))
+
+    const scatterPlot = await screen.findByRole('region', { name: '@图3 散点图 v1' })
+    await user.click(within(scatterPlot).getByRole('button', { name: '编辑图形' }))
+    expect(await screen.findByRole('img', { name: '散点图 Core 预览' })).toBeInTheDocument()
+  })
+
+  it('keeps only older versions of the same plot read-only', async () => {
+    const user = userEvent.setup()
+    let createdPlotId = 'plot:one'
+    installApi(fakeDesktop({
+      executePlotAction: vi.fn(async (input) => {
+        const action = input.action as Record<string, JsonValue>
+        const creating = action.operation === 'create_plot'
+        if (creating && typeof action.plot_id === 'string') createdPlotId = action.plot_id
+        return ok(enginePlotFixture(
+          createdPlotId,
+          creating ? 1 : 2,
+          typeof action.profile_id === 'string' ? action.profile_id : 'K01',
+          creating ? 2 : 3,
+          [input.action],
+        ))
+      }),
+    }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '编辑图形' }))
+    const title = await screen.findByRole('textbox', { name: '图标题' })
+    await user.clear(title)
+    await user.type(title, '第二版本')
+    await user.click(screen.getByRole('button', { name: '应用图标题' }))
+    await user.click(screen.getByRole('button', { name: '关闭聚焦编辑' }))
+
+    const oldVersion = await screen.findByRole('region', { name: '@图1 折线图 v1' })
+    const latestVersion = await screen.findByRole('region', { name: '@图1 折线图 v2' })
+    expect(within(oldVersion).getByText('历史版本')).toBeInTheDocument()
+    expect(within(oldVersion).queryByRole('button', { name: '导出 PNG' })).not.toBeInTheDocument()
+    expect(within(latestVersion).getByText('已渲染')).toBeInTheDocument()
+    expect(within(latestVersion).getByRole('button', { name: '导出 PNG' })).toBeInTheDocument()
+  })
+
+  it('restores object-level actions for every independent plot after reopening the project', async () => {
+    const user = userEvent.setup()
+    let outputsReady = false
+    const outputPlots = [
+      enginePlotFixture('plot:batch.one', 1, 'K01', 5),
+      enginePlotFixture('plot:batch.two', 1, 'K01', 5),
+      enginePlotFixture('plot:batch.three', 1, 'K01', 5),
+    ]
+    installApi(fakeDesktop({
+      listProjects: vi.fn(async () => ok({
+        projects: [{
+          project_id: 'project:sample', display_name: '温度响应示例',
+          project_version: 5, is_open: false,
+        }],
+      })),
+      activateProject: vi.fn(async ({ projectId }) => ok({
+        project_id: projectId, project_version: 5, status: 'open',
+      })),
+      runWorkflow: vi.fn(async () => ok(workflowResultWithPlan(threeOutputBatchPlanFixture()))),
+      confirmTaskPlan: vi.fn(async () => ok(threeOutputBatchPlanFixture('ready'))),
+      runTaskPlan: vi.fn(async () => {
+        outputsReady = true
+        return ok({ task_plan: threeOutputBatchPlanFixture('succeeded') })
+      }),
+      listPlots: vi.fn(async () => ok({
+        project_version: 5,
+        plots: outputsReady ? outputPlots : [],
+      })),
+      getPlot: vi.fn(async (input) => ok(enginePlotFixture(input.plotId, input.plotVersion, 'K01', 5))),
+    }))
+    const firstRender = render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '分别生成三张折线图')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+    await user.click(await screen.findByRole('button', { name: '确认并执行' }))
+    expect(await screen.findByRole('region', { name: '@图2 折线图 v1' })).toBeInTheDocument()
+    firstRender.unmount()
+
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '温度响应示例' }))
+
+    const restoredFirst = await screen.findByRole('region', { name: '@图2 折线图 v1' })
+    const restoredSecond = screen.getByRole('region', { name: '@图3 折线图 v1' })
+    await waitFor(() => expect(within(restoredFirst).getByText('已渲染')).toBeInTheDocument())
+    expect(within(restoredFirst).getByRole('button', { name: '编辑图形' })).toBeInTheDocument()
+    expect(within(restoredFirst).getByRole('button', { name: '导出 OPJU' })).toBeInTheDocument()
+    expect(within(restoredSecond).getByRole('button', { name: '编辑图形' })).toBeInTheDocument()
+    expect(within(restoredSecond).getByRole('button', { name: '导出 OPJU' })).toBeInTheDocument()
   })
 
   it('states the 64-source limit only at the boundary and disables a 65th addition', async () => {

@@ -12,7 +12,17 @@ const ENUMS = Object.freeze({
   category: new Set(['bug', 'compatibility', 'suggestion']),
   stage: new Set(['install', 'model', 'import', 'generate', 'export-image', 'export-opju', 'other']),
   windowsVersion: new Set(['windows-11', 'windows-10', 'other']),
-  originVersion: new Set(['origin-2024', 'origin-2021-2023', 'other', 'not-installed']),
+  originVersion: new Set([
+    'origin-2024',
+    'origin-2024-sr0',
+    'origin-2024-standard',
+    'origin-2024b',
+    'origin-2025',
+    'origin-2026-plus',
+    'origin-older',
+    'other',
+    'not-installed',
+  ]),
   modelProvider: new Set(['zhipu', 'deepseek', 'bailian', 'custom', 'local', 'not-configured']),
 });
 

@@ -859,6 +859,39 @@ a:focus-visible {
   text-underline-offset: 3px;
 }
 
+.origin-version-guide {
+  display: grid;
+  gap: 72px;
+}
+
+.origin-version-step {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.origin-version-step > span {
+  padding-top: 4px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.origin-version-step p {
+  margin: 0 0 22px;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.origin-version-step img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
 .download-metadata {
   margin: 0;
   padding: 0;
@@ -1287,6 +1320,11 @@ a:focus-visible {
   .brand img {
     width: 27px;
     height: 27px;
+  }
+
+  .origin-version-step {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .header-cta {

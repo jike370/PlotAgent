@@ -19,7 +19,7 @@ def test_real_process_handshake_heartbeat_health_and_snapshot(sidecar: SidecarPr
         "status": "ready",
         "protocol_version": "1.0",
         "desktop_api_version": "1.0",
-        "core_version": "0.1.0",
+        "core_version": "0.1.1",
     }
 
     ready = sidecar.read_until(lambda value: value.get("method") == "system.ready")
@@ -36,7 +36,7 @@ def test_real_process_handshake_heartbeat_health_and_snapshot(sidecar: SidecarPr
         "status": "ready",
         "protocol_version": "1.0",
         "desktop_api_version": "1.0",
-        "core_version": "0.1.0",
+        "core_version": "0.1.1",
         "active_task_count": 0,
         "worker_capacity": 2,
     }

@@ -210,7 +210,7 @@ class ProjectPackageService:
                 snapshot_transaction_id="snapshot:" + uuid.uuid4().hex,
                 package_type=ProjectPackageType.FULL,
                 created_at=_utc_timestamp(),
-                created_by="plotagent/0.1.0",
+                created_by="plotagent/0.1.1",
                 objects=tuple(manifest_objects),
             )
             manifest_bytes = (

@@ -35,6 +35,7 @@ import {
   type WorkflowPlanView,
   type DurableTaskView,
   type ProductDataset,
+  type ProductOriginAvailability,
   type ProductPlot,
   type ProductProject,
 } from './data/productState'
@@ -55,7 +56,7 @@ import {
 } from './components/ConversationWorkspace'
 import { FocusEditor, type ParameterTab } from './components/FocusEditor'
 import { MotionPresence, type MotionPhase } from './components/MotionPresence'
-import { Sidebar } from './components/Sidebar'
+import { Sidebar, type OriginUiStatus } from './components/Sidebar'
 import { TaskDrawer } from './components/TaskDrawer'
 import { useDialogFocus } from './components/useDialogFocus'
 import { resolveDesktopRuntime } from './preview/browserPreviewApi'
@@ -284,8 +285,9 @@ export function App(): React.JSX.Element {
   } | undefined>(
     undefined,
   )
-  const [originStatus, setOriginStatus] = useState<'unknown' | 'checking' | 'available' | 'unavailable' | 'exporting'>('unknown')
-  const [originDiagnostic, setOriginDiagnostic] = useState('Origin 环境未通过检测。请重新检测后再导出。')
+  const [originStatus, setOriginStatus] = useState<OriginUiStatus>('unknown')
+  const [originDisplayName, setOriginDisplayName] = useState<string>()
+  const [originDiagnostic, setOriginDiagnostic] = useState('请选择本机 OriginPro 2024 程序后再导出 OPJU。')
   const importInFlight = useRef(false)
   const agentRequestGeneration = useRef(0)
   const workflowHistorySources = useRef(new Map<string, ProductPlot>())
@@ -425,6 +427,36 @@ export function App(): React.JSX.Element {
     })
   }, [activeDatasetId, confirmedMapping, project, selectedChart?.id, workflowSourceIds])
 
+  const applyOriginAvailability = useCallback((
+    availability: ProductOriginAvailability,
+    reportResult: boolean,
+  ): boolean => {
+    const displayName = availability.displayName
+      ? `${availability.displayName}${availability.displayVersion ? ` ${availability.displayVersion}` : ''}`
+      : undefined
+    setOriginDisplayName(displayName)
+    if (!availability.available) {
+      const incompatible = availability.code === 'VERSION_UNSUPPORTED' && displayName !== undefined
+      const missing = availability.code === 'NOT_INSTALLED'
+      setOriginStatus(incompatible ? 'incompatible' : missing ? 'missing' : 'unavailable')
+      setOriginDiagnostic(availability.message)
+      if (reportResult) {
+        setNotice({
+          kind: 'error',
+          title: incompatible ? 'Origin 版本不兼容' : 'Origin 不可用',
+          message: availability.message,
+        })
+      }
+      return false
+    }
+    setOriginStatus('available')
+    setOriginDiagnostic('')
+    if (reportResult) {
+      setNotice({ kind: 'success', title: 'Origin 可用', message: displayName ?? 'OriginPro 2024' })
+    }
+    return true
+  }, [])
+
   const refreshOriginStatus = useCallback(async (reportResult = false): Promise<boolean> => {
     if (!api) return false
     setOriginStatus('checking')
@@ -439,30 +471,55 @@ export function App(): React.JSX.Element {
       const availability = readOriginAvailability(result.value)
       if (!availability) {
         setOriginStatus('unavailable')
+        setOriginDisplayName(undefined)
         setOriginDiagnostic('Core 返回了无法识别的 Origin 状态。请重新检测。')
         if (reportResult) setNotice({ kind: 'error', title: 'Origin 检测失败', message: 'Core 返回了无法识别的 Origin 状态。请重新检测。' })
         return false
       }
-      if (!availability.available) {
-        setOriginStatus('unavailable')
-        setOriginDiagnostic(availability.message)
-        if (reportResult) setNotice({ kind: 'error', title: 'Origin 不可用', message: availability.message })
-        return false
-      }
-      setOriginStatus('available')
-      setOriginDiagnostic('')
-      if (reportResult) {
-        const version = availability.displayVersion ? ` ${availability.displayVersion}` : ''
-        setNotice({ kind: 'success', title: 'Origin 可用', message: `${availability.displayName}${version}` })
-      }
-      return true
+      return applyOriginAvailability(availability, reportResult)
     } catch (error) {
       setOriginStatus('unavailable')
       setOriginDiagnostic(errorNotice(error).message)
       if (reportResult) setNotice(errorNotice(error))
       return false
     }
-  }, [api])
+  }, [api, applyOriginAvailability])
+
+  const selectOriginExecutable = useCallback(async (): Promise<void> => {
+    if (!api || originStatus === 'checking' || originStatus === 'exporting') return
+    setOriginStatus('checking')
+    try {
+      const result = await api.selectOriginExecutable()
+      if (!result.ok) {
+        if (result.error.code === 'DIALOG_CANCELLED') {
+          await refreshOriginStatus(false)
+          return
+        }
+        setOriginStatus('unavailable')
+        setOriginDisplayName(undefined)
+        setOriginDiagnostic(result.error.message)
+        setNotice({ kind: 'error', title: 'Origin 配置未保存', message: result.error.message })
+        return
+      }
+      const availability = readOriginAvailability(result.value)
+      if (!availability) {
+        setNotice({ kind: 'error', title: 'Origin 配置未保存', message: '无法识别所选 Origin 程序。' })
+        await refreshOriginStatus(false)
+        return
+      }
+      const shouldRememberIncompatible = !availability.available
+        && availability.code === 'VERSION_UNSUPPORTED'
+        && availability.displayName !== undefined
+      const selected = applyOriginAvailability(availability, true)
+      if (!selected && !shouldRememberIncompatible) {
+        await refreshOriginStatus(false)
+      }
+    } catch (error) {
+      const problem = errorNotice(error)
+      setNotice({ ...problem, title: 'Origin 配置未保存' })
+      await refreshOriginStatus(false)
+    }
+  }, [api, applyOriginAvailability, originStatus, refreshOriginStatus])
 
   const recoverLatestPlot = useCallback(async (projectId: string): Promise<{
     plot?: ProductPlot
@@ -1500,39 +1557,39 @@ export function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onHistoryKeyDown)
   }, [redoPlotChange, undoPlotChange])
 
-  const exportArtifact = async (format: 'png' | 'svg' | 'opju'): Promise<void> => {
-    if (!api || !project || plot === undefined) return
+  const exportArtifact = async (targetPlot: ProductPlot, format: 'png' | 'svg' | 'opju'): Promise<void> => {
+    if (!api || !project) return
     if (previewMode) {
       setNotice({ kind: 'info', title: `预览模式不写出 ${format.toLocaleUpperCase('en-US')}`, message: `请在 ${PUBLIC_PRODUCT_NAME} 桌面应用中验证真实文件导出。` })
       return
     }
-    let exportPlot = plot
-    if (format === 'opju' && originStatus === 'unavailable') {
-      setNotice({ kind: 'error', title: 'Origin 不可用', message: originDiagnostic })
+    let exportPlot = targetPlot
+    if (format === 'opju' && ['missing', 'unavailable', 'incompatible'].includes(originStatus)) {
+      setNotice({ kind: 'error', title: originStatus === 'incompatible' ? 'Origin 版本不兼容' : 'Origin 不可用', message: originDiagnostic })
       return
     }
     if (format === 'opju' && originStatus !== 'available' && !await refreshOriginStatus(true)) return
-    setBusyAction(`export-${format}`); setNotice(undefined); setExportRecord(undefined)
+    setBusyAction(`export-${format}:${targetPlot.plotId}`); setNotice(undefined); setExportRecord(undefined)
     if (format === 'opju') setOriginStatus('exporting')
     try {
       const listedValue = valueOrThrow(await api.listPlots({ projectId: project.projectId }))
-      const durable = readPlots(listedValue).find((candidate) => candidate.plotId === plot.plotId)
+      const durable = readPlots(listedValue).find((candidate) => candidate.plotId === targetPlot.plotId)
       if (!durable) {
         const stored = valueOrThrow(await api.getPlot({
           projectId: project.projectId,
-          plotId: plot.plotId,
-          plotVersion: plot.plotVersion,
+          plotId: targetPlot.plotId,
+          plotVersion: targetPlot.plotVersion,
         }))
         const exact = readPlot(stored)
-        if (!exact || exact.plotId !== plot.plotId || exact.plotVersion !== plot.plotVersion) {
+        if (!exact || exact.plotId !== targetPlot.plotId || exact.plotVersion !== targetPlot.plotVersion) {
           throw new Error('Core 中找不到当前界面显示的图形版本，已停止导出。')
         }
         exportPlot = exact
       }
-      if (durable && durable.plotVersion < plot.plotVersion) {
+      if (durable && durable.plotVersion < targetPlot.plotVersion) {
         throw new Error('Core 中的图形版本落后于当前界面，已停止导出以避免写出错误版本。')
       }
-      if (durable && durable.plotVersion > plot.plotVersion) {
+      if (durable && durable.plotVersion > targetPlot.plotVersion) {
         const stored = valueOrThrow(await api.getPlot({
           projectId: project.projectId,
           plotId: durable.plotId,
@@ -1543,8 +1600,10 @@ export function App(): React.JSX.Element {
           throw new Error('无法核对当前图形的最新耐久版本，已停止导出。')
         }
         exportPlot = synchronized
-        setPreviousPlot(plot)
-        setPlot(synchronized)
+        if (plot?.plotId === targetPlot.plotId) {
+          setPreviousPlot(plot)
+          setPlot(synchronized)
+        }
         mergeProjectPlot(synchronized)
         setProject(projectWithVersion(project, projectVersionFrom(listedValue, project.projectVersion)))
       }
@@ -1659,14 +1718,19 @@ export function App(): React.JSX.Element {
     rememberWorkspace({ workflowSourceIds: next })
   }
 
-  const openFocusEditor = async (): Promise<void> => {
-    if (!plot) return
-    if (api && project && plot.plotVersion > 1) {
+  const openFocusEditor = async (targetPlot: ProductPlot): Promise<void> => {
+    if (plot?.plotId !== targetPlot.plotId || plot.plotVersion !== targetPlot.plotVersion) {
+      setPlot(targetPlot)
+      setSelectedChart(chartCatalog.find((chart) => chart.id === targetPlot.chartId))
+      setUndoStack([])
+      setRedoStack([])
+    }
+    if (api && project && targetPlot.plotVersion > 1) {
       try {
         const stored = valueOrThrow(await api.getPlot({
           projectId: project.projectId,
-          plotId: plot.plotId,
-          plotVersion: plot.plotVersion - 1,
+          plotId: targetPlot.plotId,
+          plotVersion: targetPlot.plotVersion - 1,
         }))
         setPreviousPlot(readPlot(stored))
       } catch {
@@ -1684,10 +1748,10 @@ export function App(): React.JSX.Element {
       <div className="app-titlebar" aria-hidden="true"><FlaskConical size={13} /><span>{PUBLIC_PRODUCT_NAME}</span></div>
       <div className="app-surface" inert={modalOpen ? true : undefined}>
         {screen === 'workspace' && <>
-          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onRefreshOrigin={() => void refreshOriginStatus(true)} />
-          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, MAX_WORKFLOW_SOURCES)} selectedChart={composerChart} multiChartTask={composerIsMultiChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} agentRuntimeStartedAt={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.startedAt : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(format) => void exportArtifact(format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={() => void openFocusEditor()} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
+          <Sidebar projects={projects} activeProjectId={project?.projectId} core={core} agentConfigured={agentConfigured} taskCount={taskCount} originStatus={originStatus} originDisplayName={originDisplayName} busyAction={busyAction} previewMode={previewMode} onProjectChange={(id) => void activateProject(id)} onNewProject={() => void createNewProject()} onRenameProject={renameProject} onDeleteProject={deleteProject} onTaskCenter={() => setTasksOpen(true)} onConfigureAgent={() => setProviderOpen(true)} onSelectOrigin={() => void selectOriginExecutable()} />
+          <ConversationWorkspace key={project?.projectId ?? 'no-project'} core={core} project={project} datasets={datasets} activeDataset={activeDataset} selectedWorkflowSourceIds={activeDataset === undefined ? [] : [activeDataset.datasetId, ...workflowSourceIds.filter((id) => id !== activeDataset.datasetId)].slice(0, MAX_WORKFLOW_SOURCES)} selectedChart={composerChart} multiChartTask={composerIsMultiChart} plot={plot} projectPlots={projectPlots} exportRecord={exportRecord} notice={notice} importNotice={importNotice} busyAction={busyAction} agentRuntimeLabel={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.label : undefined} agentRuntimeTaskId={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.taskId : undefined} agentRuntimeStartedAt={agentRuntimeEvent?.projectId === project?.projectId ? agentRuntimeEvent?.startedAt : undefined} workflowOutcome={workflowOutcome} workflowPlan={workflowPlan} agentConfigured={agentConfigured} taskEvents={Object.values(taskEvents)} previewMode={previewMode} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onOpenSample={() => void openSample()} onImportData={() => void importData()} onOpenProject={() => void openProject()} onOpenLibrary={() => setLibraryOpen(true)} onSelectDataset={selectDataset} onToggleWorkflowSource={toggleWorkflowSource} onConfirmMapping={(mapping) => void confirmMapping(mapping)} onConfirmMultiSourceMapping={(mapping) => void confirmMultiSourceMapping(mapping)} onAgentInstruction={(instruction, selectedPlots) => void runAgent(instruction, selectedPlots)} onConfirmWorkflowPlan={(planId) => void confirmWorkflowPlan(planId)} onRejectWorkflowPlan={(planId) => void rejectWorkflowPlan(planId)} onRunWorkflowPlan={(planId) => void executeWorkflowPlan(planId)} onResumeWorkflowPlan={(planId) => void executeWorkflowPlan(planId, true)} onConfigureAgent={() => setProviderOpen(true)} onExport={(targetPlot, format) => void exportArtifact(targetPlot, format)} onOpenExport={(resourceId) => void openExportResource(resourceId)} onRevealExport={(resourceId) => void openExportResource(resourceId, true)} onCreateBatch={() => void createBatch()} onOpenFocus={(targetPlot) => void openFocusEditor(targetPlot)} onOpenTasks={() => setTasksOpen(true)} onCancelTask={(taskId) => { void cancelTask(taskId) }} onAcceptPartialTask={(taskId) => { void acceptPartialTask(taskId) }} />
         </>}
-        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(format)} initialPanelOpen simplePanel initialParameterTab={focusParameterTabs[plot.plotId]} onParameterTabChange={(tab) => setFocusParameterTabs((current) => ({ ...current, [plot.plotId]: tab }))} onClose={() => setScreen('workspace')} />}
+        {screen === 'focus' && plot && <FocusEditor key={`${plot.plotId}:${plot.plotVersion}`} initialIndex={0} plot={{ ...plot, title: chartCatalog.find((chart) => chart.id === plot.chartId)?.name ?? plot.chartId }} previousPlot={previousPlot} onPatch={applyPlotPatch} canUndo={canUndo} canRedo={canRedo} onUndo={() => void undoPlotChange()} onRedo={() => void redoPlotChange()} onExport={(format) => void exportArtifact(plot, format)} initialPanelOpen simplePanel initialParameterTab={focusParameterTabs[plot.plotId]} onParameterTabChange={(tab) => setFocusParameterTabs((current) => ({ ...current, [plot.plotId]: tab }))} onClose={() => setScreen('workspace')} />}
       </div>
       {libraryOpen && <ChartLibrary currentChartId={composerChart?.id} datasetCompatibility={chartCompatibility} onClose={() => setLibraryOpen(false)} onSelect={(chart) => {
         setLibraryOpen(false)

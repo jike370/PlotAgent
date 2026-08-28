@@ -43,7 +43,7 @@ pnpm build
 python -m pip install -e ".[dev]"
 ```
 
-`originpro` Python 包已列为核心依赖，但生成 `.opju` 时仍需要 Windows 环境中安装并授权可用的 Origin。
+`originpro` Python 包已列为核心依赖，但生成 `.opju` 时仍需要 Windows 环境中安装并授权可用的 Origin。当前只认证 OriginPro 2024（文件版本 10.1.0）；用户可在侧栏手动选择 Origin 主程序，选择结果会持久化，并同时用于环境检测和实际导出。检测到其他版本时会显示真实版本并明确提示不兼容，不会将其误报为“未安装”。
 
 ```powershell
 python -m pytest

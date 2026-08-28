@@ -38,7 +38,7 @@
         </div>
 
         <form class="feedback-form" data-feedback-form novalidate>
-          <input type="hidden" name="appVersion" value="0.1.0" />
+          <input type="hidden" name="appVersion" value="0.1.1" />
           <input type="hidden" name="openedAt" value="" />
           <div class="feedback-honeypot" aria-hidden="true">
             <input name="company" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
@@ -79,8 +79,13 @@
             <label>
               <span>Origin 版本</span>
               <select name="originVersion" required>
-                <option value="origin-2024">Origin 2024</option>
-                <option value="origin-2021-2023">Origin 2021—2023</option>
+                <option value="origin-2024">OriginPro 2024 SR1（10.1.0.178，当前支持）</option>
+                <option value="origin-2024-sr0">OriginPro 2024 SR0（尚未验证）</option>
+                <option value="origin-2024-standard">Origin 2024 标准版（尚未验证）</option>
+                <option value="origin-2024b">OriginPro / Origin 2024b（不支持）</option>
+                <option value="origin-2025">Origin 2025 / 2025b（不支持）</option>
+                <option value="origin-2026-plus">Origin 2026 或更高版本（不支持）</option>
+                <option value="origin-older">Origin 2023b 或更早版本（不支持）</option>
                 <option value="not-installed">未安装 Origin</option>
                 <option value="other">其他版本</option>
               </select>
@@ -139,7 +144,7 @@
           <a class="button button--secondary" href="/">返回官网</a>
         </section>
 
-        <p class="feedback-fallback">如果表单无法提交，可发送邮件至 <a href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%200.1.0%20测试反馈">cyt_666@tju.edu.cn</a>。</p>
+        <p class="feedback-fallback">如果表单无法提交，可发送邮件至 <a href="mailto:cyt_666@tju.edu.cn?subject=fig-agent%200.1.1%20测试反馈">cyt_666@tju.edu.cn</a>。</p>
       </section>
     </main>
 

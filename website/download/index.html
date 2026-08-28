@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="fig-agent 0.1.0 Windows x64 测试版下载、文件大小、SHA-256 与运行要求。" />
+    <meta name="description" content="fig-agent 0.1.1 Windows x64 测试版下载、文件大小、SHA-256 与运行要求。" />
     <meta name="theme-color" content="#17283e" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://fig-agent.cn/download/" />
@@ -28,16 +28,15 @@
 
     <main id="main">
       <section class="subpage-hero" aria-labelledby="download-status-title">
-        <p class="subpage-status"><i aria-hidden="true"></i> Windows 测试版 · 0.1.0</p>
-        <h1 id="download-status-title">下载 fig-agent 0.1.0</h1>
+        <p class="subpage-status"><i aria-hidden="true"></i> Windows 测试版 · 0.1.1</p>
+        <h1 id="download-status-title">下载 fig-agent 0.1.1</h1>
         <p>
           适用于 Windows 11 x64 的首个公开测试版本。
         </p>
         <div class="hero__actions">
           <a
             class="button button--primary"
-            href="https://fig-agent-1439976580.cos.ap-hongkong.myqcloud.com/fig-agent-0.1.0-x64-setup.exe"
-            download
+            href="/api/download?release=windows-x64-0.1.1"
           >
             下载安装包（187 MB）
           </a>
@@ -48,8 +47,8 @@
       <section class="subpage-content" aria-labelledby="release-file-title">
         <h2 id="release-file-title">文件信息</h2>
         <dl class="download-metadata">
-          <div><dt>版本</dt><dd>0.1.0</dd></div>
-          <div><dt>文件</dt><dd>fig-agent-0.1.0-x64-setup.exe</dd></div>
+          <div><dt>版本</dt><dd>0.1.1</dd></div>
+          <div><dt>文件</dt><dd>fig-agent-0.1.1-x64-setup.exe</dd></div>
           <div><dt>大小</dt><dd>187.27 MB（196,364,759 字节）</dd></div>
           <div>
             <dt>SHA-256</dt>
@@ -64,7 +63,7 @@
 
         <h2>当前测试要求</h2>
         <p>
-          当前正式测试基线为 Windows 11 x64。只测试了Origin2024的 OPJU 文件导出；PNG 和 SVG 导出不依赖 Origin。
+          当前正式测试基线为 Windows 11 x64。fig-agent 明确支持 OriginPro 2024 SR1（10.1.0.178）；理论上兼容 OriginPro 2024 SR0 和标准版 Origin 2024，但尚未完成完整验证，其他版本的兼容将在后续开放。安装包已包含所需的 Python 运行环境，无需用户另行安装或配置 Python；PNG 和 SVG 导出不依赖 Origin。<a href="/origin-version/">查看自己的 Origin 版本</a>。
         </p>
 
         <h2>遇到问题</h2>

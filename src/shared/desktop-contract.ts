@@ -32,6 +32,7 @@ export const IPC_CHANNELS = {
   openResourceRequested: 'plotagent:resources:open-requested',
   resourceOpen: 'plotagent:resources:open',
   resourceReveal: 'plotagent:resources:reveal',
+  originSelect: 'plotagent:origin:select',
   originStatus: 'plotagent:origin:status',
   engineActionExecute: 'plotagent:engine:actions:execute',
   enginePlotGet: 'plotagent:engine:plots:get',
@@ -329,6 +330,7 @@ export interface PlotAgentDesktopApi {
   configureCustomProvider(input: CustomProviderConfigureInput): Promise<DesktopDataResult>
   clearProvider(): Promise<DesktopDataResult>
   getOriginStatus(): Promise<DesktopDataResult>
+  selectOriginExecutable(): Promise<DesktopDataResult>
   listProjects(): Promise<DesktopDataResult>
   createProject(input: ProjectCreateInput): Promise<DesktopDataResult>
   renameProject(input: ProjectRenameInput): Promise<DesktopDataResult>

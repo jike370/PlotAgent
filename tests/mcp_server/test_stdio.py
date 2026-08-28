@@ -43,7 +43,7 @@ async def test_mcp_entrypoint_negotiates_over_stdio(tmp_path: Path) -> None:
         "data": {
             "status": "ok",
             "engine_api_version": "1.0",
-            "plotagent_version": "0.1.0",
+            "plotagent_version": "0.1.1",
             "desktop_workspace_isolated": True,
         },
         "error": None,

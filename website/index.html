@@ -16,7 +16,7 @@
     <meta property="og:url" content="https://fig-agent.cn/" />
     <link rel="canonical" href="https://fig-agent.cn/" />
     <link rel="icon" href="/assets/fig-agent-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/home.css?v=20260827-6" />
+    <link rel="stylesheet" href="/home.css?v=20260828-1" />
     <title>fig-agent｜一句话完成批量绘图，改动同步到 OPJU</title>
     <script type="application/ld+json">
       {
@@ -33,9 +33,9 @@
           "priceCurrency": "CNY",
           "availability": "https://schema.org/InStock"
         },
-        "softwareVersion": "0.1.0",
+        "softwareVersion": "0.1.1",
         "downloadUrl": "https://fig-agent.cn/download/",
-        "fileSize": "196364876"
+        "fileSize": "196364759"
       }
     </script>
   </head>
@@ -50,17 +50,19 @@
         </a>
 
         <nav class="site-nav" aria-label="主要导航">
-          <a href="#workflow">工作原理</a>
+          <a href="#workflow">使用流程</a>
           <a href="#templates">绘图模板</a>
           <a href="#faq">常见问题</a>
           <a href="#release">运行要求</a>
         </nav>
 
         <a
-          class="button button--primary header-action"
+          class="button button--primary button--windows header-action"
           href="/download/"
+          aria-label="Windows 版下载"
         >
-          下载测试版
+          <svg class="windows-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4.4 11 3.3v8.2H3V4.4Zm9.2-1.3L21 2v9.5h-8.8V3.1ZM3 12.7h8v8.1L3 19.7v-7Zm9.2 0H21V22l-8.8-1.2v-8.1Z" /></svg>
+          <span>Windows 版下载</span>
         </a>
       </div>
     </header>
@@ -69,7 +71,6 @@
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="shell hero__inner">
           <div class="hero__copy">
-            <p class="hero__category">Windows 本地科研绘图 Agent</p>
             <h1 id="hero-title">
               <span>原始数据直接导入</span>
               <span>一句话批量绘图</span>
@@ -78,12 +79,13 @@
 
             <div class="hero__actions">
               <a
-                class="button button--primary"
+                class="button button--primary button--windows-download"
                 href="/download/"
               >
-                免费下载
+                <svg class="windows-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 4.4 11 3.3v8.2H3V4.4Zm9.2-1.3L21 2v9.5h-8.8V3.1ZM3 12.7h8v8.1L3 19.7v-7Zm9.2 0H21V22l-8.8-1.2v-8.1Z" /></svg>
+                <strong>Windows 版下载</strong>
+                <small>Windows 11 x64 · 187 MB</small>
               </a>
-              <a class="button button--secondary" href="#workflow">查看工作原理</a>
             </div>
 
             <ul class="hero__facts" aria-label="产品概况">
@@ -142,7 +144,6 @@
 
       <section class="section how" id="workflow" aria-labelledby="workflow-title">
         <div class="shell section-heading section-heading--centered">
-          <p class="section-label">从原始数据到可编辑图</p>
           <h2 id="workflow-title">把绘图目标交给 Agent</h2>
         </div>
 
@@ -258,6 +259,13 @@
             </details>
 
             <details class="faq__item">
+              <summary>浏览器提示“通常不会下载此文件”，怎么办？</summary>
+              <p>
+                当前测试版尚未进行代码签名，Microsoft Edge 可能会先阻止下载。确认下载地址来自<a href="/download/">官网下载页</a>后，在下载列表中点击安装包右侧的“…”并选择“保留”；随后点击“删除”右侧的下拉箭头，再选择“仍然保留”。文件保留后，可以核对下载页列出的 SHA-256，再点击“打开文件”启动安装程序。如果安全软件明确报告了病毒或其他威胁，请不要关闭系统防护，改为<a href="/feedback/">提交测试反馈</a>并附上提示截图。
+              </p>
+            </details>
+
+            <details class="faq__item">
               <summary>不配置模型服务可以使用吗？</summary>
               <p>
                 可以导入数据、选择图类，并执行不依赖自然语言的既定流程。使用自然语言描述绘图和修改要求时，需要先配置可用的模型服务。
@@ -267,39 +275,18 @@
             <details class="faq__item">
               <summary>需要安装哪个版本的 Origin？</summary>
               <p>
-                OriginLab 官方的 originpro Python 包要求本机安装 Origin 2021 或更高版本，因此 2021 版起具备当前调用路径所需的基础能力。fig-agent 目前只以 OriginPro 2024 作为 OPJU 导出的测试基线；2021—2023 版本尚未完成兼容性验证。PNG 和 SVG 导出不依赖 Origin。
+                fig-agent 明确支持 OriginPro 2024 SR1（10.1.0.178）；理论上兼容 OriginPro 2024 SR0 和标准版 Origin 2024，但尚未完成完整验证。其他版本的兼容将在后续开放。
               </p>
-              <nav class="faq__links" aria-label="Origin Python 调用的官方说明">
-                <a
-                  href="https://docs.originlab.com/externalpython/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >OriginLab Python 调用说明</a>
+              <nav class="faq__links" aria-label="Origin 版本说明">
+                <a href="/origin-version/">如何查看自己的 Origin 版本</a>
               </nav>
             </details>
 
             <details class="faq__item">
-              <summary>没有 Origin，或者只有学习版，能使用吗？</summary>
+              <summary>需要另外安装 Python 吗？</summary>
               <p>
-                没有安装 Origin 也可以生成并导出 PNG 和 SVG。原生 OPJU 导出需要本机安装并授权可用的 OriginPro 2024。学习版是否支持所需的自动化接口尚未完成验证，因此暂不承诺 OPJU 导出可用。
+                不需要。Windows 安装包已包含 fig-agent 运行所需的 Python 环境和 Origin 连接组件，普通用户无需安装 Python、配置环境变量或安装 originpro 包。
               </p>
-              <nav class="faq__links" aria-label="获取 Origin 的官方页面">
-                <a
-                  href="https://www.originlab.com/index.aspx?go=Company%2FDistributors&pid=841"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >中国区购买与支持</a>
-                <a
-                  href="https://www.originlab.com/originprolearning.aspx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >申请 OriginPro 学习版</a>
-                <a
-                  href="https://cloud.originlab.com/demodownload.aspx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >下载 OriginPro 试用版</a>
-              </nav>
             </details>
 
             <details class="faq__item">
@@ -330,7 +317,7 @@
         <div class="shell release__inner">
           <div class="release__copy">
             <p class="release__status"><span></span>Windows 测试版已发布</p>
-            <h2 id="release-title">下载 fig-agent 0.1.0</h2>
+            <h2 id="release-title">下载 fig-agent 0.1.1</h2>
             <p>适用于 Windows 11 x64，当前免费提供测试。下载页包含文件大小、SHA-256 和安装提示。</p>
             <div class="release__actions">
               <a
@@ -347,7 +334,8 @@
             <div><dt>系统</dt><dd>Windows 11 x64</dd></div>
             <div><dt>输入</dt><dd>CSV、TSV、TXT、DAT、XLS、XLSX、XLSM</dd></div>
             <div><dt>图片导出</dt><dd>PNG、SVG，不依赖 Origin</dd></div>
-            <div><dt>OPJU 导出</dt><dd>目前仅测试了 OriginPro 2024</dd></div>
+            <div><dt>OPJU 导出</dt><dd>OriginPro 2024 SR1（10.1.0.178）</dd></div>
+            <div><dt>Python</dt><dd>无需另装，安装包已包含运行环境</dd></div>
             <div><dt>模型服务</dt><dd>自然语言任务需要用户配置可用服务</dd></div>
           </dl>
         </div>

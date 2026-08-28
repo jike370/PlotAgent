@@ -1,6 +1,6 @@
 {
   "name": "plotagent-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "fig-agent Windows scientific plotting desktop application",
@@ -14,7 +14,8 @@
     "preview:web": "vite preview --config vite.web.config.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:website",
+    "test:website": "node --test website/tests/*.test.mjs",
     "test:watch": "vitest",
     "eval:seq70": "tsc -p tsconfig.seq70.json && node build/seq70-runtime/scripts/run_seq70_workflow_eval.js",
     "test:release": "powershell -NoProfile -ExecutionPolicy Bypass -File tests/packaging/windows-release-tools.test.ps1",

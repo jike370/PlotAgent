@@ -43,6 +43,7 @@ const IMPORT_FILTERS = [
   { name: '数值数据', extensions: ['csv', 'tsv', 'txt', 'dat', 'xls', 'xlsx', 'xlsm'] },
 ]
 const PROJECT_FILTERS = [{ name: 'fig-agent 项目', extensions: ['plotproj'] }]
+const ORIGIN_EXECUTABLE_FILTERS = [{ name: 'Origin 程序', extensions: ['exe'] }]
 const PRIVATE_RESULT_KEY = /(?:path|secret|token|credential|api[_-]?key)/i
 const ARTIFACT_PATH_KEY = /^(?:artifact|preview|output)_path$/i
 const ABSOLUTE_PATH_VALUE = /^(?:[A-Za-z]:[\\/]|\\\\|file:\/\/)/i
@@ -361,10 +362,16 @@ export async function requestOriginExport(
   ))
 }
 
-function originDiagnostic(code: string, fallback: string): string {
+function originDiagnostic(
+  code: string,
+  fallback: string,
+  detected?: { displayName: string; displayVersion: string },
+): string {
   const messages: Record<string, string> = {
-    NOT_INSTALLED: '未找到受支持的 Origin。请安装 Origin，或将便携版放置于 D:\\origin 后重新检测。',
-    VERSION_UNSUPPORTED: '当前 Origin 版本不受支持。请安装产品要求的版本后重新检测。',
+    NOT_INSTALLED: '未找到已配置的 Origin 程序。请选择本机 OriginPro 2024 的主程序（如 Origin64.exe）。',
+    VERSION_UNSUPPORTED: detected === undefined
+      ? '当前 Origin 版本不受支持。fig-agent 目前仅支持 OriginPro 2024。'
+      : `已检测到 ${detected.displayName}${detected.displayVersion ? `（${detected.displayVersion}）` : ''}，fig-agent 目前仅支持 OriginPro 2024。`,
     LICENSE_UNAVAILABLE: 'Origin 许可证当前不可用。请启动 Origin 完成许可证验证后重新检测。',
     CAPABILITY_MISSING: 'Origin 缺少导出所需能力。请修复 Origin 安装后重新检测。',
     TEMPLATE_OR_FONT_MISSING: 'Origin 导出模板或字体不完整。请修复 fig-agent 安装后重新检测。',
@@ -394,11 +401,30 @@ export function normalizeOriginStatus(value: JsonValue): JsonValue {
     throw new Error('Invalid Origin status response')
   }
   const code = typeof error.code === 'string' ? error.code : 'UNKNOWN'
+  const environment = value.environment
+  const detected = environment !== null && !Array.isArray(environment) && typeof environment === 'object'
+    ? {
+        displayName: typeof environment.display_name === 'string' ? environment.display_name : 'Origin',
+        displayVersion: typeof environment.display_version === 'string' ? environment.display_version : '',
+        discoverySource: typeof environment.discovery_source === 'string' ? environment.discovery_source : 'configured',
+      }
+    : undefined
   return {
     status: 'error',
+    ...(detected === undefined
+      ? {}
+      : {
+          display_name: detected.displayName,
+          display_version: detected.displayVersion,
+          discovery_source: detected.discoverySource,
+        }),
     error: {
       code,
-      message: originDiagnostic(code, typeof error.message === 'string' ? error.message : ''),
+      message: originDiagnostic(
+        code,
+        typeof error.message === 'string' ? error.message : '',
+        detected,
+      ),
       retryable: typeof error.retryable === 'boolean' ? error.retryable : true,
     },
   }
@@ -415,6 +441,24 @@ export async function requestOriginStatus(
       value: normalizeOriginStatus(await supervisor.request(
         'origin.status',
         {},
+        ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
+      )),
+    }
+  } catch (error: unknown) {
+    return { ok: false, error: supervisor.toPublicResult(error) }
+  }
+}
+
+export async function requestOriginConfigure(
+  supervisor: PythonCoreSupervisor,
+  executablePath: string,
+): Promise<DesktopDataResult> {
+  try {
+    return {
+      ok: true,
+      value: normalizeOriginStatus(await supervisor.request(
+        'origin.configure',
+        { executable_path: executablePath },
         ORIGIN_STATUS_REQUEST_TIMEOUT_MS,
       )),
     }
@@ -616,6 +660,17 @@ export function registerDesktopIpc({
     requestCoreData(supervisor, resources, 'provider.status')
   ))
   ipcMain.handle(IPC_CHANNELS.originStatus, () => requestOriginStatus(supervisor))
+  ipcMain.handle(IPC_CHANNELS.originSelect, async () => {
+    const owner = getWindow()
+    if (owner === undefined) return invalidDataArgument('主窗口不可用。')
+    const choice = await dialog.showOpenDialog(owner, {
+      title: '选择 OriginPro 2024 程序',
+      properties: ['openFile'],
+      filters: [...ORIGIN_EXECUTABLE_FILTERS],
+    })
+    if (choice.canceled || choice.filePaths.length !== 1) return cancelled()
+    return requestOriginConfigure(supervisor, choice.filePaths[0])
+  })
   ipcMain.handle(IPC_CHANNELS.providerConfigure, (_event, value: unknown) => {
     const input = parseCustomProviderConfigureInput(value)
     return input === null

@@ -696,7 +696,9 @@ kbd {
   color: var(--success);
 }
 
-.sidebar__footer .origin-row--unavailable {
+.sidebar__footer .origin-row--missing,
+.sidebar__footer .origin-row--unavailable,
+.sidebar__footer .origin-row--incompatible {
   color: var(--warning);
 }
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 from ctypes import (
     POINTER,
@@ -23,6 +24,22 @@ from pathlib import Path
 from typing import Literal
 
 _SUPPORTED_FILE_VERSION = (10, 1, 0)
+_ORIGIN_EXECUTABLE_NAME = re.compile(r"^origin(?:64|\d+)?\.exe$", re.IGNORECASE)
+
+_ORIGIN_RELEASE_NAMES = {
+    (9, 8, 0): "OriginPro 2021",
+    (9, 8, 5): "OriginPro 2021b",
+    (9, 9, 0): "OriginPro 2022",
+    (9, 9, 5): "OriginPro 2022b",
+    (10, 0, 0): "OriginPro 2023",
+    (10, 0, 5): "OriginPro 2023b",
+    (10, 1, 0): "OriginPro 2024",
+    (10, 1, 5): "OriginPro 2024b",
+    (10, 2, 0): "OriginPro 2025",
+    (10, 2, 5): "OriginPro 2025b",
+    (10, 3, 0): "OriginPro 2026",
+    (10, 3, 5): "OriginPro 2026b",
+}
 
 
 class OriginErrorCode(StrEnum):
@@ -59,6 +76,7 @@ class OriginError:
     code: OriginErrorCode
     message: str
     retryable: bool = False
+    environment: OriginEnvironment | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -72,14 +90,18 @@ class OriginError:
 class OriginPreflightFailure:
     target_path: str
     error: OriginError
+    environment: OriginEnvironment | None = None
     status: Literal["error"] = "error"
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "status": self.status,
             "target_path": self.target_path,
             "error": self.error.to_dict(),
         }
+        if self.environment is not None:
+            value["environment"] = self.environment.to_dict()
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,10 +188,12 @@ def _failure(
     message: str,
     *,
     retryable: bool = False,
+    environment: OriginEnvironment | None = None,
 ) -> OriginPreflightFailure:
     return OriginPreflightFailure(
         target_path=str(target),
         error=OriginError(code=code, message=message, retryable=retryable),
+        environment=environment,
     )
 
 
@@ -186,7 +210,7 @@ def _environment_for_executable(
     source: Literal["configured", "portable", "registry"],
 ) -> OriginEnvironment | OriginError | None:
     resolved = executable.resolve(strict=False)
-    if resolved.name.casefold() != "origin64.exe" or not resolved.is_file():
+    if _ORIGIN_EXECUTABLE_NAME.fullmatch(resolved.name) is None or not resolved.is_file():
         return None
     version = _file_version(resolved)
     if version is None:
@@ -194,24 +218,28 @@ def _environment_for_executable(
             code=OriginErrorCode.VERSION_UNSUPPORTED,
             message="The Origin executable version could not be verified.",
         )
+    environment = OriginEnvironment(
+        display_name=_ORIGIN_RELEASE_NAMES.get(version[:3], "OriginPro"),
+        display_version=".".join(str(item) for item in version[:3]),
+        install_dir=str(resolved.parent),
+        executable_path=str(resolved),
+        discovery_source=source,
+    )
     if version[:3] != _SUPPORTED_FILE_VERSION:
         actual = ".".join(str(item) for item in version[:3])
         expected = ".".join(str(item) for item in _SUPPORTED_FILE_VERSION)
         return OriginError(
             code=OriginErrorCode.VERSION_UNSUPPORTED,
             message=f"Origin {actual} is unsupported; this build requires {expected}.",
+            environment=environment,
         )
-    return OriginEnvironment(
-        display_name="OriginPro 2024",
-        display_version=".".join(str(item) for item in version[:3]),
-        install_dir=str(resolved.parent),
-        executable_path=str(resolved),
-        discovery_source=source,
-    )
+    return environment
 
 
-def _discover_installation() -> OriginEnvironment | OriginError | None:
-    configured = os.environ.get("PLOTAGENT_ORIGIN_EXECUTABLE")
+def _discover_installation(
+    configured_executable: str | os.PathLike[str] | None = None,
+) -> OriginEnvironment | OriginError | None:
+    configured = configured_executable or os.environ.get("PLOTAGENT_ORIGIN_EXECUTABLE")
     if configured:
         return _environment_for_executable(
             Path(configured).expanduser(),
@@ -266,6 +294,7 @@ def preflight_origin(
     target_path: str | os.PathLike[str],
     *,
     expected_existing_sha256: str | None = None,
+    configured_executable: str | os.PathLike[str] | None = None,
 ) -> OriginPreflightResult:
     """Validate a user-authorized OPJU target and locate a usable local Origin install."""
 
@@ -289,7 +318,11 @@ def preflight_origin(
             )
     if shutil.disk_usage(target.parent).free < 16 * 1024 * 1024:
         return _failure(target, OriginErrorCode.SAVE_FAILURE, "Insufficient free disk space.")
-    environment = _discover_installation()
+    environment = (
+        _discover_installation(configured_executable)
+        if configured_executable is not None
+        else _discover_installation()
+    )
     if environment is None:
         return _failure(
             target,
@@ -302,5 +335,6 @@ def preflight_origin(
             environment.code,
             environment.message,
             retryable=environment.retryable,
+            environment=environment.environment,
         )
     return OriginPreflightSuccess(target_path=str(target), environment=environment)
