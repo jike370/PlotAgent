@@ -89,11 +89,11 @@ class K03OriginProject:
             raise RuntimeError("Origin Scatter menu did not create one plot per data group")
         # Origin's official Scatter menu groups the native plots and increments
         # their symbol kinds (square, circle, ...).  K03's renderer contract is
-        # a circle scatter for every materialized group unless a public
-        # SetSeriesStyle explicitly overrides one group.  Matplotlib already
-        # uses that baseline; normalize the official template here so an Agent
-        # may safely omit a redundant marker_shape="circle" action without the
-        # two backends diverging.
+        # a circle scatter for every materialized group unless the shared
+        # visual adapter explicitly overrides one group later.  Matplotlib
+        # already uses that baseline; normalize the official template here so
+        # an Agent may safely omit a redundant marker_shape="circle" action
+        # without the two backends diverging.
         self.graph.activate()
         if len(self.plots) > 1 and not self.op.lt_exec("layer -gu;"):
             raise RuntimeError("Origin could not make K03 scatter groups independent")
