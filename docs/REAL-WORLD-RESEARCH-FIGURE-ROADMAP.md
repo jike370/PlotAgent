@@ -329,6 +329,7 @@ Nature Communications 2023 论文“CEP peptide and cytokinin pathways converge 
 16. K04 `set_point_marker_map` 已完成真实 484 行双后端门禁：Matplotlib 单一气泡系列和 Origin 单一 PID 201 原生 DataPlot 均保留尺寸、连续颜色和 475 圆形/9 向下三角形；Origin 独立进程 fresh-reopen 读回一致。K04 仍因数据坐标注释与最终版式保持黄色。
 17. K08 Fig. 2F 已完成元素级归因：官方数据、图类和排版目标均充分，没有新增能力；旧问题属于排版默认值和版本物化执行缺陷。项目 216 的真实 UI 主链与当前代码双后端重新资格合并形成第三个绿色日更库存。
 18. K03 Fig. 2a 已完成作者证据、无损整理、独立 oracle、真实 Agent 规划/确认/执行、Matplotlib 产品渲染、OriginPro 2024 SR1 原生读回和独立 `Origin64.exe` 可见导出。COM 会话中的文本横线由同一文件的独立进程无横线对照及 OriginLab 同版本案例证明为 OLE 渲染缺陷；验证器已拆分结构读回与最终视觉导出，案例成为第四个绿色库存。
+19. K09 官方 38-Sheet Source Data 已从“必须预先整理后才能导入”升级为原表可直接导入：空表头、重复表头、两行分组表头和空行分隔表块均按源位置确定性处理，正式 ProjectStore 验收提交 39 个独立数据集。该能力只解决原始 Excel 枚举与字段唯一身份；K09 所需 wide-to-long 仍由显式受控处理完成，不在导入器内猜测图类语义。
 
 ## 12. 日更库存补齐顺序
 

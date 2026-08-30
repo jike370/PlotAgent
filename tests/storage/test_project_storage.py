@@ -240,6 +240,26 @@ def test_multi_sheet_import_registers_independent_source_datasets(storage_root: 
         assert project.state_counts()["source_dataset_versions"] == 2
 
 
+def test_multi_region_excel_import_registers_independent_logical_sources(
+    storage_root: Path,
+) -> None:
+    with ProjectStore.create(storage_root / "project") as project:
+        result = ProjectImportService(project).import_resource(
+            ImportResource(
+                resource_id="resource:workbook",
+                path=FILES_ROOT / "excel_two_regions.xlsx",
+            )
+        )
+
+        assert result.kind == "committed"
+        assert len(result.datasets) == 2
+        assert {record.logical_source_id for record in result.datasets} == {
+            "resource:workbook/sheet:Data/block:A1:B2",
+            "resource:workbook/sheet:Data/block:A4:B5",
+        }
+        assert len({record.source_dataset.source_dataset_id for record in result.datasets}) == 2
+
+
 def test_reimport_changed_content_creates_new_version_without_overwrite(
     storage_root: Path,
 ) -> None:

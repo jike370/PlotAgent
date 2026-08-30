@@ -1,6 +1,6 @@
 # 真实论文图案例台账
 
-更新时间：2026-08-30
+更新时间：2026-08-31
 证据目录：`C:\Users\pc\Desktop\实机演示`
 
 本台账记录“当前是否适合实机复现和日更”，不等同于 34 个模板的实现状态。`已整理`只表示本地已有目标图和数据，不表示已经通过 fig-agent、Origin 或视频验收。
@@ -88,6 +88,7 @@
 | RW-040 | K03 / Agent OPJU 跨后端标记 | 同一 typed plan 在 Matplotlib 为黑色实心/空心圆，首个 Origin OPJU 却为方形/实心圆且空心内部未形成白色可见语义 | Origin 官方 Scatter 模板会按组递增 symbol；renderer 未把公共 K03 默认物化到原生序列，且空心语义只写 interior 状态，没有把可见填充解析为白色 | 已在 K03 Origin 创建阶段解除组样式递增并统一 5 pt 圆形，空心有效填充解析为白色；r3 独立进程 fresh-reopen 读回 2 个圆形序列、180×4 数据和正确实心/空心状态，OPJU SHA-256 `C8B61A5150CF3F5103B67A767891F437469E034F21C03EBC71DC6E4482E230B2` |
 | RW-041 | K03 / Origin 可见文本 | r3 在 `originpro`/COM 会话中重开同一 OPJU 时，轴标题、图例及新建普通文本上方均出现长横线；对象文本、Format Tree 和边框属性中没有对应 accent。退出 COM 后，由独立 `Origin64.exe` 打开同一文件导出的 PNG 无横线 | OriginLab 已确认 OriginPro 2024 SR1（10.1.0.178）对嵌入/OLE 图存在相同悬浮横线缺陷，并说明 2024b 修复。fig-agent 恰好使用外部自动化会话，因此旧 fresh PNG 是验证环境伪影，不是作者数据、产品文本合同或 OPJU 持久化缺陷 | 已关闭。结构读回继续使用 fresh COM 进程；可见 OPJU 验收必须在 COM 退出后使用独立 Origin 可执行程序。失败与成功对照、哈希和官方链接见 `build/real-world-k03-fig2a-agent-origin-fixed-20260830-r3/standalone-visual-readback.json`；通用门禁实现见 `scripts/origin_standalone_export.py` |
 | RW-042 | K03 / 首次 OPJU 导出性能 | 真实 Agent v7 首次导出请求携带 `previous_opju=v6`，旧 Runtime 会先递归补齐 v1–v6；但 K03 binder 无论是否收到旧项目都会从不可变源数据和完整有效动作历史重新创建图 | `revision_materialization=previous_project` 与 renderer 实际重建策略矛盾，前六次 Origin 启动和模板构建不贡献最终状态 | K03 recipe 已与 K08 一样改为 `current_state`；Runtime 首次请求 vN 时只 stage 当前版本且 `previous_opju=None`。该结论只授予已审计的 K03/K08，其余 recipe 继续保留增量策略 |
+| RW-043 | K09 / Nature Communications 2023 Fig. 1c 官方 Source Data 原表导入 | 官方 38-Sheet 工作簿的目标 `Figure 1c!A1:D8` 首列为空表头；其他面板还包含同名 X/Y 列、两行分组表头和空行分隔的多个表块。项目 217 因旧导入器要求整本工作簿每列单行且唯一，显示笼统 `The Core request failed` | 旧测试只覆盖人为规整工作簿，把“拒绝空/重复表头”误当安全边界；真实文献附件证明这些结构是正常科研数据表达。`in_scope`：Excel 空表头按列补名、重复表头按源列消歧、数字数据前的两行层级表头组合、空行明确分隔的表块分别导入；`out_of_scope`：任意文本行猜表头、跨 Sheet 语义合并、自动把宽表改成长表 | 已按源单元格位置确定性规范化并在 ImportRecipe/Trace 中记录；官方原表 SHA-256 `7FF406D586D34F2F40818C7FD3DA86956B4C305C6E5A262E7BE3F7CE095221AE` 只读验收为 39 个独立数据集，`Figure 1c` 首个数据集 7×4，ProjectStore 提交 39/39、对象校验通过；整理成长表仍是后续显式受控处理，不在导入阶段偷偷执行 |
 
 ## 4. 第一轮真实数据导入审计
 
@@ -131,6 +132,7 @@ X35 的修复口径是“`category` 角色将数字值作为离散显示标签�
 - RW-026：只读 Excel 的普通空单元格不再读取 `.coordinate`；公式证据坐标由当前 sheet、枚举行列构造，稀疏行宽回归与相关导入套件通过。
 - RW-028：项目 216 的缓存目录证明首次 v7 OPJU 在 14:36:57–14:38:16 间依次生成 v1–v7。K08 现声明 `revision_materialization=current_state`，Runtime 不再先补齐旧 native 版本；同一原始 v7 产品请求在当前版本只运行一个 12.77 s worker。该证据只授权 K08；K03 后续以 RW-042 独立审计，其余 recipe 不随之改变。
 - RW-042：K03 worker 与 K08 同样只消费源数据和完整有效动作历史，从不打开 `previous_opju`；recipe 现声明 `current_state`，首次导出不再递归生成 v1–v6。其余 32 个未审计 recipe 仍保持 `previous_project`，不把一次审计外推为全局优化。
+- RW-043：K09 官方附件来自 *One-stone-for-two-birds strategy to attain beyond 25% perovskite solar cells*（Nature Communications 14, 296；https://www.nature.com/articles/s41467-023-36229-1）。同一原表直接触发项目 217 失败；修复后正式 `inspect_source` 返回 39 个数据块，`Figure 1c!A1:D8` 保留 7 个类别、3 个能量列和两个真实零值，完整 ProjectStore 导入生成 40 个 CAS 对象并通过对象校验。空/重复/层级表头只做确定性命名，不承担 wide-to-long 或科学语义推断。
 - RW-027：产品默认排版不写入用户动作历史；Matplotlib backend 通过统一 rc fallback 解析 10/9/8/8 pt，Origin T1 后处理写入同一物理字号，并在显式 `set_title`/`set_axis`/`set_legend` 后按覆盖值 fresh-read。项目 216 原始 v7 请求已在当前版本真实重建；独立 Origin 进程读回 8 pt 刻度、9 pt 轴标题和完整 13 行，fresh PNG 已视觉检查。证据位于 `build/real-world-k08-fig2f-product-requalify-20260830/`。
 - RW-029：`add_reference_line` 已贯通 Agent、Draft、编译器、Engine Action、30 个 Profile 和双后端。Matplotlib 以语义 ID 寻址 Line2D；Origin 使用官方轴 `refline#` 而不是 `addline` 图形对象。`build/release-matrix/reference-line-native-k04-k08-20260830/` 记录 K04/K08 36/36 PASS、0 FAIL，执行轨迹在 fresh-reopen 后分别读回精确值 `2.6` 和 `16.5`。
 - RW-030：使用表格审计流程只读检查官方 `Fig4.xlsx`；Fig. 4b/4d 分别是 8×2 的类别—数值表，没有 annotation 坐标。源值均值与图中水平虚线一致，因此第一版 callout 绑定 `reference_line_id`，不从截图反推一个虚构的数据点。源文件 SHA-256、逐行值和计算结果冻结于 `build/real-world-k08-fig4-callout-audit-20260830/source-audit.json`。

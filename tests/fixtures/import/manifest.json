@@ -89,7 +89,7 @@
       "id": "excel-duplicate-headers",
       "file": "excel_duplicate_headers.xlsx",
       "sha256": "518731b1988acd4e635b2105ce7fc2273dd0668831adc8f56525d6bad9cda9a8",
-      "expected": {"kind": "rejection", "code": "IMPORT_DUPLICATE_HEADERS"}
+      "expected": {"kind": "imported", "candidates": 1, "rows": [2]}
     },
     {
       "id": "excel-empty",
@@ -142,7 +142,7 @@
       "id": "excel-two-regions",
       "file": "excel_two_regions.xlsx",
       "sha256": "49086c62f2bc96a765de061324aac97a5b6d09b7f0af1543fc7bc084904efd00",
-      "expected": {"kind": "clarification", "code": "IMPORT_REGION_AMBIGUOUS"}
+      "expected": {"kind": "imported", "candidates": 2, "rows": [1, 1]}
     },
     {
       "id": "excel-two-sheets",

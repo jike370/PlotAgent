@@ -22,6 +22,8 @@ def _logical_source_id(resource_id: str, artifact: SourceDatasetArtifact) -> str
     recipe = artifact.recipe
     if recipe.sheet is not None:
         partition = f"sheet:{recipe.sheet}"
+        if recipe.block is not None:
+            partition += f"/block:{recipe.block}"
     elif recipe.block is not None:
         partition = f"block:{recipe.block}"
     else:

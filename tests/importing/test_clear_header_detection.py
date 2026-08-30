@@ -103,6 +103,84 @@ def test_bracketed_excel_unit_row_is_metadata_not_sample_data(tmp_path: Path) ->
     )
 
 
+def test_excel_scientific_headers_are_repaired_without_losing_source_position_or_units(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "scientific.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Figure 1c"
+    sheet.append((None, "Signal (mV)", "Signal (mV)"))
+    sheet.append(("control", 1.0, 2.0))
+    sheet.append(("treated", 3.0, 4.0))
+    workbook.save(source)
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    artifact = result.sources[0]
+    fields = artifact.source_dataset.field_schema
+    assert tuple(field.name for field in fields) == (
+        "column_1",
+        "Signal [B] (mV)",
+        "Signal [C] (mV)",
+    )
+    assert tuple(field.unit.source_text for field in fields) == ("", "mV", "mV")
+    normalized = next(
+        event for event in artifact.trace if event.code == "IMPORT_EXCEL_HEADERS_NORMALIZED"
+    )
+    assert normalized.details == {"blank_headers": 1, "duplicate_headers": 2}
+
+
+def test_excel_two_row_scientific_header_is_composed_when_data_row_is_numeric(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "hierarchical.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(("Control", "Reverse", "Control", "Forward"))
+    sheet.append(("Voltage (V)", "Current (mA)", "Voltage (V)", "Current (mA)"))
+    sheet.append((1.0, 2.0, 3.0, 4.0))
+    workbook.save(source)
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    artifact = result.sources[0]
+    assert artifact.recipe.header_row == 2
+    assert artifact.recipe.data_start_row == 3
+    assert tuple(field.name for field in artifact.source_dataset.field_schema) == (
+        "Control / Voltage [A] (V)",
+        "Reverse / Current (mA)",
+        "Control / Voltage [C] (V)",
+        "Forward / Current (mA)",
+    )
+
+
+def test_excel_blank_row_separated_regions_are_imported_as_distinct_blocks(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "regions.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet.append(("x", "y"))
+    sheet.append((0, 1))
+    sheet.append((None, None))
+    sheet.append(("a", "b"))
+    sheet.append((2, 3))
+    workbook.save(source)
+
+    result = inspect_source(source)
+
+    assert isinstance(result, Imported)
+    assert tuple(item.recipe.block for item in result.sources) == ("A1:B2", "A4:B5")
+    assert tuple(item.display_name for item in result.sources) == (
+        "regions:Data:A1:B2",
+        "regions:Data:A4:B5",
+    )
+
+
 def test_explicit_scientific_header_suffixes_are_imported_as_unit_suggestions(
     tmp_path: Path,
 ) -> None:

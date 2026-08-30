@@ -27,6 +27,7 @@ from plotagent.importing.normalize import (
     build_candidate,
     looks_like_declared_header,
     normalize_excel_scalar,
+    normalize_header,
     stable_hash,
 )
 
@@ -246,6 +247,92 @@ def _typed_count(row: tuple[Scalar, ...]) -> int:
 
 
 _UNIT_CELL = re.compile(r"^\[([^\[\]]+)\]$")
+_HEADER_UNIT_SUFFIX = re.compile(r"(?P<unit>\s*(?:\([^()]+\)|\[[^\[\]]+\]))\s*$")
+
+
+def _text_or_blank(value: Scalar) -> bool:
+    return value is None or isinstance(value, str)
+
+
+def _header_text(value: Scalar) -> str:
+    return "" if value is None else normalize_header(value)
+
+
+def _hierarchical_headers(
+    first: tuple[Scalar, ...], second: tuple[Scalar, ...]
+) -> tuple[str, ...]:
+    """Compose two textual Excel header rows without losing group labels."""
+
+    group = ""
+    combined: list[str] = []
+    for upper_value, lower_value in zip(first, second, strict=True):
+        upper = _header_text(upper_value)
+        lower = _header_text(lower_value)
+        if upper:
+            group = upper
+        if not upper and not lower:
+            group = ""
+            combined.append("")
+            continue
+        prefix = upper or group
+        if lower and prefix and lower != prefix:
+            combined.append(f"{prefix} / {lower}")
+        else:
+            combined.append(lower or prefix)
+    return tuple(combined)
+
+
+def _has_hierarchical_structure(
+    first: tuple[Scalar, ...], second: tuple[Scalar, ...]
+) -> bool:
+    if len(first) < 3:
+        return False
+    for row in (first, second):
+        values = tuple(_header_text(value) for value in row)
+        nonempty = tuple(value for value in values if value)
+        if len(nonempty) != len(values) or len(set(nonempty)) != len(nonempty):
+            return True
+    return False
+
+
+def _column_qualified_header(header: str, column_number: int) -> str:
+    qualifier = get_column_letter(column_number)
+    matched = _HEADER_UNIT_SUFFIX.search(header)
+    if matched is None:
+        return f"{header} [{qualifier}]"
+    stem = header[: matched.start()].rstrip()
+    return f"{stem} [{qualifier}]{matched.group('unit')}"
+
+
+def _normalized_excel_headers(
+    headers: tuple[str, ...], *, start_col: int
+) -> tuple[tuple[str, ...], int, int]:
+    """Create stable, source-position-qualified names for common Excel headers."""
+
+    normalized = tuple(normalize_header(header) for header in headers)
+    counts = {name: normalized.count(name) for name in normalized if name}
+    repaired: list[str] = []
+    used: set[str] = set()
+    blank_count = 0
+    duplicate_count = 0
+    for offset, name in enumerate(normalized):
+        column_number = start_col + offset
+        if not name:
+            blank_count += 1
+            candidate = f"column_{offset + 1}"
+        elif counts[name] > 1:
+            duplicate_count += 1
+            candidate = _column_qualified_header(name, column_number)
+        else:
+            candidate = name
+        unique = candidate
+        ordinal = 2
+        while unique in used:
+            unique = f"{candidate} [{ordinal}]"
+            ordinal += 1
+        repaired.append(unique)
+        used.add(unique)
+    return tuple(repaired), blank_count, duplicate_count
 
 
 def _declared_units(row: tuple[Scalar, ...]) -> tuple[str, ...] | None:
@@ -288,6 +375,28 @@ def _header(
             requested,
             requested + 1,
         )
+    if region.start_row + 2 <= region.end_row:
+        third = _row_values(sheet, region, region.start_row + 2)
+        if (
+            all(_text_or_blank(value) for value in first)
+            and all(_text_or_blank(value) for value in second)
+            and _declared_units(second) is None
+            and _has_hierarchical_structure(first, second)
+            and any(not _text_or_blank(value) for value in third)
+        ):
+            return (
+                _hierarchical_headers(first, second),
+                region.start_row + 1,
+                region.start_row + 2,
+            )
+    if all(_text_or_blank(value) for value in first) and any(
+        not _text_or_blank(value) for value in second
+    ):
+        return (
+            tuple(_header_text(value) for value in first),
+            region.start_row,
+            region.start_row + 1,
+        )
     first_typed = _typed_count(first)
     second_typed = _typed_count(second)
     width = len(first)
@@ -328,8 +437,13 @@ def _candidate(
     parser_name: str,
     parser_version: str,
     header_row: int | None,
+    block: str | None = None,
 ) -> SourceDatasetArtifact:
     headers, actual_header, data_start = _header(sheet, region, header_row)
+    headers, blank_headers, duplicate_headers = _normalized_excel_headers(
+        headers,
+        start_col=region.start_col,
+    )
     declared_units = (
         _declared_units(_row_values(sheet, region, data_start))
         if actual_header is not None and data_start <= region.end_row
@@ -373,6 +487,20 @@ def _candidate(
                 "declared_unit_row": declared_units is not None,
             },
         ),
+        *(
+            (
+                TraceEvent(
+                    stage="validate",
+                    code="IMPORT_EXCEL_HEADERS_NORMALIZED",
+                    details={
+                        "blank_headers": blank_headers,
+                        "duplicate_headers": duplicate_headers,
+                    },
+                ),
+            )
+            if blank_headers or duplicate_headers
+            else ()
+        ),
     )
     recipe = ImportRecipe(
         parser_name=parser_name,  # type: ignore[arg-type]
@@ -384,10 +512,15 @@ def _candidate(
         workbook=path.name,
         sheet=sheet.name,
         cell_range=region.cell_range,
+        block=block,
         column_names=headers,
     )
     return build_candidate(
-        display_name=f"{path.stem}:{sheet.name}",
+        display_name=(
+            f"{path.stem}:{sheet.name}:{region.cell_range}"
+            if block is not None
+            else f"{path.stem}:{sheet.name}"
+        ),
         source_hash=source_hash,
         recipe=recipe,
         headers=headers,
@@ -428,30 +561,25 @@ def inspect_excel(
     candidates: list[SourceDatasetArtifact] = []
     for sheet in sheets:
         regions = _regions(sheet)
-        if len(regions) > 1:
-            raise ImportProblem(
-                ImportErrorCode.REGION_AMBIGUOUS,
-                f"工作表 {sheet.name} 包含多个同等合理的数据区域。",
-                "请选择一个单元格区域后继续导入。",
-                clarification_options=tuple(region.cell_range for region in regions),
-            )
         if not regions:
             continue
-        candidates.append(
-            _candidate(
-                path=path,
-                sheet=sheet,
-                region=regions[0],
-                source_hash=source_hash,
-                parser_name=parser_name,
-                parser_version=parser_version,
-                header_row=(
-                    header_rows.get(sheet.name, header_row)
-                    if header_rows is not None
-                    else header_row
-                ),
+        for region in regions:
+            candidates.append(
+                _candidate(
+                    path=path,
+                    sheet=sheet,
+                    region=region,
+                    source_hash=source_hash,
+                    parser_name=parser_name,
+                    parser_version=parser_version,
+                    header_row=(
+                        header_rows.get(sheet.name, header_row)
+                        if header_rows is not None
+                        else header_row
+                    ),
+                    block=region.cell_range if len(regions) > 1 else None,
+                )
             )
-        )
     if not candidates:
         raise ImportProblem(
             ImportErrorCode.NO_DATA,
