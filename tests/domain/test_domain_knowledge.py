@@ -264,6 +264,16 @@ def test_heatmap_and_bidirectional_error_cards_make_ambiguous_semantics_explicit
     assert "绝对下界/上界" in error_semantics
 
 
+def test_x40_card_maps_hide_label_language_to_visibility_without_deleting_identity() -> None:
+    before_after = DOMAIN_KNOWLEDGE.get_chart_knowledge("X40")
+    semantics = " ".join(before_after.fixed_scientific_semantics)
+
+    assert "identity_labels_visible" in semantics
+    assert "value=false" in semantics
+    assert "不要删除 label 绑定" in semantics
+    assert before_after.engine_profile.required_roles == ("label", "series_1", "series_2")
+
+
 def test_agent_visible_cards_bind_reviewed_evidence_without_backend_private_details() -> None:
     encoded = json.dumps(
         [card.model_dump(mode="json") for card in DOMAIN_KNOWLEDGE.cards.values()],

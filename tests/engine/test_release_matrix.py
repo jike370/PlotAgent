@@ -40,9 +40,10 @@ def test_release_cases_freeze_all_public_profiles_and_three_variants() -> None:
         for case in cases:
             assert len(case.view.row_ids) > 0
             assert all(len(column.values) == len(case.view.row_ids) for column in case.view.columns)
-            assert tuple(binding.field_id for binding in case.create.bindings) == tuple(
-                column.field.field_id for column in case.view.columns
-            )
+            bound_field_ids = tuple(binding.field_id for binding in case.create.bindings)
+            available_field_ids = tuple(column.field.field_id for column in case.view.columns)
+            assert len(bound_field_ids) == len(set(bound_field_ids))
+            assert set(bound_field_ids) <= set(available_field_ids)
 
 
 def test_offline_release_matrix_executes_306_unique_keys(tmp_path: Path) -> None:
@@ -269,6 +270,62 @@ def test_all_34_profiles_enumerate_every_public_edit_parameter_in_isolation(
     )
 
 
+def test_k13_observation_overlay_parameters_are_visually_observable(
+    tmp_path: Path,
+) -> None:
+    from plotagent.engine.backends.matplotlib import default_matplotlib_backend
+    from plotagent.engine.ports import EngineRenderSource
+
+    case = next(
+        item
+        for item in RELEASE_CASES
+        if item.profile_id == "K13" and item.variant == "representative"
+    )
+    artifact_root = tmp_path / "k13-observation-parameters"
+    backend = default_matplotlib_backend(artifact_root)
+    default = backend.stage(case.document, (), EngineRenderSource(data=case.view))
+    isolated = tuple(
+        item
+        for item in isolated_edit_cases(case, default.readback)
+        if item.operation == "set_observation_overlay"
+    )
+    default.discard()
+    assert {parameter for item in isolated for parameter in item.focal_parameters} == {
+        "visible",
+        "jitter_fraction",
+        "marker_shape",
+        "marker_size_pt",
+        "marker_interior",
+        "marker_fill_color",
+        "marker_stroke_color",
+        "marker_opacity",
+    }
+
+    plot_token = case.document.plot_id.removeprefix("plot:")
+    for item in isolated:
+        document_a = document_for_actions(case, (item.action,))
+        change_a = backend.stage(
+            document_a,
+            (item.action,),
+            EngineRenderSource(data=case.view),
+        )
+        change_a.publish()
+        png = artifact_root / plot_token / f"v{document_a.plot_version}" / "preview.png"
+        hash_a = sha256(png.read_bytes()).hexdigest()
+        change_a.revert()
+
+        document_b = document_for_actions(case, (item.comparison_action,))
+        change_b = backend.stage(
+            document_b,
+            (item.comparison_action,),
+            EngineRenderSource(data=case.view),
+        )
+        change_b.publish()
+        hash_b = sha256(png.read_bytes()).hexdigest()
+        change_b.revert()
+        assert hash_a != hash_b, item.case_id
+
+
 def test_every_profile_parameter_pair_has_an_isolated_matplotlib_execution(
     tmp_path: Path,
 ) -> None:
@@ -290,26 +347,39 @@ def test_every_profile_parameter_pair_has_an_isolated_matplotlib_execution(
             for parameter in isolated.focal_parameters:
                 covered.add((case.profile_id, isolated.operation, parameter))
             action_a = isolated.action
-            document_a = document_for_actions(case, (action_a,))
+            history_a = (*isolated.setup_actions, action_a)
+            document_a = document_for_actions(case, history_a)
             change_a = backend.stage(
                 document_a,
-                (action_a,),
+                history_a,
                 EngineRenderSource(data=case.view),
             )
             change_a.publish()
-            edited_png = artifact_root / plot_token / "v2" / "preview.png"
-            hash_a = sha256(edited_png.read_bytes()).hexdigest()
+            edited_png_a = (
+                artifact_root
+                / plot_token
+                / f"v{document_a.plot_version}"
+                / "preview.png"
+            )
+            hash_a = sha256(edited_png_a.read_bytes()).hexdigest()
             change_a.revert()
 
             action_b = isolated.comparison_action
-            document_b = document_for_actions(case, (action_b,))
+            history_b = (*isolated.setup_actions, action_b)
+            document_b = document_for_actions(case, history_b)
             change_b = backend.stage(
                 document_b,
-                (action_b,),
+                history_b,
                 EngineRenderSource(data=case.view),
             )
             change_b.publish()
-            hash_b = sha256(edited_png.read_bytes()).hexdigest()
+            edited_png_b = (
+                artifact_root
+                / plot_token
+                / f"v{document_b.plot_version}"
+                / "preview.png"
+            )
+            hash_b = sha256(edited_png_b.read_bytes()).hexdigest()
             if isolated.comparison_mode == "shared_property":
                 assert isolated.evidence_reason
                 shared_property_cases.add(isolated.case_id)

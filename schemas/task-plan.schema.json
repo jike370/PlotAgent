@@ -173,6 +173,7 @@
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
+                "extract_mapping_fields": "#/$defs/ExtractMappingFields",
                 "filter_rows": "#/$defs/FilterRows",
                 "rename_field": "#/$defs/RenameField",
                 "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
@@ -200,6 +201,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertType"
+              },
+              {
+                "$ref": "#/$defs/ExtractMappingFields"
               },
               {
                 "$ref": "#/$defs/ReshapeLongToWide"
@@ -324,12 +328,17 @@
             "discriminator": {
               "mapping": {
                 "add_annotation": "#/$defs/DraftAddAnnotation",
+                "add_callout": "#/$defs/DraftAddCallout",
+                "add_reference_line": "#/$defs/DraftAddReferenceLine",
                 "set_axis": "#/$defs/DraftSetAxis",
+                "set_canvas": "#/$defs/DraftSetCanvas",
                 "set_chart_parameter": "#/$defs/DraftSetChartParameter",
                 "set_colormap": "#/$defs/DraftSetColorMap",
                 "set_data_labels": "#/$defs/DraftSetDataLabels",
                 "set_error_style": "#/$defs/DraftSetErrorStyle",
                 "set_legend": "#/$defs/DraftSetLegend",
+                "set_observation_overlay": "#/$defs/DraftSetObservationOverlay",
+                "set_point_marker_map": "#/$defs/DraftSetPointMarkerMap",
                 "set_series_style": "#/$defs/DraftSetSeriesStyle",
                 "set_title": "#/$defs/DraftSetTitle"
               },
@@ -346,6 +355,12 @@
                 "$ref": "#/$defs/DraftSetSeriesStyle"
               },
               {
+                "$ref": "#/$defs/DraftSetPointMarkerMap"
+              },
+              {
+                "$ref": "#/$defs/DraftSetObservationOverlay"
+              },
+              {
                 "$ref": "#/$defs/DraftSetLegend"
               },
               {
@@ -358,10 +373,19 @@
                 "$ref": "#/$defs/DraftSetDataLabels"
               },
               {
+                "$ref": "#/$defs/DraftSetCanvas"
+              },
+              {
                 "$ref": "#/$defs/DraftSetChartParameter"
               },
               {
                 "$ref": "#/$defs/DraftAddAnnotation"
+              },
+              {
+                "$ref": "#/$defs/DraftAddReferenceLine"
+              },
+              {
+                "$ref": "#/$defs/DraftAddCallout"
               }
             ]
           },
@@ -873,6 +897,306 @@
       "title": "DraftAddAnnotation",
       "type": "object"
     },
+    "DraftAddCallout": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_fraction": {
+          "default": 0.5,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor Fraction",
+          "type": "number"
+        },
+        "arrow_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Color"
+        },
+        "arrow_head": {
+          "anyOf": [
+            {
+              "enum": [
+                "open",
+                "filled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Head"
+        },
+        "arrow_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Width Pt"
+        },
+        "callout_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Callout Alias",
+          "type": "string"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
+        "operation": {
+          "const": "add_callout",
+          "default": "add_callout",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reference_line_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Reference Line Alias",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "text_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Color"
+        },
+        "text_x_fraction": {
+          "maximum": 1.25,
+          "minimum": -0.25,
+          "title": "Text X Fraction",
+          "type": "number"
+        },
+        "text_y_fraction": {
+          "maximum": 1.25,
+          "minimum": -0.25,
+          "title": "Text Y Fraction",
+          "type": "number"
+        }
+      },
+      "required": [
+        "reference_line_alias",
+        "callout_alias",
+        "text",
+        "text_x_fraction",
+        "text_y_fraction"
+      ],
+      "title": "DraftAddCallout",
+      "type": "object"
+    },
+    "DraftAddReferenceLine": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "line_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Color"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "operation": {
+          "const": "add_reference_line",
+          "default": "add_reference_line",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reference_line_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Reference Line Alias",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "target_alias",
+        "reference_line_alias",
+        "value"
+      ],
+      "title": "DraftAddReferenceLine",
+      "type": "object"
+    },
+    "DraftPointMarkerMapEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "marker_shape": {
+          "enum": [
+            "circle",
+            "square",
+            "triangle_up",
+            "triangle_down",
+            "diamond"
+          ],
+          "title": "Marker Shape",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "marker_shape"
+      ],
+      "title": "DraftPointMarkerMapEntry",
+      "type": "object"
+    },
     "DraftSetAxis": {
       "additionalProperties": false,
       "properties": {
@@ -1334,6 +1658,67 @@
         "target_alias"
       ],
       "title": "DraftSetAxis",
+      "type": "object"
+    },
+    "DraftSetCanvas": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 0.2,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect Ratio"
+        },
+        "height_mm": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 30,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height Mm"
+        },
+        "operation": {
+          "const": "set_canvas",
+          "default": "set_canvas",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "plot",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "width_mm": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 40,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width Mm"
+        }
+      },
+      "title": "DraftSetCanvas",
       "type": "object"
     },
     "DraftSetChartParameter": {
@@ -2054,6 +2439,124 @@
       "title": "DraftSetLegend",
       "type": "object"
     },
+    "DraftSetObservationOverlay": {
+      "additionalProperties": false,
+      "description": "Show the box plot's already-bound raw values as deterministic points.",
+      "properties": {
+        "jitter_fraction": {
+          "default": 0.18,
+          "maximum": 0.45,
+          "minimum": 0,
+          "title": "Jitter Fraction",
+          "type": "number"
+        },
+        "marker_fill_color": {
+          "default": "#FFFFFF",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "title": "Marker Fill Color",
+          "type": "string"
+        },
+        "marker_interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Marker Interior",
+          "type": "string"
+        },
+        "marker_opacity": {
+          "default": 0.85,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Marker Opacity",
+          "type": "number"
+        },
+        "marker_shape": {
+          "default": "circle",
+          "enum": [
+            "circle",
+            "square",
+            "triangle_up",
+            "triangle_down",
+            "diamond"
+          ],
+          "title": "Marker Shape",
+          "type": "string"
+        },
+        "marker_size_pt": {
+          "default": 4.0,
+          "exclusiveMinimum": 0,
+          "maximum": 24,
+          "title": "Marker Size Pt",
+          "type": "number"
+        },
+        "marker_stroke_color": {
+          "default": "#1A1A1A",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "title": "Marker Stroke Color",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_observation_overlay",
+          "default": "set_observation_overlay",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "default": "observations",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "title": "DraftSetObservationOverlay",
+      "type": "object"
+    },
+    "DraftSetPointMarkerMap": {
+      "additionalProperties": false,
+      "description": "Map every value of one discrete field to a point marker shape.",
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/DraftPointMarkerMapEntry"
+          },
+          "maxItems": 32,
+          "minItems": 2,
+          "title": "Entries",
+          "type": "array"
+        },
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_point_marker_map",
+          "default": "set_point_marker_map",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_alias",
+        "field_alias",
+        "entries"
+      ],
+      "title": "DraftSetPointMarkerMap",
+      "type": "object"
+    },
     "DraftSetSeriesStyle": {
       "additionalProperties": false,
       "properties": {
@@ -2504,6 +3007,44 @@
       "title": "ExcludeRows",
       "type": "object"
     },
+    "ExtractMappingFields": {
+      "additionalProperties": false,
+      "description": "Safely extract declared scalar keys from strict Python mapping literals.\n\nExecution accepts only a string whose root is a dictionary with unique\nstring keys and scalar values.  Every encountered key must be declared in\n``outputs``; nested structures and implicit type conversion are forbidden.",
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "extract_mapping_fields",
+          "default": "extract_mapping_fields",
+          "title": "Operation",
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/MappingFieldOutput"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "outputs"
+      ],
+      "title": "ExtractMappingFields",
+      "type": "object"
+    },
     "FilterPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -2634,6 +3175,86 @@
         "predicates"
       ],
       "title": "FilterRows",
+      "type": "object"
+    },
+    "MappingFieldOutput": {
+      "additionalProperties": false,
+      "description": "One explicitly declared scalar output from a mapping-literal field.",
+      "properties": {
+        "key": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "presence_output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MappingPresenceOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "target_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "boolean",
+            "text"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "output_field_alias",
+        "output_name",
+        "target_type"
+      ],
+      "title": "MappingFieldOutput",
+      "type": "object"
+    },
+    "MappingPresenceOutput": {
+      "additionalProperties": false,
+      "description": "One boolean output that records whether a mapping key was present.\n\nThis is intentionally distinct from the extracted value: a declared key\nmay be present with a null value, while an optional key may be absent.  The\ndistinction is useful for downstream data encodings without teaching an\nindividual chart profile about one paper's source grammar.",
+      "properties": {
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "MappingPresenceOutput",
       "type": "object"
     },
     "RenameField": {

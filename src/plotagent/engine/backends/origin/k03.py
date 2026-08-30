@@ -87,6 +87,19 @@ class K03OriginProject:
         self.plots = list(self.layer.plot_list())
         if len(self.plots) != len(scatter.groups):
             raise RuntimeError("Origin Scatter menu did not create one plot per data group")
+        # Origin's official Scatter menu groups the native plots and increments
+        # their symbol kinds (square, circle, ...).  K03's renderer contract is
+        # a circle scatter for every materialized group unless a public
+        # SetSeriesStyle explicitly overrides one group.  Matplotlib already
+        # uses that baseline; normalize the official template here so an Agent
+        # may safely omit a redundant marker_shape="circle" action without the
+        # two backends diverging.
+        self.graph.activate()
+        if len(self.plots) > 1 and not self.op.lt_exec("layer -gu;"):
+            raise RuntimeError("Origin could not make K03 scatter groups independent")
+        for plot in self.plots:
+            plot.symbol_kind = _SYMBOL_CODES["circle"]
+            plot.symbol_size = 5.0
         self._set_axis_labels(scatter)
         with origin_trace_step("template_residue_remove"):
             for residue in tuple(self.op.pages("w")):
@@ -217,7 +230,8 @@ class K03OriginProject:
                 raise RuntimeError("Origin K03 did not create its linked legend")
             return
         legend.text = "\n".join(
-            f"\\l({index}) %({index})" for index in range(1, len(scatter.groups) + 1)
+            f"\\l({index}, style:s) %({index})"
+            for index in range(1, len(scatter.groups) + 1)
         )
         legend.set_int("link", 1)
         legend.set_int("show", int(visible))
@@ -246,7 +260,10 @@ class K03OriginProject:
             return
         if bool(legend.get_int("show")) != visible:
             raise RuntimeError("Origin K03 legend visibility differs after reopen")
-        expected = tuple(f"\\l({index}) %({index})" for index in range(1, len(scatter.groups) + 1))
+        expected = tuple(
+            f"\\l({index}, style:s) %({index})"
+            for index in range(1, len(scatter.groups) + 1)
+        )
         actual = tuple(line.strip() for line in str(legend.text).splitlines() if line.strip())
         if actual != expected or int(legend.get_int("link")) != 1:
             raise RuntimeError("Origin K03 legend lost a linked group entry")

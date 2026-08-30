@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+from matplotlib.figure import Figure
+
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -135,3 +137,47 @@ def test_k08_renderer_is_independent_of_the_legacy_resolver() -> None:
     assert "plotagent.rendering" not in source
     assert "PlotSpec" not in source
     assert "ResolvedPlot" not in source
+
+
+def test_k08_uses_product_typography_when_actions_do_not_specify_font_sizes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    captured: list[Figure] = []
+    original = Figure.savefig
+
+    def capture(figure: Figure, *args, **kwargs):
+        if Path(args[0]).suffix == ".png":
+            captured.append(figure)
+        return original(figure, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", capture)
+    with ProjectStore.create(tmp_path / "project") as project:
+        backend = MatplotlibBackend(tmp_path / "artifacts", (K08ColumnRenderer(),))
+        runtime = PlotEngineRuntime(
+            PlotEngineService(
+                EngineCatalog((K08_COLUMN_PROFILE,)),
+                PlotDocumentRepository(project),
+            ),
+            Provider(),
+            (backend,),
+        )
+        runtime.execute(_create())
+        runtime.execute(
+            SetLegend(
+                action_id="action:legend-default-typography",
+                target="legend:column-demo.main",
+                expected_plot_version=1,
+                visible=True,
+            )
+        )
+
+    axis = captured[-1].axes[0]
+    legend = axis.get_legend()
+    assert axis.title.get_fontsize() == 10
+    assert axis.xaxis.label.get_fontsize() == 9
+    assert axis.yaxis.label.get_fontsize() == 9
+    assert {label.get_fontsize() for label in axis.get_xticklabels()} == {8}
+    assert {label.get_fontsize() for label in axis.get_yticklabels()} == {8}
+    assert legend is not None
+    assert {label.get_fontsize() for label in legend.get_texts()} == {8}

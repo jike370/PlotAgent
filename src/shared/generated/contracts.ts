@@ -27,6 +27,39 @@ export type AddAnnotation = {
   readonly rotation_deg?: number | null;
 }
 
+export type AddCallout = {
+  readonly expected_plot_version: number;
+  readonly operation?: "add_callout";
+  readonly action_id: string;
+  readonly target: string;
+  readonly callout_id: string;
+  readonly text: string;
+  readonly anchor_fraction?: number;
+  readonly text_x_fraction: number;
+  readonly text_y_fraction: number;
+  readonly arrow_color?: string | null;
+  readonly arrow_width_pt?: number | null;
+  readonly arrow_head?: "open" | "filled" | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly text_color?: string | null;
+}
+
+export type AddReferenceLine = {
+  readonly expected_plot_version: number;
+  readonly operation?: "add_reference_line";
+  readonly action_id: string;
+  readonly target: string;
+  readonly reference_line_id: string;
+  readonly value: number;
+  readonly label?: string | null;
+  readonly line_color?: string | null;
+  readonly line_width_pt?: number | null;
+  readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
+}
+
 export type AgentActivation = {
   readonly schema_version?: "agent-activation.v2";
   readonly activation_id: string;
@@ -376,10 +409,10 @@ export type CompiledTaskItem = {
   readonly target_plot_version?: number | null;
   readonly sources?: ReadonlyArray<WorkflowSource>;
   readonly resolved_fields?: ReadonlyArray<ResolvedWorkflowField>;
-  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
+  readonly data_operations: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ExtractMappingFields | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<ResolvedFieldBinding>;
   readonly binding_evidence?: ReadonlyArray<SourceFieldBindingEvidence>;
-  readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
+  readonly visual_actions: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetPointMarkerMap | DraftSetObservationOverlay | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetCanvas | DraftSetChartParameter | DraftAddAnnotation | DraftAddReferenceLine | DraftAddCallout>;
   readonly depends_on?: ReadonlyArray<string>;
   readonly idempotency_key: string;
 }
@@ -648,10 +681,44 @@ export type DraftAddAnnotation = {
   readonly rotation_deg?: number | null;
 }
 
+export type DraftAddCallout = {
+  readonly operation?: "add_callout";
+  readonly reference_line_alias: string;
+  readonly callout_alias: string;
+  readonly text: string;
+  readonly anchor_fraction?: number;
+  readonly text_x_fraction: number;
+  readonly text_y_fraction: number;
+  readonly arrow_color?: string | null;
+  readonly arrow_width_pt?: number | null;
+  readonly arrow_head?: "open" | "filled" | null;
+  readonly font_family?: "auto" | "Arial" | "Calibri" | "Times New Roman" | "Segoe UI" | "Microsoft YaHei" | "SimSun" | null;
+  readonly font_size_pt?: number | null;
+  readonly font_weight?: "normal" | "bold" | null;
+  readonly italic?: boolean | null;
+  readonly text_color?: string | null;
+}
+
+export type DraftAddReferenceLine = {
+  readonly operation?: "add_reference_line";
+  readonly target_alias: string;
+  readonly reference_line_alias: string;
+  readonly value: number;
+  readonly label?: string | null;
+  readonly line_color?: string | null;
+  readonly line_width_pt?: number | null;
+  readonly line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
+}
+
 export type DraftFieldBinding = {
   readonly role: string;
   readonly source_alias: string;
   readonly field_alias: string;
+}
+
+export type DraftPointMarkerMapEntry = {
+  readonly value: boolean | string;
+  readonly marker_shape: "circle" | "square" | "triangle_up" | "triangle_down" | "diamond";
 }
 
 export type DraftSetAxis = {
@@ -688,6 +755,14 @@ export type DraftSetAxis = {
   readonly grid_color?: string | null;
   readonly grid_line_width_pt?: number | null;
   readonly grid_line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
+}
+
+export type DraftSetCanvas = {
+  readonly operation?: "set_canvas";
+  readonly target_alias?: string;
+  readonly width_mm?: number | null;
+  readonly height_mm?: number | null;
+  readonly aspect_ratio?: number | null;
 }
 
 export type DraftSetChartParameter = {
@@ -755,6 +830,26 @@ export type DraftSetLegend = {
   readonly frame_visible?: boolean | null;
   readonly frame_color?: string | null;
   readonly frame_width_pt?: number | null;
+}
+
+export type DraftSetObservationOverlay = {
+  readonly operation?: "set_observation_overlay";
+  readonly target_alias?: string;
+  readonly visible?: boolean;
+  readonly jitter_fraction?: number;
+  readonly marker_shape?: "circle" | "square" | "triangle_up" | "triangle_down" | "diamond";
+  readonly marker_size_pt?: number;
+  readonly marker_interior?: "solid" | "open" | "hollow";
+  readonly marker_fill_color?: string;
+  readonly marker_stroke_color?: string;
+  readonly marker_opacity?: number;
+}
+
+export type DraftSetPointMarkerMap = {
+  readonly operation?: "set_point_marker_map";
+  readonly target_alias: string;
+  readonly field_alias: string;
+  readonly entries: ReadonlyArray<DraftPointMarkerMapEntry>;
 }
 
 export type DraftSetSeriesStyle = {
@@ -845,7 +940,7 @@ export type EngineArtifact = {
 }
 
 export type EngineCapability = {
-  readonly operation: "create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_legend" | "set_colormap" | "set_error_style" | "set_data_labels" | "set_chart_parameter" | "add_annotation" | "export_plot";
+  readonly operation: "create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_point_marker_map" | "set_observation_overlay" | "set_legend" | "set_colormap" | "set_error_style" | "set_data_labels" | "set_canvas" | "set_chart_parameter" | "add_annotation" | "add_reference_line" | "add_callout" | "export_plot";
   readonly parameters?: ReadonlyArray<string>;
 }
 
@@ -883,7 +978,7 @@ export type EngineObjectRef = {
 
 export type EngineObjectTemplate = {
   readonly object_alias: string;
-  readonly object_kind: "axis" | "series" | "legend" | "panel";
+  readonly object_kind: "axis" | "series" | "legend" | "panel" | "observation_overlay";
   readonly object_key: string;
 }
 
@@ -976,6 +1071,13 @@ export type ExportPlot = {
   readonly target: string;
   readonly format: "png" | "svg" | "opju";
   readonly output_name: string;
+}
+
+export type ExtractMappingFields = {
+  readonly operation?: "extract_mapping_fields";
+  readonly source_alias: string;
+  readonly field_alias: string;
+  readonly outputs: ReadonlyArray<MappingFieldOutput>;
 }
 
 export type FieldBinding = {
@@ -1131,6 +1233,20 @@ export type LongToWideOutput = {
   readonly name: string;
 }
 
+export type MappingFieldOutput = {
+  readonly key: string;
+  readonly output_field_alias: string;
+  readonly output_name: string;
+  readonly target_type: "numeric" | "categorical" | "boolean" | "text";
+  readonly required?: boolean;
+  readonly presence_output?: MappingPresenceOutput | null;
+}
+
+export type MappingPresenceOutput = {
+  readonly output_field_alias: string;
+  readonly output_name: string;
+}
+
 export type MatrixProjectionResult = {
   readonly schema_version?: "1.0";
   readonly calculation_id: string;
@@ -1255,7 +1371,12 @@ export type PlotDocumentRef = {
   readonly content_hash: string;
 }
 
-export type PlotEngineActionContract = CreatePlot | BindFields | SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetColorMap | SetErrorStyle | SetDataLabels | SetChartParameter | AddAnnotation | ExportPlot
+export type PlotEngineActionContract = CreatePlot | BindFields | SetTitle | SetAxis | SetSeriesStyle | SetPointMarkerMap | SetObservationOverlay | SetLegend | SetColorMap | SetErrorStyle | SetDataLabels | SetCanvas | SetChartParameter | AddAnnotation | AddReferenceLine | AddCallout | ExportPlot
+
+export type PointMarkerMapEntry = {
+  readonly value: boolean | string;
+  readonly marker_shape: "circle" | "square" | "triangle_up" | "triangle_down" | "diamond";
+}
 
 export type PreparationSpecContract = SelectFieldsSpec | ProjectStructureSpec | IsomorphicConcatSpec | ProjectMetadataLabelSpec | ApplyPlotOrderSpec | FilterRowsSpec
 
@@ -1455,7 +1576,7 @@ export type SandboxPlotArtifact = {
   readonly size: number;
 }
 
-export type SandboxPlotEditContract = SetTitle | SetAxis | SetSeriesStyle | SetLegend | SetColorMap | SetChartParameter | SetErrorStyle | SetDataLabels | AddAnnotation
+export type SandboxPlotEditContract = SetTitle | SetAxis | SetSeriesStyle | SetPointMarkerMap | SetObservationOverlay | SetLegend | SetColorMap | SetChartParameter | SetErrorStyle | SetDataLabels | AddAnnotation | AddCallout | AddReferenceLine
 
 export type SandboxPlotHandle = {
   readonly schema_version?: "sandbox-plot-handle.v2";
@@ -1535,14 +1656,23 @@ export type SelectedPlotContext = {
   readonly plot_version: number;
   readonly profile_id: string;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ExtractMappingFields | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<SelectedPlotBindingContext>;
+  readonly visual_objects?: ReadonlyArray<SelectedPlotReferenceLineContext>;
 }
 
 export type SelectedPlotRef = {
   readonly plot_id: string;
   readonly plot_version: number;
   readonly profile_id: string;
+}
+
+export type SelectedPlotReferenceLineContext = {
+  readonly object_kind?: "reference_line";
+  readonly object_alias: string;
+  readonly target_alias: string;
+  readonly value: number;
+  readonly label?: string | null;
 }
 
 export type SemanticDecision = {
@@ -1588,6 +1718,16 @@ export type SetAxis = {
   readonly grid_color?: string | null;
   readonly grid_line_width_pt?: number | null;
   readonly grid_line_style?: "solid" | "dash" | "dot" | "dash_dot" | "none" | null;
+}
+
+export type SetCanvas = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_canvas";
+  readonly action_id: string;
+  readonly target: string;
+  readonly width_mm?: number | null;
+  readonly height_mm?: number | null;
+  readonly aspect_ratio?: number | null;
 }
 
 export type SetChartParameter = {
@@ -1665,6 +1805,30 @@ export type SetLegend = {
   readonly frame_visible?: boolean | null;
   readonly frame_color?: string | null;
   readonly frame_width_pt?: number | null;
+}
+
+export type SetObservationOverlay = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_observation_overlay";
+  readonly action_id: string;
+  readonly target: string;
+  readonly visible?: boolean;
+  readonly jitter_fraction?: number;
+  readonly marker_shape?: "circle" | "square" | "triangle_up" | "triangle_down" | "diamond";
+  readonly marker_size_pt?: number;
+  readonly marker_interior?: "solid" | "open" | "hollow";
+  readonly marker_fill_color?: string;
+  readonly marker_stroke_color?: string;
+  readonly marker_opacity?: number;
+}
+
+export type SetPointMarkerMap = {
+  readonly expected_plot_version: number;
+  readonly operation?: "set_point_marker_map";
+  readonly action_id: string;
+  readonly target: string;
+  readonly field_id: string;
+  readonly entries: ReadonlyArray<PointMarkerMapEntry>;
 }
 
 export type SetSeriesStyle = {
@@ -1908,9 +2072,9 @@ export type TaskDraftItem = {
   readonly profile_id: string;
   readonly target_plot_alias?: string | null;
   readonly source_aliases?: ReadonlyArray<string>;
-  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
+  readonly data_operations?: ReadonlyArray<SelectFields | FilterRows | SortRows | ExcludeRows | DropEmptyFields | ConvertType | ExtractMappingFields | ReshapeLongToWide | ReshapeWideToLong | ConcatenateSources | AlignSourcesOnX | RenameField | DeriveColumn | ConvertUnit | DeclareUnit | BucketizeNumeric>;
   readonly bindings?: ReadonlyArray<DraftFieldBinding>;
-  readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetChartParameter | DraftAddAnnotation>;
+  readonly visual_actions?: ReadonlyArray<DraftSetTitle | DraftSetAxis | DraftSetSeriesStyle | DraftSetPointMarkerMap | DraftSetObservationOverlay | DraftSetLegend | DraftSetColorMap | DraftSetErrorStyle | DraftSetDataLabels | DraftSetCanvas | DraftSetChartParameter | DraftAddAnnotation | DraftAddReferenceLine | DraftAddCallout>;
 }
 
 export type TaskEnvelope = {

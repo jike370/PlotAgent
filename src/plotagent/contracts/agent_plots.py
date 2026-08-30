@@ -12,6 +12,8 @@ from plotagent.contracts.base import PositiveInt, Sha256, StrictModel, Token, Ve
 from plotagent.engine.contracts import (
     ActionId,
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     EngineDataRef,
     PlotDocument,
     PlotDocumentRef,
@@ -22,6 +24,8 @@ from plotagent.engine.contracts import (
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetObservationOverlay,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
@@ -172,11 +176,15 @@ SandboxPlotEdit = Annotated[
     SetTitle
     | SetAxis
     | SetSeriesStyle
+    | SetPointMarkerMap
+    | SetObservationOverlay
     | SetLegend
     | SetColorMap
     | SetChartParameter
     | SetErrorStyle
     | SetDataLabels
-    | AddAnnotation,
+    | AddAnnotation
+    | AddCallout
+    | AddReferenceLine,
     Field(discriminator="operation"),
 ]

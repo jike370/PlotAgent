@@ -90,6 +90,8 @@ class K01LineRenderer:
         axis.set_ylabel(state.y_axis.label)
         self._apply_axis(axis, "x", state.x_axis)
         self._apply_axis(axis, "y", state.y_axis)
+        if grouped.x_labels is not None:
+            axis.set_xticks(range(len(grouped.x_labels)), grouped.x_labels)
         if state.legend_visible:
             placements: dict[str, dict[str, object]] = {
                 "inside": {"loc": "best"},

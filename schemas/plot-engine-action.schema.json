@@ -9,7 +9,7 @@
           "type": "string"
         },
         "annotation_id": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Annotation Id",
           "type": "string"
         },
@@ -125,7 +125,7 @@
           "title": "Rotation Deg"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -154,6 +154,297 @@
         "y"
       ],
       "title": "AddAnnotation",
+      "type": "object"
+    },
+    "AddCallout": {
+      "additionalProperties": false,
+      "description": "Explain one existing reference line with a semantic arrow and text.\n\nThe first public slice deliberately targets only ``reference_line``\nobjects. ``anchor_fraction`` is measured along the perpendicular plot\naxis, while the text position uses explicit axes-fraction coordinates.\nThis avoids exposing backend-private categorical slot numbers.",
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "anchor_fraction": {
+          "default": 0.5,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Anchor Fraction",
+          "type": "number"
+        },
+        "arrow_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Color"
+        },
+        "arrow_head": {
+          "anyOf": [
+            {
+              "enum": [
+                "open",
+                "filled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Head"
+        },
+        "arrow_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arrow Width Pt"
+        },
+        "callout_id": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Callout Id",
+          "type": "string"
+        },
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "font_family": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "Arial",
+                "Calibri",
+                "Times New Roman",
+                "Segoe UI",
+                "Microsoft YaHei",
+                "SimSun"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Family"
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "maximum": 72,
+              "minimum": 5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Size Pt"
+        },
+        "font_weight": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "bold"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Font Weight"
+        },
+        "italic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Italic"
+        },
+        "operation": {
+          "const": "add_callout",
+          "default": "add_callout",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "text_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Color"
+        },
+        "text_x_fraction": {
+          "maximum": 1.25,
+          "minimum": -0.25,
+          "title": "Text X Fraction",
+          "type": "number"
+        },
+        "text_y_fraction": {
+          "maximum": 1.25,
+          "minimum": -0.25,
+          "title": "Text Y Fraction",
+          "type": "number"
+        }
+      },
+      "required": [
+        "expected_plot_version",
+        "action_id",
+        "target",
+        "callout_id",
+        "text",
+        "text_x_fraction",
+        "text_y_fraction"
+      ],
+      "title": "AddCallout",
+      "type": "object"
+    },
+    "AddReferenceLine": {
+      "additionalProperties": false,
+      "description": "Add one addressable horizontal or vertical line in axis data coordinates.\n\nThe semantic axis target defines direction: an X-axis target creates a\nvertical line, while a Y-axis target creates a horizontal line. Keeping\ndirection derived from the target prevents contradictory requests.",
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "line_color": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Color"
+        },
+        "line_style": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "dash",
+                "dot",
+                "dash_dot",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Style"
+        },
+        "line_width_pt": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 20,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Width Pt"
+        },
+        "operation": {
+          "const": "add_reference_line",
+          "default": "add_reference_line",
+          "title": "Operation",
+          "type": "string"
+        },
+        "reference_line_id": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Reference Line Id",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "expected_plot_version",
+        "action_id",
+        "target",
+        "reference_line_id",
+        "value"
+      ],
+      "title": "AddReferenceLine",
       "type": "object"
     },
     "BindFields": {
@@ -187,7 +478,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         }
@@ -320,7 +611,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         }
@@ -355,6 +646,42 @@
         "field_id"
       ],
       "title": "FieldBinding",
+      "type": "object"
+    },
+    "PointMarkerMapEntry": {
+      "additionalProperties": false,
+      "description": "One exact discrete value-to-marker mapping for point-level encoding.",
+      "properties": {
+        "marker_shape": {
+          "enum": [
+            "circle",
+            "square",
+            "triangle_up",
+            "triangle_down",
+            "diamond"
+          ],
+          "title": "Marker Shape",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "marker_shape"
+      ],
+      "title": "PointMarkerMapEntry",
       "type": "object"
     },
     "SetAxis": {
@@ -632,7 +959,7 @@
           "title": "Scale"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -832,6 +1159,82 @@
       "title": "SetAxis",
       "type": "object"
     },
+    "SetCanvas": {
+      "additionalProperties": false,
+      "description": "Change output page dimensions without changing chart data semantics.",
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "aspect_ratio": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 0.2,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect Ratio"
+        },
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "height_mm": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 30,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height Mm"
+        },
+        "operation": {
+          "const": "set_canvas",
+          "default": "set_canvas",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "width_mm": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 40,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width Mm"
+        }
+      },
+      "required": [
+        "expected_plot_version",
+        "action_id",
+        "target"
+      ],
+      "title": "SetCanvas",
+      "type": "object"
+    },
     "SetChartParameter": {
       "additionalProperties": false,
       "properties": {
@@ -857,7 +1260,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -1089,7 +1492,7 @@
           "title": "Reverse"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         }
@@ -1246,7 +1649,7 @@
           "title": "Suffix"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -1418,7 +1821,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         }
@@ -1574,7 +1977,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -1610,6 +2013,150 @@
         "target"
       ],
       "title": "SetLegend",
+      "type": "object"
+    },
+    "SetObservationOverlay": {
+      "additionalProperties": false,
+      "description": "Show the same raw observations that define a distribution summary.\n\nThis action deliberately has no data or field argument.  A renderer must\nreuse the exact value rows already bound to the box plot, so the public\ncontract cannot silently introduce a second dataset or a different sample.\n``jitter_fraction`` is the deterministic half-width in category-step units;\nrenderers distribute points regularly in source-row order and must not use\nbackend random jitter.",
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "jitter_fraction": {
+          "default": 0.18,
+          "maximum": 0.45,
+          "minimum": 0,
+          "title": "Jitter Fraction",
+          "type": "number"
+        },
+        "marker_fill_color": {
+          "default": "#FFFFFF",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "title": "Marker Fill Color",
+          "type": "string"
+        },
+        "marker_interior": {
+          "default": "solid",
+          "enum": [
+            "solid",
+            "open",
+            "hollow"
+          ],
+          "title": "Marker Interior",
+          "type": "string"
+        },
+        "marker_opacity": {
+          "default": 0.85,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Marker Opacity",
+          "type": "number"
+        },
+        "marker_shape": {
+          "default": "circle",
+          "enum": [
+            "circle",
+            "square",
+            "triangle_up",
+            "triangle_down",
+            "diamond"
+          ],
+          "title": "Marker Shape",
+          "type": "string"
+        },
+        "marker_size_pt": {
+          "default": 4.0,
+          "exclusiveMinimum": 0,
+          "maximum": 24,
+          "title": "Marker Size Pt",
+          "type": "number"
+        },
+        "marker_stroke_color": {
+          "default": "#1A1A1A",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "title": "Marker Stroke Color",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_observation_overlay",
+          "default": "set_observation_overlay",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target",
+          "type": "string"
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expected_plot_version",
+        "action_id",
+        "target"
+      ],
+      "title": "SetObservationOverlay",
+      "type": "object"
+    },
+    "SetPointMarkerMap": {
+      "additionalProperties": false,
+      "description": "Encode one discrete data field as point-wise marker shapes.\n\nRenderers must require an exact, exhaustive match between observed values\nand entries.  There is deliberately no default or missing-value branch:\nthe Agent must first derive an explicit categorical or boolean field.",
+      "properties": {
+        "action_id": {
+          "pattern": "^action:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/PointMarkerMapEntry"
+          },
+          "maxItems": 32,
+          "minItems": 2,
+          "title": "Entries",
+          "type": "array"
+        },
+        "expected_plot_version": {
+          "minimum": 1,
+          "title": "Expected Plot Version",
+          "type": "integer"
+        },
+        "field_id": {
+          "pattern": "^field:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "operation": {
+          "const": "set_point_marker_map",
+          "default": "set_point_marker_map",
+          "title": "Operation",
+          "type": "string"
+        },
+        "target": {
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_plot_version",
+        "action_id",
+        "target",
+        "field_id",
+        "entries"
+      ],
+      "title": "SetPointMarkerMap",
       "type": "object"
     },
     "SetSeriesStyle": {
@@ -1877,7 +2424,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -1998,7 +2545,7 @@
           "type": "string"
         },
         "target": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Target",
           "type": "string"
         },
@@ -2030,15 +2577,20 @@
   "discriminator": {
     "mapping": {
       "add_annotation": "#/$defs/AddAnnotation",
+      "add_callout": "#/$defs/AddCallout",
+      "add_reference_line": "#/$defs/AddReferenceLine",
       "bind_fields": "#/$defs/BindFields",
       "create_plot": "#/$defs/CreatePlot",
       "export_plot": "#/$defs/ExportPlot",
       "set_axis": "#/$defs/SetAxis",
+      "set_canvas": "#/$defs/SetCanvas",
       "set_chart_parameter": "#/$defs/SetChartParameter",
       "set_colormap": "#/$defs/SetColorMap",
       "set_data_labels": "#/$defs/SetDataLabels",
       "set_error_style": "#/$defs/SetErrorStyle",
       "set_legend": "#/$defs/SetLegend",
+      "set_observation_overlay": "#/$defs/SetObservationOverlay",
+      "set_point_marker_map": "#/$defs/SetPointMarkerMap",
       "set_series_style": "#/$defs/SetSeriesStyle",
       "set_title": "#/$defs/SetTitle"
     },
@@ -2061,6 +2613,12 @@
       "$ref": "#/$defs/SetSeriesStyle"
     },
     {
+      "$ref": "#/$defs/SetPointMarkerMap"
+    },
+    {
+      "$ref": "#/$defs/SetObservationOverlay"
+    },
+    {
       "$ref": "#/$defs/SetLegend"
     },
     {
@@ -2073,10 +2631,19 @@
       "$ref": "#/$defs/SetDataLabels"
     },
     {
+      "$ref": "#/$defs/SetCanvas"
+    },
+    {
       "$ref": "#/$defs/SetChartParameter"
     },
     {
       "$ref": "#/$defs/AddAnnotation"
+    },
+    {
+      "$ref": "#/$defs/AddReferenceLine"
+    },
+    {
+      "$ref": "#/$defs/AddCallout"
     },
     {
       "$ref": "#/$defs/ExportPlot"

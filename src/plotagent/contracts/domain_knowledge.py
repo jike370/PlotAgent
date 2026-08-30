@@ -32,6 +32,7 @@ from plotagent.contracts.base import (
     CalculationKind,
     ChartTypeId,
     FieldId,
+    FiniteNumber,
     NonEmptyText,
     NonNegativeInt,
     Sha256,
@@ -312,6 +313,16 @@ class SelectedPlotBindingContext(StrictModel):
     field_alias: WorkflowAlias
 
 
+class SelectedPlotReferenceLineContext(StrictModel):
+    """One public dynamic reference line addressable by a later Agent turn."""
+
+    object_kind: Literal["reference_line"] = "reference_line"
+    object_alias: WorkflowAlias
+    target_alias: WorkflowAlias
+    value: FiniteNumber
+    label: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+
+
 class SelectedPlotContext(StrictModel):
     """Pinned current plot state needed to plan edits and data updates safely."""
 
@@ -324,6 +335,10 @@ class SelectedPlotContext(StrictModel):
     ] = ()
     data_operations: Annotated[tuple[DataOperation, ...], Field(max_length=32)] = ()
     bindings: Annotated[tuple[SelectedPlotBindingContext, ...], Field(max_length=128)] = ()
+    visual_objects: Annotated[
+        tuple[SelectedPlotReferenceLineContext, ...],
+        Field(max_length=128, exclude_if=lambda value: not value),
+    ] = ()
 
     @model_validator(mode="after")
     def aligned_bindings(self) -> SelectedPlotContext:
@@ -334,6 +349,9 @@ class SelectedPlotContext(StrictModel):
             raise ValueError("selected plot binding roles must be unique")
         if any(binding.source_alias not in self.source_aliases for binding in self.bindings):
             raise ValueError("selected plot bindings must use a selected plot source")
+        object_aliases = tuple(item.object_alias for item in self.visual_objects)
+        if len(object_aliases) != len(set(object_aliases)):
+            raise ValueError("selected plot visual object aliases must be unique")
         return self
 
 

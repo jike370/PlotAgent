@@ -1396,12 +1396,17 @@
             "set_title",
             "set_axis",
             "set_series_style",
+            "set_point_marker_map",
+            "set_observation_overlay",
             "set_legend",
             "set_colormap",
             "set_error_style",
             "set_data_labels",
+            "set_canvas",
             "set_chart_parameter",
             "add_annotation",
+            "add_reference_line",
+            "add_callout",
             "export_plot"
           ],
           "title": "Operation",
@@ -1442,7 +1447,8 @@
             "axis",
             "series",
             "legend",
-            "panel"
+            "panel",
+            "observation_overlay"
           ],
           "title": "Object Kind",
           "type": "string"
@@ -1614,6 +1620,44 @@
       "title": "ExcludeRows",
       "type": "object"
     },
+    "ExtractMappingFields": {
+      "additionalProperties": false,
+      "description": "Safely extract declared scalar keys from strict Python mapping literals.\n\nExecution accepts only a string whose root is a dictionary with unique\nstring keys and scalar values.  Every encountered key must be declared in\n``outputs``; nested structures and implicit type conversion are forbidden.",
+      "properties": {
+        "field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Field Alias",
+          "type": "string"
+        },
+        "operation": {
+          "const": "extract_mapping_fields",
+          "default": "extract_mapping_fields",
+          "title": "Operation",
+          "type": "string"
+        },
+        "outputs": {
+          "items": {
+            "$ref": "#/$defs/MappingFieldOutput"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Outputs",
+          "type": "array"
+        },
+        "source_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Source Alias",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_alias",
+        "field_alias",
+        "outputs"
+      ],
+      "title": "ExtractMappingFields",
+      "type": "object"
+    },
     "FilterPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -1771,6 +1815,86 @@
         "content_hash"
       ],
       "title": "IntentRef",
+      "type": "object"
+    },
+    "MappingFieldOutput": {
+      "additionalProperties": false,
+      "description": "One explicitly declared scalar output from a mapping-literal field.",
+      "properties": {
+        "key": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        },
+        "presence_output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MappingPresenceOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "target_type": {
+          "enum": [
+            "numeric",
+            "categorical",
+            "boolean",
+            "text"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "output_field_alias",
+        "output_name",
+        "target_type"
+      ],
+      "title": "MappingFieldOutput",
+      "type": "object"
+    },
+    "MappingPresenceOutput": {
+      "additionalProperties": false,
+      "description": "One boolean output that records whether a mapping key was present.\n\nThis is intentionally distinct from the extracted value: a declared key\nmay be present with a null value, while an optional key may be absent.  The\ndistinction is useful for downstream data encodings without teaching an\nindividual chart profile about one paper's source grammar.",
+      "properties": {
+        "output_field_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Output Field Alias",
+          "type": "string"
+        },
+        "output_name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Output Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output_field_alias",
+        "output_name"
+      ],
+      "title": "MappingPresenceOutput",
       "type": "object"
     },
     "RenameField": {
@@ -2081,6 +2205,7 @@
                 "derive_column": "#/$defs/DeriveColumn",
                 "drop_empty_fields": "#/$defs/DropEmptyFields",
                 "exclude_rows": "#/$defs/ExcludeRows",
+                "extract_mapping_fields": "#/$defs/ExtractMappingFields",
                 "filter_rows": "#/$defs/FilterRows",
                 "rename_field": "#/$defs/RenameField",
                 "reshape_long_to_wide": "#/$defs/ReshapeLongToWide",
@@ -2108,6 +2233,9 @@
               },
               {
                 "$ref": "#/$defs/ConvertType"
+              },
+              {
+                "$ref": "#/$defs/ExtractMappingFields"
               },
               {
                 "$ref": "#/$defs/ReshapeLongToWide"
@@ -2171,6 +2299,15 @@
           "maxItems": 64,
           "title": "Source Aliases",
           "type": "array"
+        },
+        "visual_objects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SelectedPlotReferenceLineContext"
+          },
+          "maxItems": 128,
+          "title": "Visual Objects",
+          "type": "array"
         }
       },
       "required": [
@@ -2207,6 +2344,52 @@
         "profile_id"
       ],
       "title": "SelectedPlotRef",
+      "type": "object"
+    },
+    "SelectedPlotReferenceLineContext": {
+      "additionalProperties": false,
+      "description": "One public dynamic reference line addressable by a later Agent turn.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "object_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Object Alias",
+          "type": "string"
+        },
+        "object_kind": {
+          "const": "reference_line",
+          "default": "reference_line",
+          "title": "Object Kind",
+          "type": "string"
+        },
+        "target_alias": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "title": "Target Alias",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "object_alias",
+        "target_alias",
+        "value"
+      ],
+      "title": "SelectedPlotReferenceLineContext",
       "type": "object"
     },
     "SortKey": {

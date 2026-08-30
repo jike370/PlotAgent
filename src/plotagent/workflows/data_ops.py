@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import math
 from bisect import bisect_right
 from datetime import date, datetime
@@ -12,6 +13,7 @@ from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DataOperation,
     FilterPredicate,
+    MappingFieldOutput,
     PreparedDataPreview,
     PreparedPreviewField,
     PreparedPreviewSource,
@@ -141,6 +143,30 @@ def preview_data_operation(
             operation.true_values,
             operation.false_values,
             operation.case_sensitive,
+        )
+    elif operation.operation == "extract_mapping_fields":
+        result = _extract_mapping_fields(
+            views[operation.source_alias],
+            _preview_field_id(operation.field_alias),
+            tuple(
+                output.model_copy(
+                    update={
+                        "output_field_alias": _preview_field_id(output.output_field_alias),
+                        "presence_output": (
+                            None
+                            if output.presence_output is None
+                            else output.presence_output.model_copy(
+                                update={
+                                    "output_field_alias": _preview_field_id(
+                                        output.presence_output.output_field_alias
+                                    )
+                                }
+                            )
+                        ),
+                    }
+                )
+                for output in operation.outputs
+            ),
         )
     elif operation.operation == "reshape_wide_to_long":
         result = _wide_to_long(
@@ -383,6 +409,31 @@ def _prepare_task_data_view(
                 operation.true_values,
                 operation.false_values,
                 operation.case_sensitive,
+            )
+        elif operation.operation == "extract_mapping_fields":
+            views[operation.source_alias] = _extract_mapping_fields(
+                views[operation.source_alias],
+                _field_id(item, operation.field_alias),
+                tuple(
+                    output.model_copy(
+                        update={
+                            "output_field_alias": _field_id(item, output.output_field_alias),
+                            "presence_output": (
+                                None
+                                if output.presence_output is None
+                                else output.presence_output.model_copy(
+                                    update={
+                                        "output_field_alias": _field_id(
+                                            item,
+                                            output.presence_output.output_field_alias,
+                                        )
+                                    }
+                                )
+                            ),
+                        }
+                    )
+                    for output in operation.outputs
+                ),
             )
         elif operation.operation == "reshape_wide_to_long":
             views[operation.source_alias] = _wide_to_long(
@@ -762,6 +813,162 @@ def _convert_type(
         values=tuple(converted),
     )
     return view.model_copy(update={"columns": view.columns + (derived,)})
+
+
+def _extract_mapping_fields(
+    view: EngineDataView,
+    field_id: str,
+    outputs: tuple[MappingFieldOutput, ...],
+) -> EngineDataView:
+    source = next((column for column in view.columns if column.field.field_id == field_id), None)
+    if source is None:
+        raise WorkflowDataError("FIELD_ALIAS_INVALID", "结构化字段不属于数据表。")
+    output_ids = tuple(
+        alias
+        for output in outputs
+        for alias in (
+            output.output_field_alias,
+            *(
+                ()
+                if output.presence_output is None
+                else (output.presence_output.output_field_alias,)
+            ),
+        )
+    )
+    existing_ids = {column.field.field_id for column in view.columns}
+    if len(output_ids) != len(set(output_ids)) or existing_ids.intersection(output_ids):
+        raise WorkflowDataError("FIELD_ALIAS_DUPLICATED", "结构化字段输出别名已存在。")
+
+    declared = {output.key: output for output in outputs}
+    extracted: dict[str, list[WorkflowScalar]] = {output.key: [] for output in outputs}
+    present: dict[str, list[WorkflowScalar]] = {
+        output.key: [] for output in outputs if output.presence_output is not None
+    }
+    for row_index, (row_id, value) in enumerate(
+        zip(view.row_ids, source.values, strict=True), start=1
+    ):
+        if _is_missing(value):
+            for output in outputs:
+                extracted[output.key].append(None)
+                if output.presence_output is not None:
+                    present[output.key].append(None)
+            continue
+        if not isinstance(value, str):
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_SOURCE_INVALID",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）不是映射字面量文本。",
+            )
+        text = value.strip()
+        if not text or len(text) > 4_096:
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_SOURCE_INVALID",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）不是有效映射字面量。",
+            )
+        try:
+            expression = ast.parse(text, mode="eval")
+        except (SyntaxError, ValueError, MemoryError, RecursionError) as error:
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_PARSE_FAILED",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）无法安全解析。",
+            ) from error
+        if not isinstance(expression.body, ast.Dict):
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_ROOT_INVALID",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）根节点不是映射。",
+            )
+        literal_keys: list[str] = []
+        for key_node in expression.body.keys:
+            if not isinstance(key_node, ast.Constant) or not isinstance(key_node.value, str):
+                raise WorkflowDataError(
+                    "WORKFLOW_MAPPING_KEY_INVALID",
+                    f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）包含非文本键。",
+                )
+            literal_keys.append(key_node.value)
+        if len(literal_keys) != len(set(literal_keys)):
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_KEY_DUPLICATED",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）包含重复键。",
+            )
+        try:
+            mapping = ast.literal_eval(expression)
+        except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError) as error:
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_PARSE_FAILED",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）无法安全解析。",
+            ) from error
+        if not isinstance(mapping, dict):
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_ROOT_INVALID",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）根节点不是映射。",
+            )
+        undeclared = tuple(key for key in mapping if key not in declared)
+        if undeclared:
+            raise WorkflowDataError(
+                "WORKFLOW_MAPPING_KEY_UNDECLARED",
+                f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）"
+                f"包含未声明键 {undeclared[0]!r}。",
+            )
+        for output in outputs:
+            if output.key not in mapping:
+                if output.required:
+                    raise WorkflowDataError(
+                        "WORKFLOW_MAPPING_KEY_MISSING",
+                        f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）"
+                        f"缺少必需键 {output.key!r}。",
+                    )
+                extracted[output.key].append(None)
+                if output.presence_output is not None:
+                    present[output.key].append(False)
+                continue
+            if output.presence_output is not None:
+                present[output.key].append(True)
+            item = mapping[output.key]
+            if item is None:
+                extracted[output.key].append(None)
+                continue
+            valid = False
+            normalized: WorkflowScalar = item
+            if output.target_type == "numeric":
+                valid = isinstance(item, (int, float)) and not isinstance(item, bool)
+                if valid:
+                    normalized = float(item)
+                    valid = math.isfinite(normalized)
+            elif output.target_type == "boolean":
+                valid = isinstance(item, bool)
+            else:
+                valid = isinstance(item, str)
+            if not valid:
+                raise WorkflowDataError(
+                    "WORKFLOW_MAPPING_VALUE_TYPE_INVALID",
+                    f"字段 {source.field.name} 的第 {row_index} 行（{row_id}）中键 "
+                    f"{output.key!r} 的值类型不匹配。",
+                )
+            extracted[output.key].append(normalized)
+
+    derived: list[EngineColumn] = []
+    for output in outputs:
+        derived.append(
+            EngineColumn(
+                field=EngineField(
+                    field_id=output.output_field_alias,
+                    name=output.output_name,
+                    logical_type=cast(Any, output.target_type),
+                ),
+                values=tuple(extracted[output.key]),
+            )
+        )
+        if output.presence_output is not None:
+            derived.append(
+                EngineColumn(
+                    field=EngineField(
+                        field_id=output.presence_output.output_field_alias,
+                        name=output.presence_output.output_name,
+                        logical_type="boolean",
+                    ),
+                    values=tuple(present[output.key]),
+                )
+            )
+    return view.model_copy(update={"columns": (*view.columns, *derived)})
 
 
 def _rename_field(

@@ -16,6 +16,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import DUAL_Y_SERIES_COLORS
 from plotagent.engine.profile_data import X23SeriesData, x35_series, x36_series
 from plotagent.engine.repository import document_ref
 
@@ -66,8 +67,8 @@ class _State:
     x_axis: _AxisState
     left_axis: _AxisState
     right_axis: _AxisState
-    left_series: _SeriesState = _SeriesState()
-    right_series: _SeriesState = _SeriesState()
+    left_series: _SeriesState = _SeriesState(color=DUAL_Y_SERIES_COLORS[0])
+    right_series: _SeriesState = _SeriesState(color=DUAL_Y_SERIES_COLORS[1])
     legend_visible: bool = True
 
 
@@ -303,6 +304,50 @@ class DualYSpecialOriginProject:
                 )
             ),
         )
+
+    def verify_final_native_structure(
+        self, document: PlotDocument, data: EngineDataView
+    ) -> dict[str, object]:
+        """Verify final-project invariants that visual edits cannot legitimately change.
+
+        ``verify`` checks the complete state produced by the structural binder.  It is
+        intentionally too strict for a final OPJU after the shared visual adapter has
+        changed labels, legend visibility, axes, or series styling.  Fresh final-project
+        verification therefore uses this narrower contract: native layer/plot topology,
+        direct source bindings, categorical source order, unscaled plot data, and source
+        worksheet values must survive.  Requested visual state is verified separately by
+        the shared visual-action verifier.
+        """
+
+        values = self._data(document, data)
+        self._assert_native_structure(verify_offsets=True)
+        self._assert_values(self.sheet.to_list(0), tuple(values.x_values), "category")
+        self._assert_values(self.sheet.to_list(1), values.left_values, "left")
+        self._assert_values(self.sheet.to_list(2), values.right_values, "right")
+        return {
+            "profile_id": self.profile_id,
+            "layer_count": 2,
+            "native_plot_ids": [203, 203] if self.profile_id == "X35" else [203, 202],
+            "source_y_columns": ["B", "C"],
+            "row_count": len(values.left_values),
+            "category_order": "first_source_appearance",
+            "plot_y_offsets": [[0.0, 1.0], [0.0, 1.0]],
+        }
+
+    def verify_product_default_series_colors(self) -> dict[str, object]:
+        """Verify the shared Matplotlib/Origin dual-Y product colors after reopen."""
+
+        left = _SeriesState(color=DUAL_Y_SERIES_COLORS[0])
+        right = _SeriesState(color=DUAL_Y_SERIES_COLORS[1])
+        self._assert_column_style(1, left, "left")
+        if self.profile_id == "X35":
+            self._assert_column_style(2, right, "right")
+        else:
+            self._assert_line_symbol_style(2, right)
+        return {
+            "left": DUAL_Y_SERIES_COLORS[0],
+            "right": DUAL_Y_SERIES_COLORS[1],
+        }
 
     def _data(self, document: PlotDocument, data: EngineDataView) -> X23SeriesData:
         return (

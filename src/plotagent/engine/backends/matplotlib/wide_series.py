@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -23,6 +23,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
+    SetChartParameter,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -82,6 +83,7 @@ class _State:
     series: tuple[_SeriesState, ...]
     connector: _ConnectorState | None = None
     legend_visible: bool = True
+    identity_labels_visible: bool = True
 
 
 class X03LollipopRenderer:
@@ -241,7 +243,7 @@ def _draw_wide_series(axis: Axes, series: WideSeriesData, state: _State) -> None
             label=label,
             zorder=2,
         )
-    if series.row_labels is not None:
+    if series.row_labels is not None and state.identity_labels_visible:
         after_x = x_values[-1]
         label_positions = x40_identity_label_positions(series.column_values[-1])
         for row, (subject, after_value, label_y) in enumerate(
@@ -322,6 +324,15 @@ def _state(
     )
     for _index, action in enumerate(actions):
         if isinstance(action, (CreatePlot, BindFields)):
+            continue
+        if (
+            profile_id == "X40"
+            and isinstance(action, SetChartParameter)
+            and action.parameter == "identity_labels_visible"
+        ):
+            if not isinstance(action.value, bool):
+                raise ValueError("identity_labels_visible must be boolean")
+            state = replace(state, identity_labels_visible=action.value)
             continue
         raise ValueError(f"{profile_id} renderer cannot apply {action.operation}")
     return state

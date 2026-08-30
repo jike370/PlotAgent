@@ -3,27 +3,41 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from math import isclose
+from hashlib import blake2s
+from math import isclose, isfinite, log10
 from pathlib import Path
+from re import IGNORECASE
+from re import compile as re_compile
 from typing import Any, Literal
 
 from plotagent.engine.backends.origin.native_visual_t1 import (
+    configure_k09_axis_labels,
     read_axis_line_show,
+    read_axis_tick_font_size,
     read_color_scale_anchor,
     read_color_scale_tick_format,
     read_color_scale_title,
     read_color_scale_title_show,
+    read_k09_axis_labels,
+    read_scale_arrow,
+    remove_graph_object,
     set_axis_line_show,
+    set_axis_tick_font_size,
     set_color_scale_anchor,
     set_color_scale_tick_format,
     set_color_scale_title,
+    set_scale_arrow,
+    set_scale_arrow_head,
 )
 from plotagent.engine.backends.origin.readback import axis_scale_matches
 from plotagent.engine.contracts import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     PlotDocument,
     PlotEngineAction,
     SetAxis,
+    SetCanvas,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
@@ -31,11 +45,14 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from plotagent.engine.visual_t1 import effective_visual_actions
+from plotagent.engine.product_style import PRODUCT_TYPOGRAPHY
+from plotagent.engine.visual_t1 import effective_visual_actions, resolve_canvas_inches
 
 _LINE_STYLE = {"solid": 1, "dash": 2, "dot": 3, "dash_dot": 4, "none": 0}
+_REFERENCE_LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _BORDER_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 0}
 _BAR_COLUMN_PIDS = {203, 207, 213}
+_LINE_SYMBOL_PIDS = {202}
 _MARKER = {
     "none": 0,
     "square": 1,
@@ -148,8 +165,47 @@ def apply_origin_visual_actions(
         document.profile_id,
         template_frame,
     )
+    _apply_origin_product_typography(op, graph)
+    k09_subset_fill_action_ids = _apply_k09_subset_fill_colors(
+        op,
+        graph,
+        document,
+        effective_actions,
+    )
+    reference_lines = tuple(
+        action for action in effective_actions if isinstance(action, AddReferenceLine)
+    )
+    callouts = tuple(
+        action for action in effective_actions if isinstance(action, AddCallout)
+    )
     for action in effective_actions:
+        if isinstance(action, (AddReferenceLine, AddCallout)):
+            continue
+        if action.action_id in k09_subset_fill_action_ids:
+            continue
         _apply_action(op, graph, document, action)
+    k09_presentation = (
+        _configure_k09_presentation(op, graph, document, effective_actions)
+        if document.profile_id == "K09"
+        else None
+    )
+    _apply_reference_lines(
+        op,
+        graph,
+        reference_lines,
+        touched_actions=tuple(
+            action for action in actions if isinstance(action, AddReferenceLine)
+        ),
+    )
+    _apply_callouts(
+        op,
+        graph,
+        callouts,
+        reference_lines=reference_lines,
+        touched_actions=tuple(
+            action for action in actions if isinstance(action, AddCallout)
+        ),
+    )
     applied_invariant = (
         None if post_apply_invariant is None else post_apply_invariant(graph)
     )
@@ -173,6 +229,17 @@ def apply_origin_visual_actions(
     snapshot["origin_product_opposite_axes"] = (
         _verify_origin_product_opposite_axes(reopened, document.profile_id)
     )
+    snapshot["origin_product_typography"] = _verify_origin_product_typography(
+        op,
+        reopened,
+        effective_actions,
+    )
+    if k09_presentation is not None:
+        snapshot["k09_presentation"] = _verify_k09_presentation(
+            op,
+            reopened,
+            k09_presentation,
+        )
     if post_reopen_invariant is not None:
         snapshot["post_edit_invariant"] = post_reopen_invariant(reopened)
     elif applied_invariant is not None:
@@ -230,6 +297,362 @@ def _layer_and_plot(graph: Any, target: str) -> tuple[Any, int]:
         index = min(_ordinal(key), len(layers))
         return layers[index - 1], 1
     return layers[0], _ordinal(key)
+
+
+_K09_SERIES_STYLE_FIELDS = (
+    "visible",
+    "line_stroke_color",
+    "line_width_pt",
+    "line_style",
+    "line_opacity",
+    "marker_shape",
+    "marker_size_pt",
+    "marker_interior",
+    "marker_fill_color",
+    "marker_stroke_color",
+    "marker_stroke_width_pt",
+    "marker_opacity",
+    "fill_color",
+    "fill_opacity",
+    "fill_stroke_color",
+    "fill_stroke_width_pt",
+    "fill_stroke_style",
+)
+
+
+def _k09_subset_fill_action(
+    document: PlotDocument,
+    action: PlotEngineAction,
+) -> SetSeriesStyle | None:
+    """Return a K09 subset fill edit and reject false per-plot promises.
+
+    Origin's official ``plot_gindexed`` route deliberately owns one native
+    DataPlot with multiple subsets. A semantic ``group_n`` is therefore not
+    native plot ``n``. Origin exposes subgroup fill color through the native
+    custom increment list; other ``SetSeriesStyle`` fields do not have the
+    same independently verified subset contract and must not silently mutate
+    the whole DataPlot.
+    """
+
+    if document.profile_id != "K09" or not isinstance(action, SetSeriesStyle):
+        return None
+    if not _target_key(action.target).startswith("group_"):
+        return None
+    requested = tuple(
+        name for name in _K09_SERIES_STYLE_FIELDS if getattr(action, name) is not None
+    )
+    if requested == ("fill_color",):
+        return action
+    raise ValueError(
+        "Origin K09 indexed subgroups currently support only independent fill_color; "
+        f"requested {', '.join(requested)} for {_target_key(action.target)}"
+    )
+
+
+def _k09_subset_count(graph: Any) -> int:
+    legend = _layers(graph)[0].label("legend")
+    count = 0 if legend is None else legend.text.count("\\l(")
+    if count < 1:
+        raise RuntimeError("Origin K09 legend exposes no native subset samples")
+    return count
+
+
+def _read_k09_subset_fill_colors(
+    op: Any,
+    graph: Any,
+    count: int,
+    *,
+    variable: str,
+) -> tuple[int, ...]:
+    layer = _layers(graph)[0]
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    plot_ref = _bind_plot_range(op, plot_range)
+    if not op.lt_exec(f"get {plot_ref} -cue __PAT1K09ENABLED;"):
+        raise RuntimeError("Origin could not read the K09 custom color-list state")
+    enabled = int(op.lt_float("__PAT1K09ENABLED"))
+    if enabled:
+        if not op.lt_exec(f"dataset {variable}; get {plot_ref} -cuf {variable};"):
+            raise RuntimeError("Origin could not read the K09 subset fill-color list")
+        values = tuple(
+            int(op.lt_float(f"{variable}[{index}]")) for index in range(1, count + 1)
+        )
+    else:
+        if not op.lt_exec(f"get {plot_ref} -pfbi __PAT1K09START;"):
+            raise RuntimeError("Origin could not read the K09 fill increment start")
+        start = int(op.lt_float("__PAT1K09START"))
+        values = tuple(start + index for index in range(count))
+    if any(not isfinite(float(value)) for value in values):
+        raise RuntimeError("Origin returned an invalid K09 subset fill-color list")
+    return values
+
+
+def _apply_k09_subset_fill_colors(
+    op: Any,
+    graph: Any,
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+) -> frozenset[str]:
+    edits = tuple(
+        action
+        for candidate in actions
+        if (action := _k09_subset_fill_action(document, candidate)) is not None
+    )
+    if not edits:
+        return frozenset()
+    count = _k09_subset_count(graph)
+    colors = list(
+        _read_k09_subset_fill_colors(
+            op,
+            graph,
+            count,
+            variable="__PAT1K09BASE",
+        )
+    )
+    for action in edits:
+        ordinal = _ordinal(_target_key(action.target))
+        if ordinal > count:
+            raise ValueError(
+                f"Origin K09 target subset {ordinal} is outside the native subset count {count}"
+            )
+        assert action.fill_color is not None
+        colors[ordinal - 1] = _color(op, action.fill_color)
+    expression = ",".join(str(value) for value in colors)
+    layer = _layers(graph)[0]
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    plot_ref = _bind_plot_range(op, plot_range)
+    command = (
+        f"dataset __PAT1K09COLORS={{{expression}}}; "
+        f"set {plot_ref} -pfbi 1; set {plot_ref} -cue 1; "
+        f"set {plot_ref} -cuf __PAT1K09COLORS;"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin rejected the K09 native subset fill-color list")
+    return frozenset(action.action_id for action in edits)
+
+
+def _verify_k09_subset_fill_color(
+    op: Any,
+    graph: Any,
+    action: SetSeriesStyle,
+) -> dict[str, object]:
+    count = _k09_subset_count(graph)
+    ordinal = _ordinal(_target_key(action.target))
+    if ordinal > count:
+        raise ValueError(
+            f"Origin K09 target subset {ordinal} is outside the native subset count {count}"
+        )
+    colors = _read_k09_subset_fill_colors(
+        op,
+        graph,
+        count,
+        variable="__PAT1K09READ",
+    )
+    assert action.fill_color is not None
+    expected = _color(op, action.fill_color)
+    observed = colors[ordinal - 1]
+    _require_equal("K09 subset fill color", observed, expected)
+    return {"subset": ordinal, "fill_color": observed, "custom_increment_list": True}
+
+
+_K09_LEGEND_SAMPLE = re_compile(r"\\l\([^)]*\)", IGNORECASE)
+_K09_LEGEND_FILL = re_compile(r"PatternFill:(#[0-9A-Fa-f]{6})")
+
+
+def _k09_legend_parts(text: str) -> tuple[str, tuple[str, ...]]:
+    matches = tuple(_K09_LEGEND_SAMPLE.finditer(text))
+    if not matches:
+        raise RuntimeError("Origin K09 legend contains no subset entries")
+    title = text[: matches[0].start()].strip()
+    labels: list[str] = []
+    for index, match in enumerate(matches):
+        stop = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        labels.append(text[match.end() : stop].strip())
+    if any(not label for label in labels):
+        raise RuntimeError("Origin K09 legend contains an empty subset label")
+    return title, tuple(labels)
+
+
+def _k09_color_html(op: Any, value: int) -> str:
+    rgb = int(op.lt_float(f"ocolor2rgb({value})"))
+    if rgb < 0:
+        raise RuntimeError("Origin returned an invalid K09 RGB legend color")
+    return f"#{rgb & 0xFF:02X}{(rgb >> 8) & 0xFF:02X}{(rgb >> 16) & 0xFF:02X}"
+
+
+def _k09_requested_legend_columns(actions: tuple[PlotEngineAction, ...]) -> int | None:
+    requested = tuple(
+        action.columns
+        for action in actions
+        if isinstance(action, SetLegend) and action.columns is not None
+    )
+    return requested[-1] if requested else None
+
+
+def _k09_requested_x_tick_font_size(
+    actions: tuple[PlotEngineAction, ...],
+) -> float | None:
+    requested = tuple(
+        action.tick_font_size_pt
+        for action in actions
+        if isinstance(action, SetAxis)
+        and _target_key(action.target) == "x"
+        and action.tick_font_size_pt is not None
+    )
+    return requested[-1] if requested else None
+
+
+def _configure_k09_presentation(
+    op: Any,
+    graph: Any,
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+) -> dict[str, object]:
+    """Persist the publication-facing defaults missing from ``plot_gindexed``.
+
+    Origin's official indexed-column route creates two table-label rows and
+    boxed cells. K09 needs only one merged category label per bar group; the
+    subgroup names live in the legend. The presentation pass also adds half
+    a data step at each side and defaults the remaining category row to 12 pt
+    unless the user explicitly requested another tick-label size.
+    """
+
+    layer = _layers(graph)[0]
+    configure_k09_axis_labels(op, str(graph.name), _layer_index(layer))
+    explicit_x_bounds = any(
+        isinstance(action, SetAxis)
+        and _target_key(action.target) == "x"
+        and (action.minimum is not None or action.maximum is not None)
+        for action in actions
+    )
+    x_from, x_to, x_step = (float(value) for value in layer.xlim)
+    if not explicit_x_bounds and isclose(x_from % 1, 0.5, abs_tol=1e-7) and isclose(
+        x_to % 1,
+        0.5,
+        abs_tol=1e-7,
+    ):
+        layer.set_xlim(x_from - 0.5, x_to + 0.5, x_step)
+    category_tick_font = (
+        _k09_requested_x_tick_font_size(actions)
+        or PRODUCT_TYPOGRAPHY.tick_font_size_pt
+    )
+    set_axis_tick_font_size(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        _axis_native_code("x"),
+        category_tick_font,
+    )
+
+    fill_actions = tuple(
+        action
+        for action in actions
+        if isinstance(action, SetSeriesStyle)
+        and _k09_subset_fill_action(document, action) is not None
+    )
+    legend_colors: tuple[str, ...] = ()
+    if fill_actions:
+        legend = layer.label("legend")
+        if legend is None:
+            raise RuntimeError("Origin K09 lost its legend before color materialization")
+        count = _k09_subset_count(graph)
+        title, labels = _k09_legend_parts(legend.text)
+        if len(labels) != count:
+            raise RuntimeError("Origin K09 legend label count differs from its subsets")
+        colors = _read_k09_subset_fill_colors(
+            op,
+            graph,
+            count,
+            variable="__PAT1K09LEGEND",
+        )
+        legend_colors = tuple(_k09_color_html(op, value) for value in colors)
+        entries = tuple(
+            "\\L(1, PatternFill:"
+            f"{color} BorderColor:{color} Width:40 Height:50)"
+            f"\\sc {label}"
+            for color, label in zip(legend_colors, labels, strict=True)
+        )
+        legend.text = (f"{title}\n" if title else "") + "\n".join(entries)
+        legend.set_int("link", 0)
+        columns = _k09_requested_legend_columns(actions)
+        if columns is not None:
+            layer.activate()
+            if columns == 1:
+                if not op.lt_exec("legend -av;"):
+                    raise RuntimeError("Origin could not arrange the K09 legend vertically")
+            elif columns == count:
+                if not op.lt_exec(f"label -al {columns};"):
+                    raise RuntimeError("Origin could not arrange the K09 legend into one row")
+            else:
+                raise ValueError(
+                    "Origin K09 indexed-subset legend currently supports either one "
+                    f"column or one row of {count} columns"
+                )
+
+    tick_font = read_axis_tick_font_size(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        _axis_native_code("x"),
+    )
+    return {
+        "legend_fill_colors": list(legend_colors),
+        "tick_font_pt": tick_font,
+        "xlim": [float(value) for value in layer.xlim],
+    }
+
+
+def _verify_k09_presentation(
+    op: Any,
+    graph: Any,
+    expected: dict[str, object],
+) -> dict[str, object]:
+    layer = _layers(graph)[0]
+    state = read_k09_axis_labels(op, str(graph.name), _layer_index(layer))
+    if state.table_enabled != 1 or state.table_design != 0 or state.subgroup_row_hidden != 1:
+        raise RuntimeError(f"Origin K09 axis-label presentation differs after reopen: {state}")
+    observed_xlim = tuple(float(value) for value in layer.xlim)
+    expected_xlim_value = expected["xlim"]
+    if not isinstance(expected_xlim_value, (list, tuple)):
+        raise RuntimeError("Origin K09 expected category-axis padding is invalid")
+    expected_xlim = tuple(float(value) for value in expected_xlim_value)
+    if len(observed_xlim) != len(expected_xlim) or any(
+        not isclose(observed, wanted, abs_tol=1e-7)
+        for observed, wanted in zip(observed_xlim, expected_xlim, strict=True)
+    ):
+        raise RuntimeError("Origin K09 category-axis padding differs after reopen")
+    tick_font = read_axis_tick_font_size(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        _axis_native_code("x"),
+    )
+    expected_tick_font = expected["tick_font_pt"]
+    if not isinstance(expected_tick_font, (int, float)):
+        raise RuntimeError("Origin K09 expected category-label font size is invalid")
+    if not isclose(tick_font, float(expected_tick_font), abs_tol=0.01):
+        raise RuntimeError("Origin K09 category-label font size differs after reopen")
+    expected_colors_value = expected["legend_fill_colors"]
+    if not isinstance(expected_colors_value, (list, tuple)):
+        raise RuntimeError("Origin K09 expected legend colors are invalid")
+    expected_colors = tuple(str(value).upper() for value in expected_colors_value)
+    observed_colors: tuple[str, ...] = ()
+    if expected_colors:
+        legend = layer.label("legend")
+        if legend is None:
+            raise RuntimeError("Origin K09 colored legend differs after reopen")
+        observed_colors = tuple(
+            match.group(1).upper() for match in _K09_LEGEND_FILL.finditer(legend.text)
+        )
+        if observed_colors != expected_colors:
+            raise RuntimeError("Origin K09 legend colors differ from the plotted subsets")
+    return {
+        "category_axis_xlim": list(observed_xlim),
+        "category_tick_font_pt": tick_font,
+        "legend_fill_colors": list(observed_colors),
+        "subgroup_row_hidden": state.subgroup_row_hidden,
+        "table_design": state.table_design,
+        "table_enabled": state.table_enabled,
+    }
 
 
 def _activate_layer(op: Any, graph: Any, layer: Any) -> int:
@@ -399,8 +822,60 @@ def _style_label(
         label.set_int("color", _color(op, color))
 
 
+def _graph_page_size(graph: Any) -> tuple[float, float]:
+    """Read the physical graph-page size through PyOrigin's page API.
+
+    ``GPage.get_float('width')`` addresses the page theme tree and does not
+    mutate the native GraphPage dimensions in OriginPro 2024.  The wrapped
+    PyOrigin object exposes the authoritative inch-based GetWidth/GetHeight
+    pair.  Origin's documented LabTalk page size is stored in printer dots,
+    so writes use ``page.width/page.resx`` and ``page.height/page.resy`` rather
+    than assuming the theme-tree values are inches.  The fallback only keeps
+    older deterministic wrappers usable.
+    """
+
+    native = getattr(graph, "obj", None)
+    get_width = getattr(native, "GetWidth", None)
+    get_height = getattr(native, "GetHeight", None)
+    if callable(get_width) and callable(get_height):
+        return float(get_width()), float(get_height())
+    return float(graph.get_float("width")), float(graph.get_float("height"))
+
+
+def _set_graph_page_size(graph: Any, width: float, height: float) -> None:
+    native = getattr(graph, "obj", None)
+    execute = getattr(native, "LT_execute", None)
+    if callable(execute):
+        set_num_prop = getattr(native, "SetNumProp", None)
+        if callable(set_num_prop) and not set_num_prop("KAR", 0):
+            raise RuntimeError("Origin could not disable graph-page aspect locking")
+        resolution_x = float(graph.get_float("resx"))
+        resolution_y = float(graph.get_float("resy"))
+        if resolution_x <= 0 or resolution_y <= 0:
+            raise RuntimeError("Origin graph-page printer resolution is invalid")
+        command = (
+            f"page.width={round(width * resolution_x)}; "
+            f"page.height={round(height * resolution_y)};"
+        )
+        if not execute(command):
+            raise RuntimeError("Origin could not set the native graph-page dimensions")
+        if not execute("gfitp margin:=5 aspect:=0;"):
+            raise RuntimeError("Origin could not fit graph layers to the resized page")
+        return
+    graph.set_float("width", width)
+    graph.set_float("height", height)
+
+
 def _apply_action(op: Any, graph: Any, document: PlotDocument, action: PlotEngineAction) -> None:
-    if isinstance(action, SetTitle):
+    if isinstance(action, SetCanvas):
+        current_width, current_height = _graph_page_size(graph)
+        width, height = resolve_canvas_inches(
+            current_width,
+            current_height,
+            action,
+        )
+        _set_graph_page_size(graph, width, height)
+    elif isinstance(action, SetTitle):
         layer = _layers(graph)[0]
         title = _label(layer, "_ENGINE_TITLE", action.text or "")
         if action.text is not None:
@@ -410,12 +885,14 @@ def _apply_action(op: Any, graph: Any, document: PlotDocument, action: PlotEngin
         title.set_float("x1", 0.5)
         title.set_float("y1", 0.012)
         _style_label(op, title, action)
+        if action.font_size_pt is None:
+            title.set_float("fsize", PRODUCT_TYPOGRAPHY.title_font_size_pt)
     elif isinstance(action, SetAxis):
         _apply_axis(op, graph, action)
     elif isinstance(action, SetSeriesStyle):
         _apply_series(op, graph, action)
     elif isinstance(action, SetLegend):
-        _apply_legend(op, graph, action)
+        _apply_legend(op, graph, action, profile_id=document.profile_id)
     elif isinstance(action, SetColorMap):
         _apply_colormap(op, graph, action)
     elif isinstance(action, SetErrorStyle):
@@ -424,6 +901,8 @@ def _apply_action(op: Any, graph: Any, document: PlotDocument, action: PlotEngin
         _apply_data_labels(op, graph, action)
     elif isinstance(action, AddAnnotation):
         _apply_annotation(op, graph, action)
+    elif isinstance(action, AddReferenceLine):
+        _apply_reference_line(op, graph, action)
     else:  # pragma: no cover - caller passes the closed visual action tuple
         raise TypeError(f"unsupported Origin visual action {action.operation}")
 
@@ -505,6 +984,114 @@ def _apply_origin_product_frame(
     layer.set_int("x.showLabels", layer.get_int("x.showLabels") & ~2)
     layer.set_int("y.showLabels", layer.get_int("y.showLabels") & ~2)
     return expected
+
+
+def _origin_product_tick_targets(graph: Any) -> tuple[tuple[Any, int], ...]:
+    """Return public semantic tick targets without changing axis visibility."""
+
+    layers = _layers(graph)
+    targets = [(layer, axis_code) for layer in layers for axis_code in (0, 1)]
+    if len(layers) > 1:
+        targets.append((layers[-1], 3))
+    return tuple(targets)
+
+
+def _apply_origin_product_typography(op: Any, graph: Any) -> None:
+    """Replace unrelated Origin template defaults with physical pt defaults."""
+
+    for layer, axis_code in _origin_product_tick_targets(graph):
+        set_axis_tick_font_size(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            axis_code,
+            PRODUCT_TYPOGRAPHY.tick_font_size_pt,
+        )
+    for layer in _layers(graph):
+        for name in ("xb", "yl", "yr"):
+            label = layer.label(name)
+            if label is not None:
+                label.set_float("fsize", PRODUCT_TYPOGRAPHY.axis_title_font_size_pt)
+        legend = layer.label("legend")
+        if legend is not None:
+            legend.set_float("fsize", PRODUCT_TYPOGRAPHY.legend_font_size_pt)
+    title = _layers(graph)[0].label("_ENGINE_TITLE")
+    if title is not None:
+        title.set_float("fsize", PRODUCT_TYPOGRAPHY.title_font_size_pt)
+
+
+def _verify_origin_product_typography(
+    op: Any,
+    graph: Any,
+    actions: tuple[PlotEngineAction, ...],
+) -> dict[str, float]:
+    """Fresh-read the product defaults after applying explicit overrides."""
+
+    tick_expected = {
+        (_layer_index(layer), axis_code): PRODUCT_TYPOGRAPHY.tick_font_size_pt
+        for layer, axis_code in _origin_product_tick_targets(graph)
+    }
+    label_expected: dict[tuple[int, str], float] = {}
+    for layer in _layers(graph):
+        for name in ("xb", "yl", "yr"):
+            if layer.label(name) is not None:
+                label_expected[(_layer_index(layer), name)] = (
+                    PRODUCT_TYPOGRAPHY.axis_title_font_size_pt
+                )
+    title_expected = PRODUCT_TYPOGRAPHY.title_font_size_pt
+    legend_expected = {
+        _layer_index(layer): PRODUCT_TYPOGRAPHY.legend_font_size_pt
+        for layer in _layers(graph)
+        if layer.label("legend") is not None
+    }
+    for action in actions:
+        if isinstance(action, SetTitle) and action.font_size_pt is not None:
+            title_expected = action.font_size_pt
+        elif isinstance(action, SetAxis):
+            layer, axis_name = _axis_target(graph, action.target)
+            if action.tick_font_size_pt is not None:
+                tick_expected[
+                    (_layer_index(layer), _axis_native_code(action.target))
+                ] = action.tick_font_size_pt
+            if action.title_font_size_pt is not None:
+                label_expected[
+                    (_layer_index(layer), _axis_label_name(graph, layer, axis_name))
+                ] = action.title_font_size_pt
+        elif isinstance(action, SetLegend) and action.font_size_pt is not None:
+            legend_expected[_layer_index(_layers(graph)[0])] = action.font_size_pt
+
+    snapshot: dict[str, float] = {}
+    for (layer_index, axis_code), expected in tick_expected.items():
+        observed = read_axis_tick_font_size(
+            op,
+            str(graph.name),
+            layer_index,
+            axis_code,
+        )
+        _require_number("product tick font", observed, expected, tolerance=0.01)
+        snapshot[
+            f"layer:{layer_index}.{_ORIGIN_FRAME_AXIS_NAMES[axis_code]}.tick_font_pt"
+        ] = observed
+    for (layer_index, name), expected in label_expected.items():
+        label = _layers(graph)[layer_index - 1].label(name)
+        if label is None:
+            raise RuntimeError(f"Origin product axis title disappeared after reopen: {name}")
+        observed = float(label.get_float("fsize"))
+        _require_number("product axis-title font", observed, expected, tolerance=0.01)
+        snapshot[f"layer:{layer_index}.{name}.font_pt"] = observed
+    title = _layers(graph)[0].label("_ENGINE_TITLE")
+    if title is not None:
+        observed = float(title.get_float("fsize"))
+        _require_number("product title font", observed, title_expected, tolerance=0.01)
+        snapshot["title.font_pt"] = observed
+    for layer_index, expected in legend_expected.items():
+        legend = _layers(graph)[layer_index - 1].label("legend")
+        if legend is None:
+            raise RuntimeError("Origin product legend disappeared after reopen")
+        observed = float(legend.get_float("fsize"))
+        _require_number("product legend font", observed, expected, tolerance=0.01)
+        snapshot[f"layer:{layer_index}.legend.font_pt"] = observed
+    return snapshot
 
 
 def _verify_origin_product_opposite_axes(
@@ -663,8 +1250,12 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         family = _font(op, action.title_font_family)
         if family is not None:
             title.set_int("font", family)
-        if action.title_font_size_pt is not None:
-            title.set_float("fsize", action.title_font_size_pt)
+        title.set_float(
+            "fsize",
+            action.title_font_size_pt
+            if action.title_font_size_pt is not None
+            else PRODUCT_TYPOGRAPHY.axis_title_font_size_pt,
+        )
         title.text = _styled_text(
             title.text,
             weight=action.title_font_weight,
@@ -694,7 +1285,13 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
     if tick_font is not None:
         layer.set_int(f"{axis_name}.label.font", tick_font)
     if action.tick_font_size_pt is not None:
-        layer.set_float(f"{axis_name}.label.pt", action.tick_font_size_pt)
+        set_axis_tick_font_size(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            _axis_native_code(action.target),
+            action.tick_font_size_pt,
+        )
     if action.tick_color is not None:
         layer.set_int(f"{axis_name}.label.color", _color(op, action.tick_color))
     if action.tick_labels_visible is not None:
@@ -779,6 +1376,10 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
             )
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
     plot_ref = _bind_plot_range(op, plot_range)
+    line_symbol_color_cascade = (
+        action.line_stroke_color is not None
+        and int(_get_plot_option(op, plot_range, "-pt")) in _LINE_SYMBOL_PIDS
+    )
     commands: list[str] = []
     if action.line_stroke_color is not None:
         commands.append(f'set {plot_ref} -cl color("{action.line_stroke_color}")')
@@ -792,10 +1393,30 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
         commands.append(f"set {plot_ref} -z {action.marker_size_pt:.12g}")
     if action.marker_interior is not None:
         commands.append(f"set {plot_ref} -kf {_INTERIOR[action.marker_interior]}")
-    if action.marker_fill_color is not None:
-        commands.append(f'set {plot_ref} -csf color("{action.marker_fill_color}")')
-    if action.marker_stroke_color is not None:
-        commands.append(f'set {plot_ref} -cse color("{action.marker_stroke_color}")')
+    # ``marker_interior`` is the higher-level semantic and therefore owns the
+    # visible fill.  Matplotlib already makes ``open`` transparent and
+    # ``hollow`` white after applying any requested fill colour.  Origin 2024
+    # persists both -kf and -csf, and a later black -csf can still paint a
+    # nominally hollow marker solid.  Use the product's white graph background
+    # as the stable Origin representation for both non-solid interiors.
+    effective_marker_fill = (
+        "#FFFFFF"
+        if action.marker_interior in {"open", "hollow"}
+        else (
+            action.marker_fill_color
+            if action.marker_fill_color is not None
+            else action.line_stroke_color if line_symbol_color_cascade else None
+        )
+    )
+    if effective_marker_fill is not None:
+        commands.append(f'set {plot_ref} -csf color("{effective_marker_fill}")')
+    effective_marker_stroke = (
+        action.marker_stroke_color
+        if action.marker_stroke_color is not None
+        else action.line_stroke_color if line_symbol_color_cascade else None
+    )
+    if effective_marker_stroke is not None:
+        commands.append(f'set {plot_ref} -cse color("{effective_marker_stroke}")')
     # Origin 2024 does not expose a stable native read/write contract for
     # marker edge width. Keep the official template default, including when a
     # legacy action still carries marker_stroke_width_pt.
@@ -847,7 +1468,13 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
         )
 
 
-def _apply_legend(op: Any, graph: Any, action: SetLegend) -> None:
+def _apply_legend(
+    op: Any,
+    graph: Any,
+    action: SetLegend,
+    *,
+    profile_id: str,
+) -> None:
     layer = _layers(graph)[0]
     legend = layer.label("legend")
     if action.visible and legend is None:
@@ -859,25 +1486,23 @@ def _apply_legend(op: Any, graph: Any, action: SetLegend) -> None:
         return
     if action.visible is not None:
         legend.set_int("show", int(action.visible))
-    if action.anchor is not None:
-        positions = {
-            "inside": (1, 0.72, 0.06),
-            "inside_top_left": (1, 0.06, 0.06),
-            "inside_top_right": (1, 0.72, 0.06),
-            "inside_bottom_left": (1, 0.06, 0.82),
-            "inside_bottom_right": (1, 0.72, 0.82),
-            "right": (1, 0.84, 0.12),
-            "bottom": (1, 0.25, 0.88),
-            "none": (1, 0.72, 0.06),
-        }
-        attach, x, y = positions[action.anchor]
-        legend.set_int("attach", attach)
-        legend.set_float("x1", x)
-        legend.set_float("y1", y)
-        if action.anchor == "none":
-            legend.set_int("show", 0)
     if action.columns is not None:
-        legend.set_int("ncols", action.columns)
+        if profile_id == "K09":
+            entry_count = legend.text.count("\\l(")
+            if action.columns == 1:
+                command = "legend -av;"
+            elif action.columns == entry_count:
+                command = "legend -ah;"
+            else:
+                raise ValueError(
+                    "Origin K09 indexed-subset legend currently supports either one "
+                    f"column or one row of {entry_count} columns"
+                )
+            layer.activate()
+            if not op.lt_exec(command):
+                raise RuntimeError("Origin could not rearrange the K09 subset legend")
+        else:
+            legend.set_int("ncols", action.columns)
     if action.title is not None:
         lines = legend.text.splitlines()
         if lines and "\\l(" not in lines[0]:
@@ -888,8 +1513,12 @@ def _apply_legend(op: Any, graph: Any, action: SetLegend) -> None:
     font_index = _font(op, action.font_family)
     if font_index is not None:
         legend.set_int("font", font_index)
-    if action.font_size_pt is not None:
-        legend.set_float("fsize", action.font_size_pt)
+    legend.set_float(
+        "fsize",
+        action.font_size_pt
+        if action.font_size_pt is not None
+        else PRODUCT_TYPOGRAPHY.legend_font_size_pt,
+    )
     if action.font_color is not None:
         legend.set_int("color", _color(op, action.font_color))
     if action.frame_visible is not None:
@@ -898,6 +1527,129 @@ def _apply_legend(op: Any, graph: Any, action: SetLegend) -> None:
         legend.set_int("borderColor", _color(op, action.frame_color))
     if action.frame_width_pt is not None:
         legend.set_float("lineWidth", action.frame_width_pt)
+    if action.anchor is not None:
+        # Position after text/style edits because right/bottom placement needs
+        # the final native legend bounding box.
+        attach, left, top = _origin_legend_anchor(graph, layer, legend, action.anchor)
+        legend.set_int("attach", attach)
+        # Origin's own Python examples position legends through the integer
+        # page-dot ``left``/``top`` properties.  ``x1``/``y1`` change meaning
+        # when attachment changes and can read back unchanged while rendering
+        # elsewhere after a project is reopened.
+        legend.set_int("left", round(left))
+        legend.set_int("top", round(top))
+        if action.anchor == "none":
+            legend.set_int("show", 0)
+
+
+def _origin_layer_rect_printer_dots(
+    graph: Any,
+    layer: Any,
+) -> tuple[float, float, float, float]:
+    page_width, page_height = _graph_page_size(graph)
+    resolution_x = float(graph.get_float("resx"))
+    resolution_y = float(graph.get_float("resy"))
+    left = float(layer.get_float("left"))
+    top = float(layer.get_float("top"))
+    width = float(layer.get_float("width"))
+    height = float(layer.get_float("height"))
+    unit = int(layer.get_int("unit"))
+    if unit == 1:  # percent of graph page
+        return (
+            page_width * resolution_x * left / 100,
+            page_height * resolution_y * top / 100,
+            page_width * resolution_x * width / 100,
+            page_height * resolution_y * height / 100,
+        )
+    if unit == 2:  # inches
+        return (
+            left * resolution_x,
+            top * resolution_y,
+            width * resolution_x,
+            height * resolution_y,
+        )
+    if unit == 3:  # centimetres
+        return (
+            left / 2.54 * resolution_x,
+            top / 2.54 * resolution_y,
+            width / 2.54 * resolution_x,
+            height / 2.54 * resolution_y,
+        )
+    if unit == 4:  # millimetres
+        return (
+            left / 25.4 * resolution_x,
+            top / 25.4 * resolution_y,
+            width / 25.4 * resolution_x,
+            height / 25.4 * resolution_y,
+        )
+    if unit == 6:  # points
+        return (
+            left / 72 * resolution_x,
+            top / 72 * resolution_y,
+            width / 72 * resolution_x,
+            height / 72 * resolution_y,
+        )
+    raise RuntimeError(f"Origin legend placement does not support layer unit {unit}")
+
+
+def _origin_legend_anchor(
+    graph: Any,
+    layer: Any,
+    legend: Any,
+    anchor: str,
+) -> tuple[int, float, float]:
+    """Map public legend placement to Origin attachment and coordinates.
+
+    Origin uses attachment 0 for coordinates relative to the layer frame and
+    attachment 1 for page coordinates.  The public ``inside_*`` names are
+    layer-relative by definition; page attachment makes an inside legend
+    drift outside the plot whenever the graph page or layer is resized.
+    """
+
+    if anchor in {
+        "inside",
+        "inside_top_left",
+        "inside_top_right",
+        "inside_bottom_left",
+        "inside_bottom_right",
+    }:
+        layer_left, layer_top, layer_width, layer_height = (
+            _origin_layer_rect_printer_dots(graph, layer)
+        )
+        if layer_width <= 0 or layer_height <= 0:
+            raise RuntimeError("Origin legend target layer has invalid dimensions")
+        legend_width = float(legend.get_float("width"))
+        legend_height = float(legend.get_float("height"))
+        padding = 0.06
+        left = layer_left + padding * layer_width
+        right = max(left, layer_left + (1 - padding) * layer_width - legend_width)
+        top = layer_top + padding * layer_height
+        bottom = max(top, layer_top + (1 - padding) * layer_height - legend_height)
+        return {
+            "inside": (0, right, top),
+            "inside_top_left": (0, left, top),
+            "inside_top_right": (0, right, top),
+            "inside_bottom_left": (0, left, bottom),
+            "inside_bottom_right": (0, right, bottom),
+        }[anchor]
+    if anchor in {"right", "bottom"}:
+        layer_left, layer_top, layer_width, layer_height = (
+            _origin_layer_rect_printer_dots(graph, layer)
+        )
+        legend_width = float(legend.get_float("width"))
+        legend_height = float(legend.get_float("height"))
+        if anchor == "right":
+            return (
+                0,
+                layer_left + 1.03 * layer_width,
+                layer_top + max(0.0, (layer_height - legend_height) / 2),
+            )
+        return (
+            0,
+            layer_left + max(0.0, (layer_width - legend_width) / 2),
+            layer_top + 1.03 * layer_height,
+        )
+    return 0, 0.0, 0.0
 
 
 def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
@@ -1117,6 +1869,213 @@ def _apply_annotation(op: Any, graph: Any, action: AddAnnotation) -> None:
     label.set_float("y", action.y)
 
 
+def _reference_line_slots(
+    graph: Any,
+    actions: tuple[AddReferenceLine, ...],
+) -> tuple[tuple[AddReferenceLine, Any, Literal["x", "y"], int], ...]:
+    """Assign stable one-based native indices within each layer/axis collection."""
+
+    counts: dict[tuple[int, str], int] = {}
+    slots: list[tuple[AddReferenceLine, Any, Literal["x", "y"], int]] = []
+    for action in actions:
+        layer, axis_name = _axis_target(graph, action.target)
+        key = (_layer_index(layer), axis_name)
+        index = counts.get(key, 0) + 1
+        counts[key] = index
+        slots.append((action, layer, axis_name, index))
+    return tuple(slots)
+
+
+def _apply_reference_lines(
+    op: Any,
+    graph: Any,
+    actions: tuple[AddReferenceLine, ...],
+    *,
+    touched_actions: tuple[AddReferenceLine, ...] | None = None,
+) -> None:
+    """Rebuild touched native axis-reference-line collections exactly.
+
+    Origin's ``addline`` X-Function creates a graphical Straight Line whose
+    saved position is quantized through page pixels.  The documented
+    ``layer.axis.refline#`` object instead persists ``VALUE`` as an axis value.
+    Rebuilding every axis touched by the journal also removes stale native
+    lines when an addressable reference-line ID changes axis.
+    """
+
+    slots = _reference_line_slots(graph, actions)
+    touched = _reference_line_slots(graph, touched_actions or actions)
+    groups: dict[tuple[int, str], tuple[Any, Literal["x", "y"]]] = {
+        (_layer_index(layer), axis_name): (layer, axis_name)
+        for _action, layer, axis_name, _index in touched
+    }
+    group_counts: dict[tuple[int, str], int] = {}
+    for _action, layer, axis_name, index in slots:
+        group_counts[(_layer_index(layer), axis_name)] = index
+
+    for key, (layer, axis_name) in groups.items():
+        layer.activate()
+        layer.set_int(f"{axis_name}.reflines.count", group_counts.get(key, 0))
+        if group_counts.get(key, 0):
+            layer.set_int(f"{axis_name}.reflines.lineshow", 1)
+
+    for action, layer, axis_name, index in slots:
+        layer.activate()
+        prefix = f"{axis_name}.refline{index}"
+        layer.set_float(f"{prefix}.value", action.value)
+        layer.set_int(f"{prefix}.lineshow", 1)
+        layer.set_int(f"{prefix}.lineauto", 0)
+        layer.set_int(f"{prefix}.linecolor", _color(op, action.line_color or "#667085"))
+        layer.set_int(
+            f"{prefix}.linestyle",
+            _REFERENCE_LINE_STYLE[action.line_style or "dash"],
+        )
+        layer.set_float(f"{prefix}.linethickness", action.line_width_pt or 1.0)
+        layer.set_int(f"{prefix}.labelshow", int(bool(action.label)))
+        layer.set_str(f"{prefix}.labeltext", action.label or "")
+
+
+def _apply_reference_line(op: Any, graph: Any, action: AddReferenceLine) -> None:
+    """Compatibility wrapper for direct adapter tests and internal callers."""
+
+    _apply_reference_lines(op, graph, (action,))
+
+
+def _callout_object_names(callout_id: str) -> tuple[str, str]:
+    """Return short stable names accepted by Origin's graph-object collection."""
+
+    digest = blake2s(callout_id.encode("utf-8"), digest_size=8).hexdigest()
+    return f"pac_{digest}_a", f"pac_{digest}_t"
+
+
+def _axis_fraction_value(layer: Any, axis_name: Literal["x", "y"], fraction: float) -> float:
+    """Translate an axes fraction to the layer's native scale coordinate."""
+
+    axis = layer.axis(axis_name)
+    start, end, *_ = (float(value) for value in axis.limits)
+    if not all(isfinite(value) for value in (start, end, fraction)):
+        raise RuntimeError("Origin callout axis geometry is not finite")
+    scale = axis.scale
+    if scale in {"linear", 1}:
+        return start + fraction * (end - start)
+    if scale in {"log10", 2}:
+        if start <= 0 or end <= 0:
+            raise RuntimeError("Origin callout cannot interpolate a non-positive log axis")
+        return 10 ** (log10(start) + fraction * (log10(end) - log10(start)))
+    raise ValueError(f"Origin callouts do not support axis scale {scale!r}")
+
+
+def _callout_geometry(
+    graph: Any,
+    action: AddCallout,
+    reference: AddReferenceLine,
+) -> tuple[Any, tuple[float, float, float, float]]:
+    """Resolve backend-neutral fractions to one native scale-space arrow."""
+
+    layer, reference_axis = _axis_target(graph, reference.target)
+    text_x = _axis_fraction_value(layer, "x", action.text_x_fraction)
+    text_y = _axis_fraction_value(layer, "y", action.text_y_fraction)
+    if reference_axis == "x":
+        anchor_x = reference.value
+        anchor_y = _axis_fraction_value(layer, "y", action.anchor_fraction)
+    else:
+        anchor_x = _axis_fraction_value(layer, "x", action.anchor_fraction)
+        anchor_y = reference.value
+    return layer, (text_x, text_y, anchor_x, anchor_y)
+
+
+def _apply_callouts(
+    op: Any,
+    graph: Any,
+    actions: tuple[AddCallout, ...],
+    *,
+    reference_lines: tuple[AddReferenceLine, ...],
+    touched_actions: tuple[AddCallout, ...] | None = None,
+) -> None:
+    """Create native arrows bound to effective axis-reference-line objects."""
+
+    references = {action.reference_line_id: action for action in reference_lines}
+    for action in touched_actions or actions:
+        arrow_name, text_name = _callout_object_names(action.callout_id)
+        for layer in _layers(graph):
+            remove_graph_object(
+                op,
+                graph.name,
+                _layer_index(layer),
+                arrow_name,
+            )
+            remove_graph_object(
+                op,
+                graph.name,
+                _layer_index(layer),
+                text_name,
+            )
+
+    for action in actions:
+        reference = references.get(action.target)
+        if reference is None:
+            raise ValueError(
+                f"Origin callout target is not an effective reference line: {action.target}"
+            )
+        layer, (text_x, text_y, anchor_x, anchor_y) = _callout_geometry(
+            graph,
+            action,
+            reference,
+        )
+        arrow_name, text_name = _callout_object_names(action.callout_id)
+        set_scale_arrow(
+            op,
+            graph.name,
+            _layer_index(layer),
+            arrow_name,
+            x0=text_x,
+            y0=text_y,
+            x1=anchor_x,
+            y1=anchor_y,
+        )
+        arrow = layer.label(arrow_name)
+        if arrow is None:
+            raise RuntimeError("Origin did not expose the native callout arrow")
+        arrow.set_int("show", 1)
+        arrow.set_int("attach", 2)
+        arrow.set_int("color", _color(op, action.arrow_color or "#101828"))
+        arrow.set_float("lineWidth", action.arrow_width_pt or 1.0)
+        arrow.set_int("arrowBeginShape", 0)
+        arrow.set_int("arrowEndShape", 2 if action.arrow_head == "open" else 1)
+        arrow.set_float("arrowEndWidth", 8.0)
+        arrow.set_float("arrowEndLength", 8.0)
+        set_scale_arrow_head(
+            op,
+            graph.name,
+            _layer_index(layer),
+            arrow_name,
+            2 if action.arrow_head == "open" else 1,
+        )
+
+        label = _label(layer, text_name, action.text)
+        label.text = _styled_text(
+            action.text,
+            weight=action.font_weight,
+            italic=action.italic,
+        )
+        label.set_int("show", 1)
+        label.set_int("attach", 2)
+        font_index = _font(op, action.font_family)
+        if font_index is not None:
+            label.set_int("font", font_index)
+        label.set_float(
+            "fsize",
+            action.font_size_pt or PRODUCT_TYPOGRAPHY.tick_font_size_pt,
+        )
+        label.set_int(
+            "color",
+            _color(op, action.text_color or action.arrow_color or "#101828"),
+        )
+        # Text object coordinates describe its center.  Assign them after
+        # font/rich-text edits so a resize cannot move the requested anchor.
+        label.set_float("x", text_x)
+        label.set_float("y", text_y)
+
+
 def _require_number(
     name: str, observed: float, expected: float, *, tolerance: float = 1e-7
 ) -> None:
@@ -1190,9 +2149,42 @@ def _legend_column_count(stored: int) -> int:
     return 1 if stored == 0 else stored
 
 
+def _k09_legend_column_count(text: str) -> int:
+    """Read the visible K09 legend layout from its native text rows.
+
+    Origin's ``legend -ah`` persists a horizontal indexed-subset legend as
+    one text row while normalizing ``legend.ncols`` to 0. The row's native
+    ``\\l(1,mN,2)`` samples are the authoritative visible column count.
+    """
+
+    rows = text.splitlines() or [text]
+    counts = tuple(len(tuple(_K09_LEGEND_SAMPLE.finditer(row))) for row in rows)
+    if not counts or max(counts) < 1:
+        raise RuntimeError("Origin K09 legend contains no native subset samples")
+    return max(counts)
+
+
 def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, object]:
     layer, plot_index = _layer_and_plot(graph, action.target)
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
+    line_symbol_color_cascade = (
+        action.line_stroke_color is not None
+        and int(_get_plot_option(op, plot_range, "-pt")) in _LINE_SYMBOL_PIDS
+    )
+    effective_marker_fill = (
+        "#FFFFFF"
+        if action.marker_interior in {"open", "hollow"}
+        else (
+            action.marker_fill_color
+            if action.marker_fill_color is not None
+            else action.line_stroke_color if line_symbol_color_cascade else None
+        )
+    )
+    effective_marker_stroke = (
+        action.marker_stroke_color
+        if action.marker_stroke_color is not None
+        else action.line_stroke_color if line_symbol_color_cascade else None
+    )
     numeric_options: tuple[tuple[str, object, str, float], ...] = (
         (
             "line_color",
@@ -1222,15 +2214,15 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         ),
         (
             "marker_fill_color",
-            action.marker_fill_color,
+            effective_marker_fill,
             "-csf",
-            float(_color(op, action.marker_fill_color)) if action.marker_fill_color else 0,
+            float(_color(op, effective_marker_fill)) if effective_marker_fill else 0,
         ),
         (
             "marker_stroke_color",
-            action.marker_stroke_color,
+            effective_marker_stroke,
             "-cse",
-            float(_color(op, action.marker_stroke_color)) if action.marker_stroke_color else 0,
+            float(_color(op, effective_marker_stroke)) if effective_marker_stroke else 0,
         ),
         (
             "fill_color",
@@ -1307,6 +2299,48 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
     return observed
 
 
+def _axis_coordinate_fraction(
+    layer: Any,
+    axis_name: Literal["x", "y"],
+    value: float,
+) -> float:
+    axis = layer.axis(axis_name)
+    start, end, *_ = (float(item) for item in axis.limits)
+    scale = axis.scale
+    if scale in {"linear", 1}:
+        transformed = (start, end, value)
+    elif scale in {"log10", 2}:
+        if min(start, end, value) <= 0:
+            raise RuntimeError("Origin callout readback contains a non-positive log value")
+        transformed = (log10(start), log10(end), log10(value))
+    else:
+        raise ValueError(f"Origin callouts do not support axis scale {scale!r}")
+    lower, upper, observed = transformed
+    if isclose(lower, upper, rel_tol=0, abs_tol=1e-15):
+        raise RuntimeError("Origin callout readback axis has zero span")
+    return (observed - lower) / (upper - lower)
+
+
+def _require_axis_coordinate(
+    name: str,
+    observed: float,
+    expected: float,
+    *,
+    layer: Any,
+    axis_name: Literal["x", "y"],
+) -> None:
+    """Accept only Origin's sub-pixel graph-object serialization noise."""
+
+    observed_fraction = _axis_coordinate_fraction(layer, axis_name, observed)
+    expected_fraction = _axis_coordinate_fraction(layer, axis_name, expected)
+    if not isclose(observed_fraction, expected_fraction, rel_tol=0, abs_tol=5e-4):
+        raise RuntimeError(
+            f"Origin T1 fresh readback mismatch for {name}: expected {expected}, "
+            f"observed {observed}; normalized delta="
+            f"{abs(observed_fraction - expected_fraction):.12g}"
+        )
+
+
 def _verify_actions(
     op: Any,
     graph: Any,
@@ -1316,8 +2350,46 @@ def _verify_actions(
     """Read back stable public properties for the fresh-reopen gate."""
 
     snapshot: dict[str, object] = {}
+    reference_line_slots = {
+        action.action_id: (layer, axis_name, index)
+        for action, layer, axis_name, index in _reference_line_slots(
+            graph,
+            tuple(action for action in actions if isinstance(action, AddReferenceLine)),
+        )
+    }
+    reference_lines_by_id = {
+        action.reference_line_id: action
+        for action in actions
+        if isinstance(action, AddReferenceLine)
+    }
     for action in actions:
-        if isinstance(action, SetTitle):
+        if isinstance(action, SetCanvas):
+            width, height = _graph_page_size(graph)
+            expected_width, expected_height = resolve_canvas_inches(width, height, action)
+            if action.width_mm is not None:
+                expected_width = action.width_mm / 25.4
+            if action.height_mm is not None:
+                expected_height = action.height_mm / 25.4
+            if (
+                action.aspect_ratio is not None
+                and action.width_mm is None
+                and action.height_mm is None
+            ):
+                _require_number(
+                    "canvas aspect ratio",
+                    width / height,
+                    action.aspect_ratio,
+                    tolerance=1e-3,
+                )
+            else:
+                _require_number("canvas width", width, expected_width, tolerance=1e-3)
+                _require_number("canvas height", height, expected_height, tolerance=1e-3)
+            snapshot[action.action_id] = {
+                "width_mm": width * 25.4,
+                "height_mm": height * 25.4,
+                "aspect_ratio": width / height,
+            }
+        elif isinstance(action, SetTitle):
             title = _layers(graph)[0].label("_ENGINE_TITLE")
             if title is None:
                 raise RuntimeError("Origin title did not survive T1 fresh reopen")
@@ -1481,12 +2553,6 @@ def _verify_actions(
                     _font(op, action.tick_font_family),
                 ),
                 (
-                    "tick_size",
-                    action.tick_font_size_pt,
-                    f"{axis_name}.label.pt",
-                    action.tick_font_size_pt,
-                ),
-                (
                     "tick_color",
                     action.tick_color,
                     f"{axis_name}.label.color",
@@ -1505,6 +2571,15 @@ def _verify_actions(
                     action.axis_line_width_pt,
                 ),
             )
+            if action.tick_font_size_pt is not None:
+                value = read_axis_tick_font_size(
+                    op,
+                    str(graph.name),
+                    _layer_index(layer),
+                    _axis_native_code(action.target),
+                )
+                _require_number("tick_size", value, action.tick_font_size_pt)
+                observed["tick_size"] = value
             for name, requested, prop, expected_value in direct_properties:
                 if requested is not None and expected_value is not None:
                     value = layer.get_float(prop)
@@ -1593,7 +2668,12 @@ def _verify_actions(
                         observed[name] = value
             snapshot[action.action_id] = observed
         elif isinstance(action, SetSeriesStyle):
-            snapshot[action.action_id] = _verify_series(op, graph, action)
+            k09_subset_action = _k09_subset_fill_action(document, action)
+            snapshot[action.action_id] = (
+                _verify_k09_subset_fill_color(op, graph, k09_subset_action)
+                if k09_subset_action is not None
+                else _verify_series(op, graph, action)
+            )
         elif isinstance(action, SetLegend):
             legend = _layers(graph)[0].label("legend")
             if action.visible is True and (legend is None or not legend.get_int("show")):
@@ -1605,7 +2685,11 @@ def _verify_actions(
                 if action.visible is not None:
                     _require_equal("legend visibility", observed["show"], int(action.visible))
                 if action.columns is not None:
-                    columns = _legend_column_count(legend.get_int("ncols"))
+                    columns = (
+                        _k09_legend_column_count(legend.text)
+                        if document.profile_id == "K09"
+                        else _legend_column_count(legend.get_int("ncols"))
+                    )
                     _require_equal("legend columns", columns, action.columns)
                     observed["columns"] = columns
                 if action.title is not None:
@@ -1614,23 +2698,27 @@ def _verify_actions(
                     _require_equal("legend title", title, action.title)
                     observed["title"] = title
                 if action.anchor is not None:
-                    expected_anchor = {
-                        "inside": (1, 0.72, 0.06),
-                        "inside_top_left": (1, 0.06, 0.06),
-                        "inside_top_right": (1, 0.72, 0.06),
-                        "inside_bottom_left": (1, 0.06, 0.82),
-                        "inside_bottom_right": (1, 0.72, 0.82),
-                        "right": (1, 0.84, 0.12),
-                        "bottom": (1, 0.25, 0.88),
-                        "none": (1, 0.72, 0.06),
-                    }[action.anchor]
+                    expected_anchor = _origin_legend_anchor(
+                        graph,
+                        _layers(graph)[0],
+                        legend,
+                        action.anchor,
+                    )
                     attach = legend.get_int("attach")
-                    x = legend.get_float("x1")
-                    y = legend.get_float("y1")
+                    left = legend.get_int("left")
+                    top = legend.get_int("top")
                     _require_equal("legend attachment", attach, expected_anchor[0])
-                    _require_number("legend x", x, expected_anchor[1], tolerance=1e-3)
-                    _require_number("legend y", y, expected_anchor[2], tolerance=1e-3)
-                    observed["anchor"] = (attach, x, y)
+                    if abs(left - expected_anchor[1]) > 2:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for legend left: "
+                            f"expected {expected_anchor[1]}, observed {left}"
+                        )
+                    if abs(top - expected_anchor[2]) > 2:
+                        raise RuntimeError(
+                            "Origin T1 fresh readback mismatch for legend top: "
+                            f"expected {expected_anchor[2]}, observed {top}"
+                        )
+                    observed["anchor"] = (attach, left, top)
                 for name, requested, prop, expected_value, tolerance in (
                     (
                         "font",
@@ -1956,4 +3044,178 @@ def _verify_actions(
                 _require_number(f"annotation {prop}", value, expected, tolerance=1e-3)
                 observed[prop] = value
             snapshot[action.action_id] = observed
+        elif isinstance(action, AddReferenceLine):
+            layer, axis_name, index = reference_line_slots[action.action_id]
+            prefix = f"{axis_name}.refline{index}"
+            coordinate = layer.get_float(f"{prefix}.value")
+            _require_number("reference line value", coordinate, action.value)
+            expected_color = _color(op, action.line_color or "#667085")
+            expected_style = _REFERENCE_LINE_STYLE[action.line_style or "dash"]
+            expected_width = action.line_width_pt or 1.0
+            _require_equal(
+                "reference line collection count",
+                layer.get_int(f"{axis_name}.reflines.count"),
+                sum(
+                    1
+                    for candidate in reference_line_slots.values()
+                    if _layer_index(candidate[0]) == _layer_index(layer)
+                    and candidate[1] == axis_name
+                ),
+            )
+            _require_equal(
+                "reference line visibility", layer.get_int(f"{prefix}.lineshow"), 1
+            )
+            _require_equal(
+                "reference line auto format", layer.get_int(f"{prefix}.lineauto"), 0
+            )
+            _require_equal(
+                "reference line color", layer.get_int(f"{prefix}.linecolor"), expected_color
+            )
+            _require_equal(
+                "reference line style", layer.get_int(f"{prefix}.linestyle"), expected_style
+            )
+            width = layer.get_float(f"{prefix}.linethickness")
+            _require_number(
+                "reference line width", width, expected_width, tolerance=0.051
+            )
+            reference_observed: dict[str, object] = {
+                "reference_line_id": action.reference_line_id,
+                "axis": axis_name,
+                "native_index": index,
+                "value": coordinate,
+                "color": expected_color,
+                "line_style": expected_style,
+                "line_width_pt": width,
+            }
+            if action.label:
+                if layer.get_int(f"{prefix}.labelshow") != 1:
+                    raise RuntimeError(
+                        "Origin reference line label did not survive T1 fresh reopen"
+                    )
+                label = layer.get_str(f"{prefix}.labeltext")
+                _require_equal("reference line label", label, action.label)
+                reference_observed["label"] = label
+            else:
+                _require_equal(
+                    "reference line label visibility",
+                    layer.get_int(f"{prefix}.labelshow"),
+                    0,
+                )
+            snapshot[action.action_id] = reference_observed
+        elif isinstance(action, AddCallout):
+            reference = reference_lines_by_id.get(action.target)
+            if reference is None:
+                raise RuntimeError(
+                    "Origin callout fresh readback has no effective reference-line target"
+                )
+            layer, expected_geometry = _callout_geometry(graph, action, reference)
+            arrow_name, text_name = _callout_object_names(action.callout_id)
+            arrow_state = read_scale_arrow(
+                op,
+                graph.name,
+                _layer_index(layer),
+                arrow_name,
+            )
+            _require_equal("callout arrow attachment", arrow_state.attach, 2)
+            arrow_axes: tuple[Literal["x", "y"], ...] = ("x", "y", "x", "y")
+            for name, axis_name, observed_value, expected_value in zip(
+                ("x0", "y0", "x1", "y1"),
+                arrow_axes,
+                arrow_state[1:5],
+                expected_geometry,
+                strict=True,
+            ):
+                _require_axis_coordinate(
+                    f"callout arrow {name}",
+                    observed_value,
+                    expected_value,
+                    layer=layer,
+                    axis_name=axis_name,
+                )
+            arrow = layer.label(arrow_name)
+            if arrow is None:
+                raise RuntimeError("Origin callout arrow did not survive T1 fresh reopen")
+            expected_arrow_color = _color(op, action.arrow_color or "#101828")
+            expected_arrow_width = action.arrow_width_pt or 1.0
+            expected_arrow_head = 2 if action.arrow_head == "open" else 1
+            _require_equal("callout arrow visibility", arrow.get_int("show"), 1)
+            _require_equal(
+                "callout arrow color",
+                arrow.get_int("color"),
+                expected_arrow_color,
+            )
+            _require_number(
+                "callout arrow width",
+                arrow.get_float("lineWidth"),
+                expected_arrow_width,
+                tolerance=0.051,
+            )
+            _require_equal("callout arrow begin shape", arrow_state.begin_style, 0)
+            _require_equal("callout arrow end shape", arrow_state.end_style, expected_arrow_head)
+
+            label = layer.label(text_name)
+            if label is None:
+                raise RuntimeError("Origin callout text did not survive T1 fresh reopen")
+            plain_text, bold, italic = _text_style(label.text)
+            _require_equal("callout text", plain_text, action.text)
+            _require_equal("callout text visibility", label.get_int("show"), 1)
+            _require_equal("callout text attachment", label.get_int("attach"), 2)
+            text_axes: tuple[Literal["x", "y"], ...] = ("x", "y")
+            for name, axis_name, expected_value in zip(
+                ("x", "y"),
+                text_axes,
+                expected_geometry[:2],
+                strict=True,
+            ):
+                _require_axis_coordinate(
+                    f"callout text {name}",
+                    label.get_float(name),
+                    expected_value,
+                    layer=layer,
+                    axis_name=axis_name,
+                )
+            expected_font = _font(op, action.font_family)
+            if expected_font is not None:
+                _require_equal("callout font", label.get_int("font"), expected_font)
+            expected_font_size = (
+                action.font_size_pt or PRODUCT_TYPOGRAPHY.tick_font_size_pt
+            )
+            _require_number(
+                "callout font size",
+                label.get_float("fsize"),
+                expected_font_size,
+            )
+            if action.font_weight is not None:
+                _require_equal(
+                    "callout font weight",
+                    bold,
+                    action.font_weight == "bold",
+                )
+            if action.italic is not None:
+                _require_equal("callout italic", italic, action.italic)
+            expected_text_color = _color(
+                op,
+                action.text_color or action.arrow_color or "#101828",
+            )
+            _require_equal(
+                "callout text color",
+                label.get_int("color"),
+                expected_text_color,
+            )
+            snapshot[action.action_id] = {
+                "callout_id": action.callout_id,
+                "reference_line_id": action.target,
+                "layer_index": _layer_index(layer),
+                "arrow_name": arrow_name,
+                "text_name": text_name,
+                "arrow": arrow_state._asdict(),
+                "arrow_color": expected_arrow_color,
+                "arrow_width_pt": arrow.get_float("lineWidth"),
+                "arrow_head": action.arrow_head or "filled",
+                "text": plain_text,
+                "text_x": label.get_float("x"),
+                "text_y": label.get_float("y"),
+                "font_size_pt": label.get_float("fsize"),
+                "text_color": expected_text_color,
+            }
     return snapshot

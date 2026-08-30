@@ -54,6 +54,7 @@ from plotagent.engine import (
     EngineVersionConflict,
     PlotDocument,
     PlotEngineAction,
+    PlotJournalAction,
 )
 from plotagent.engine.backends.origin import preflight_origin
 from plotagent.importing.models import Clarification, Rejection
@@ -1182,12 +1183,16 @@ class DesktopApplication:
         def lookup_plot(plot_id: str) -> PlotDocument:
             return engine.documents.get(plot_id).document
 
+        def lookup_plot_actions(plot_id: str) -> tuple[PlotJournalAction, ...]:
+            return tuple(item.action for item in engine.documents.actions(plot_id))
+
         task_host = DurableAgentCoreHost(
             store,
             domain,
             durable_tasks,
             catalog=engine.catalog,
             plot_lookup=lookup_plot,
+            plot_action_lookup=lookup_plot_actions,
         )
         session = ProjectSession(
             store=store,
@@ -1293,7 +1298,14 @@ class DesktopApplication:
         options = _object(
             values.get("options"),
             required=set(),
-            optional={"encoding", "delimiter", "decimal_mark", "header_row", "sheet"},
+            optional={
+                "encoding",
+                "delimiter",
+                "decimal_mark",
+                "header_row",
+                "header_rows",
+                "sheet",
+            },
         )
         request_hash = canonical_hash(
             cast(
@@ -1339,6 +1351,7 @@ class DesktopApplication:
                 delimiter=_optional_text(options.get("delimiter"), "delimiter"),
                 decimal_mark=_optional_text(options.get("decimal_mark"), "decimal_mark"),
                 header_row=_optional_integer(options.get("header_row"), "header_row", minimum=0),
+                header_rows=_header_rows(options.get("header_rows")),
                 sheet=_optional_text(options.get("sheet"), "sheet"),
                 expected_revision=commit_revision,
                 idempotency_key=key,
@@ -1624,3 +1637,13 @@ def _integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int:
 
 def _optional_integer(value: RpcJsonValue | None, name: str, *, minimum: int) -> int | None:
     return None if value is None else _integer(value, name, minimum=minimum)
+
+
+def _header_rows(value: RpcJsonValue | None) -> dict[str, int] | None:
+    if value is None:
+        return None
+    rows = _object(value, required=set(), optional=None)
+    return {
+        _text(sheet, "header_rows sheet"): _integer(row, "header_rows row", minimum=0)
+        for sheet, row in rows.items()
+    }

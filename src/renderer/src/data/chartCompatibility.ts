@@ -3,7 +3,47 @@ import type { ChartType } from './chartCatalog'
 export interface DatasetCompatibilitySummary {
   numericFieldCount: number
   categoricalFieldCount: number
+  datetimeFieldCount?: number
   totalFieldCount: number
+}
+
+type CompatibilityBucket = 'numeric' | 'categorical' | 'datetime'
+
+const roleBuckets = (fieldTypes: readonly string[]): CompatibilityBucket[] => {
+  const buckets = new Set<CompatibilityBucket>()
+  if (fieldTypes.includes('numeric')) buckets.add('numeric')
+  if (fieldTypes.some((fieldType) => ['categorical', 'text', 'boolean'].includes(fieldType))) {
+    buckets.add('categorical')
+  }
+  if (fieldTypes.includes('datetime')) buckets.add('datetime')
+  return [...buckets]
+}
+
+const requiredRolesCanBeAssigned = (
+  chart: ChartType,
+  summary: DatasetCompatibilitySummary,
+): boolean => {
+  const roles = chart.requiredFields
+    .map((role) => roleBuckets(chart.roleFieldTypes[role] ?? []))
+    .sort((left, right) => left.length - right.length)
+  if (roles.some((buckets) => buckets.length === 0)) return false
+
+  const remaining: Record<CompatibilityBucket, number> = {
+    numeric: summary.numericFieldCount,
+    categorical: summary.categoricalFieldCount,
+    datetime: summary.datetimeFieldCount ?? 0,
+  }
+  const assign = (index: number): boolean => {
+    if (index === roles.length) return true
+    for (const bucket of roles[index]) {
+      if (remaining[bucket] === 0) continue
+      remaining[bucket] -= 1
+      if (assign(index + 1)) return true
+      remaining[bucket] += 1
+    }
+    return false
+  }
+  return assign(0)
 }
 
 export function chartCompatibility(
@@ -11,18 +51,7 @@ export function chartCompatibility(
   summary: DatasetCompatibilitySummary | undefined,
 ): { compatible: boolean; awaitingData?: boolean } {
   if (!summary || summary.totalFieldCount === 0) return { compatible: true, awaitingData: true }
-  const numericRequirements: Record<string, number> = {
-    K04: 3, K06: 6, K07: 4, K09: 1, K10: 1, K11: 1, K19: 1, K20: 1, K21: 1, K22: 3,
-    X05: 1, X40: 2,
-    S61: 0,
-  }
-  const totalRequirements: Record<string, number> = {
-    K04: 3, K06: 6, K07: 4, K09: 3, K10: 3, K11: 3, K19: 2, K20: 3, K21: 3, K22: 3,
-    K24: 3, S61: 2, X05: 1, X40: 3,
-  }
-  const numericNeeded = numericRequirements[chart.id] ?? (['K08', 'K12', 'K13', 'K14', 'K15'].includes(chart.id) ? 1 : 2)
-  const totalNeeded = totalRequirements[chart.id] ?? Math.max(numericNeeded, Math.min(chart.requiredFields.length, 4))
   return {
-    compatible: summary.numericFieldCount >= numericNeeded && summary.totalFieldCount >= totalNeeded,
+    compatible: requiredRolesCanBeAssigned(chart, summary),
   }
 }

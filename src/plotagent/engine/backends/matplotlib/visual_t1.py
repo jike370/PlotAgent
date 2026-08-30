@@ -37,9 +37,12 @@ from matplotlib.ticker import (
 
 from plotagent.engine.contracts import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     PlotDocument,
     PlotEngineAction,
     SetAxis,
+    SetCanvas,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
@@ -47,7 +50,8 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from plotagent.engine.visual_t1 import effective_visual_actions
+from plotagent.engine.product_style import PRODUCT_TYPOGRAPHY
+from plotagent.engine.visual_t1 import effective_visual_actions, resolve_canvas_inches
 
 from .font import contains_cjk_text
 
@@ -136,7 +140,24 @@ def apply_visual_actions(
     *,
     resolved_font_family: str | None = None,
 ) -> None:
-    for action in effective_visual_actions(actions):
+    effective = effective_visual_actions(actions)
+    # Reference lines must see the final axis state so their native objects
+    # span the same data ranges in both backends regardless of action order.
+    ordered = (
+        *(
+            action
+            for action in effective
+            if not isinstance(action, (AddReferenceLine, AddCallout))
+        ),
+        *(action for action in effective if isinstance(action, AddReferenceLine)),
+        *(action for action in effective if isinstance(action, AddCallout)),
+    )
+    reference_lines = {
+        action.reference_line_id: action
+        for action in effective
+        if isinstance(action, AddReferenceLine)
+    }
+    for action in ordered:
         if isinstance(action, SetTitle):
             _apply_title(figure, action)
         elif isinstance(action, SetAxis):
@@ -151,8 +172,18 @@ def apply_visual_actions(
             _apply_error(figure, action)
         elif isinstance(action, SetDataLabels):
             _apply_data_labels(figure, action)
+        elif isinstance(action, SetCanvas):
+            current_width, current_height = (
+                float(value) for value in figure.get_size_inches()
+            )
+            width, height = resolve_canvas_inches(current_width, current_height, action)
+            figure.set_size_inches(width, height, forward=True)
         elif isinstance(action, AddAnnotation):
             _apply_annotation(figure, action)
+        elif isinstance(action, AddReferenceLine):
+            _apply_reference_line(figure, action)
+        elif isinstance(action, AddCallout):
+            _apply_callout(figure, action, reference_lines)
         else:  # pragma: no cover - split_visual_actions is the closed dispatcher
             raise TypeError(f"unsupported Matplotlib visual action {action.operation}")
     # Profile renderers may create their initial Latin labels inside a local
@@ -928,3 +959,90 @@ def _apply_annotation(figure: Figure, action: AddAnnotation) -> None:
         rotation=action.rotation_deg or 0,
     )
     text.set_gid(action.annotation_id)
+
+
+def _apply_reference_line(figure: Figure, action: AddReferenceLine) -> None:
+    axis, axis_name = _axis_for_target(figure, action.target)
+    color = action.line_color or "#667085"
+    line_kwargs = {
+        "color": color,
+        "linewidth": action.line_width_pt or 1.0,
+        "linestyle": _LINE_STYLES[action.line_style or "dash"],
+        "label": "_nolegend_",
+        "zorder": 2.5,
+    }
+    line = (
+        axis.axvline(action.value, **line_kwargs)
+        if axis_name == "x"
+        else axis.axhline(action.value, **line_kwargs)
+    )
+    line.set_gid(action.reference_line_id)
+    if not action.label:
+        return
+    if axis_name == "x":
+        text = axis.text(
+            action.value,
+            0.98,
+            action.label,
+            transform=axis.get_xaxis_transform(),
+            ha="right",
+            va="top",
+            color=color,
+            fontsize=PRODUCT_TYPOGRAPHY.tick_font_size_pt,
+        )
+    else:
+        text = axis.text(
+            0.98,
+            action.value,
+            action.label,
+            transform=axis.get_yaxis_transform(),
+            ha="right",
+            va="bottom",
+            color=color,
+            fontsize=PRODUCT_TYPOGRAPHY.tick_font_size_pt,
+        )
+    text.set_gid(action.reference_line_id + ".label")
+
+
+def _apply_callout(
+    figure: Figure,
+    action: AddCallout,
+    reference_lines: dict[str, AddReferenceLine],
+) -> None:
+    reference = reference_lines.get(action.target)
+    if reference is None:
+        raise ValueError(f"callout target is not an effective reference line: {action.target}")
+    axis, axis_name = _axis_for_target(figure, reference.target)
+    if axis_name == "x":
+        anchor = (reference.value, action.anchor_fraction)
+        anchor_coordinates: tuple[str, str] = ("data", "axes fraction")
+    else:
+        anchor = (action.anchor_fraction, reference.value)
+        anchor_coordinates = ("axes fraction", "data")
+    color = action.arrow_color or "#101828"
+    annotation = axis.annotate(
+        action.text,
+        xy=anchor,
+        xycoords=anchor_coordinates,
+        xytext=(action.text_x_fraction, action.text_y_fraction),
+        textcoords="axes fraction",
+        ha="center",
+        va="center",
+        fontfamily=_font(action.font_family),
+        fontsize=action.font_size_pt or PRODUCT_TYPOGRAPHY.tick_font_size_pt,
+        fontweight=_weight(action.font_weight),
+        fontstyle="italic" if action.italic else None,
+        color=action.text_color or color,
+        arrowprops={
+            "arrowstyle": "-|>" if action.arrow_head != "open" else "->",
+            "color": color,
+            "linewidth": action.arrow_width_pt or 1.0,
+            "shrinkA": 2,
+            "shrinkB": 2,
+        },
+        annotation_clip=False,
+    )
+    annotation.set_gid(action.callout_id)
+    if annotation.arrow_patch is None:  # pragma: no cover - annotate contract
+        raise RuntimeError("Matplotlib did not create the callout arrow")
+    annotation.arrow_patch.set_gid(action.callout_id + ".arrow")

@@ -38,6 +38,7 @@ class ColumnCase:
     logical_type: LogicalType
     values: tuple[EngineScalar, ...]
     unit: str | None = None
+    bound: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,8 +64,10 @@ def _column(
     logical_type: LogicalType,
     values: tuple[EngineScalar, ...],
     unit: str | None = None,
+    *,
+    bound: bool = True,
 ) -> ColumnCase:
-    return ColumnCase(role, name, logical_type, values, unit)
+    return ColumnCase(role, name, logical_type, values, unit, bound)
 
 
 def _xy(*, grouped: bool = False) -> tuple[tuple[ColumnCase, ...], tuple[ColumnCase, ...]]:
@@ -106,6 +109,20 @@ def _profile_columns() -> dict[str, tuple[tuple[ColumnCase, ...], tuple[ColumnCa
                     _column("y", "Y", "numeric", _n(1, 2.4, 1.8, 3.6, 3.0, 4.2)),
                     _column("size", "Bubble size", "numeric", _n(4, 9, 16, 25, 36, 49)),
                     _column("color", "Color value", "numeric", _n(0.05, 0.2, 0.4, 0.6, 0.8, 0.95)),
+                    _column(
+                        "marker_class",
+                        "Marker class",
+                        "categorical",
+                        _c("measured", "derived", "measured", "derived", "measured", "derived"),
+                        bound=False,
+                    ),
+                    _column(
+                        "marker_class_alt",
+                        "Alternate marker class",
+                        "categorical",
+                        _c("derived", "measured", "derived", "measured", "derived", "measured"),
+                        bound=False,
+                    ),
                 ),
             ),
             "K06": (
@@ -655,7 +672,10 @@ def _profile_columns() -> dict[str, tuple[tuple[ColumnCase, ...], tuple[ColumnCa
 
 def _release_case(profile_id: str, variant: str, columns: tuple[ColumnCase, ...]) -> ReleaseCase:
     payload = json.dumps(
-        [(item.role, item.name, item.logical_type, item.values, item.unit) for item in columns],
+        [
+            (item.role, item.name, item.logical_type, item.values, item.unit, item.bound)
+            for item in columns
+        ],
         ensure_ascii=False,
         sort_keys=True,
         default=str,
@@ -686,6 +706,7 @@ def _release_case(profile_id: str, variant: str, columns: tuple[ColumnCase, ...]
     bindings = tuple(
         FieldBinding(role=item.role, field_id=column.field.field_id)
         for item, column in zip(columns, engine_columns, strict=True)
+        if item.bound
     )
     create = CreatePlot(
         action_id=f"action:{token}-create",
@@ -726,6 +747,7 @@ def _edge_columns(
         logical_type="text",
         values=tuple("not-a-number" for _value in source.values),
         unit=source.unit,
+        bound=source.bound,
     )
     return tuple(result)
 

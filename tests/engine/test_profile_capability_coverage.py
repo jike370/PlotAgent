@@ -37,6 +37,26 @@ def test_all_34_profiles_expose_the_common_editing_spine() -> None:
         assert "add_annotation" not in operations, profile.profile_id
 
 
+def test_reference_line_scope_tracks_numeric_axis_semantics() -> None:
+    supported = {
+        profile.profile_id
+        for profile in ENGINE_PROFILES
+        if "add_reference_line" in _capabilities(profile.profile_id)
+    }
+    assert supported == {profile.profile_id for profile in ENGINE_PROFILES} - {
+        "K20",
+        "K21",
+        "K24",
+        "S61",
+    }
+    callout_supported = {
+        profile.profile_id
+        for profile in ENGINE_PROFILES
+        if "add_callout" in _capabilities(profile.profile_id)
+    }
+    assert callout_supported == supported
+
+
 def test_axis_capability_exceptions_are_explicit_and_frozen() -> None:
     missing_bounds: set[str] = set()
     missing_scale: set[str] = set()
@@ -73,6 +93,10 @@ def test_axis_capability_exceptions_are_explicit_and_frozen() -> None:
 def test_x38_requires_numeric_x_before_renderer_execution() -> None:
     profile = next(item for item in ENGINE_PROFILES if item.profile_id == "X38")
     assert profile.role_field_types["x"] == ("numeric",)
+
+
+def test_k09_only_advertises_the_native_subset_style_it_can_reopen() -> None:
+    assert _capabilities("K09")["set_series_style"] == {"fill_color"}
 
 
 def test_error_style_capabilities_match_each_native_error_shape() -> None:

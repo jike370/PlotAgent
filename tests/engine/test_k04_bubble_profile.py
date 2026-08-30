@@ -17,16 +17,18 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
+    PointMarkerMapEntry,
     SetAxis,
     SetChartParameter,
     SetColorMap,
     SetLegend,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
 from plotagent.engine.backends.matplotlib import K04BubbleRenderer, MatplotlibBackend
 from plotagent.engine.backends.origin.k04 import K04OriginProject
-from plotagent.engine.profile_data import k04_bubble
+from plotagent.engine.profile_data import k04_bubble, point_marker_shapes
 from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "4" * 64
@@ -184,6 +186,77 @@ def _append_actions(
         ),
         history,
     )
+
+
+def _point_marker_case() -> tuple[
+    PlotDocument, tuple[PlotEngineAction, ...], EngineDataView, SetPointMarkerMap
+]:
+    document, actions, view = _case()
+    marker_action = SetPointMarkerMap(
+        action_id="action:k04-point-markers",
+        target="series:k04-bubble.primary",
+        expected_plot_version=1,
+        field_id="field:confidence-present",
+        entries=(
+            PointMarkerMapEntry(value=True, marker_shape="circle"),
+            PointMarkerMapEntry(value=False, marker_shape="triangle_down"),
+        ),
+    )
+    document, history = _append_actions(document, actions, marker_action)
+    view = view.model_copy(
+        update={
+            "columns": (
+                *view.columns,
+                EngineColumn(
+                    field=EngineField(
+                        field_id="field:confidence-present",
+                        name="Confidence present",
+                        logical_type="boolean",
+                    ),
+                    values=(True, False, False, True),
+                ),
+            )
+        }
+    )
+    return document, history, view, marker_action
+
+
+def test_k04_point_marker_map_is_exact_and_preserves_one_discrete_field() -> None:
+    _document, _actions, view, marker_action = _point_marker_case()
+
+    resolved = point_marker_shapes(view, marker_action)
+
+    assert resolved.values == (True, False, False, True)
+    assert resolved.shapes == ("circle", "triangle_down", "triangle_down", "circle")
+    with pytest.raises(ValueError, match="unused value"):
+        point_marker_shapes(
+            view.model_copy(
+                update={
+                    "columns": tuple(
+                        column.model_copy(update={"values": (True, True, True, True)})
+                        if column.field.field_id == "field:confidence-present"
+                        else column
+                        for column in view.columns
+                    )
+                }
+            ),
+            marker_action,
+        )
+
+
+def test_k04_matplotlib_point_marker_map_changes_artifact_without_splitting_series(
+    tmp_path: Path,
+) -> None:
+    document, actions, view, _marker_action = _point_marker_case()
+    backend = MatplotlibBackend(tmp_path / "artifacts", (K04BubbleRenderer(),))
+
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
+    change.publish()
+
+    readback = backend.readback(document)
+    series = [item for item in readback.objects if item.object_kind == "bubble_series"]
+    assert len(series) == 1
+    assert (tmp_path / "artifacts" / "k04-bubble" / "v2" / "preview.svg").stat().st_size > 0
 
 
 def test_k04_color_scale_visibility_honors_cross_operation_action_order(
@@ -418,6 +491,7 @@ class _Sheet:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, int] = {}
         self.cols = 0
+        self.name = "Sheet1"
 
     def from_list(self, column: int, values, **kwargs) -> None:
         self.columns[column] = list(values)
@@ -452,6 +526,7 @@ class _Origin:
         self.graph = _Graph()
         self.commands: list[str] = []
         self.native_pid = 0
+        self.shape_index = 0
         self.graph_created = False
 
     def new(self, *, asksave: bool) -> None:
@@ -472,11 +547,20 @@ class _Origin:
         if "worksheet -p 248 Bubble" in command:
             self.graph_created = True
             self.native_pid = 201
+        if "set __K04SHAPEPLOT -ksn __K04SHAPECODES" in command:
+            self.shape_index = 103
         return True
 
     def lt_float(self, expression: str) -> float:
-        assert expression == "__K04PID"
-        return float(self.native_pid)
+        if expression == "__K04PID":
+            return float(self.native_pid)
+        if expression == "__K04SHAPEINDEX":
+            return float(self.shape_index)
+        raise AssertionError(expression)
+
+    def get_lt_str(self, expression: str) -> str:
+        assert expression == "__K04COLORDATA"
+        return f"{self.book.name}_D"
 
     @staticmethod
     def modi_col(offset: int) -> tuple[str, int]:
@@ -538,6 +622,32 @@ def test_k04_origin_creates_only_explicitly_requested_scales(
     assert origin.graph.layer.plot.symbol_kind == 2
     assert origin.graph.layer.axis("y").scale == "linear"
     assert origin.graph.layer.label("legend") is None
+
+
+def test_k04_origin_persists_native_point_marker_index_with_size_and_color(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, actions, view, _marker_action = _point_marker_case()
+    monkeypatch.setattr(
+        origin_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / profile.filename,
+    )
+    origin = _Origin()
+    project = K04OriginProject(origin)
+    project.create(tmp_path, document, view)
+    structural = split_visual_actions(actions)[0]
+    for action in structural:
+        project.apply(document, action, view)
+
+    readback = project.verify(document, structural, view)
+
+    assert origin.book.sheet.columns[4] == [2, 4, 4, 2]
+    assert origin.shape_index == 103
+    assert origin.graph.layer.plot.symbol_size == ("size", 1)
+    assert any("-ksn __K04SHAPECODES" in command for command in origin.commands)
+    assert len([item for item in readback.objects if item.object_kind == "bubble_series"]) == 1
 
 
 def test_k04_new_path_has_no_legacy_compiler_dependency() -> None:

@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+from matplotlib.colors import to_hex
 from matplotlib.figure import Figure
 
 import plotagent.engine.backends.origin.dual_y_special as dual_origin
@@ -39,6 +40,7 @@ from plotagent.engine.backends.origin import (
 from plotagent.engine.backends.origin.dual_y_special import DualYSpecialOriginProject
 from plotagent.engine.backends.origin.x24 import X24OriginProject
 from plotagent.engine.backends.origin.x38 import X38OriginProject
+from plotagent.engine.product_style import DUAL_Y_SERIES_COLORS
 from plotagent.engine.profile_data import (
     x24_pareto,
     x24_pareto_source,
@@ -183,6 +185,21 @@ def _dual_case(profile_id: str):
     )
 
 
+def _dual_numeric_category_case(profile_id: str):
+    document, actions, view = _dual_case(profile_id)
+    numeric_category = EngineColumn(
+        field=EngineField(
+            field_id="field:category",
+            name="Z1 amount (wt.%)",
+            logical_type="numeric",
+        ),
+        values=(0, 10, 20),
+    )
+    return document, actions, view.model_copy(
+        update={"columns": (numeric_category, *view.columns[1:])}
+    )
+
+
 def _x38_case(group_count: int = 3):
     x_values = tuple(float(x) for x in range(1, 5))
     roles = ("x",) + tuple(f"series_{index + 1}" for index in range(group_count))
@@ -220,6 +237,30 @@ def test_profile_data_preserves_authoritative_semantics() -> None:
         assert dual.left_values == (12.0, 18.0, 9.0)
 
 
+@pytest.mark.parametrize("profile_id", ("X35", "X36"))
+def test_dual_y_category_role_treats_numeric_values_as_discrete_labels(
+    profile_id: str,
+) -> None:
+    document, _actions, view = _dual_numeric_category_case(profile_id)
+    normalizer = x35_series if profile_id == "X35" else x36_series
+
+    dual = normalizer(document, view)
+
+    assert dual.x_scale == "categorical"
+    assert dual.x_values == ("0", "10", "20")
+    assert dual.x_labels == ("0", "10", "20")
+
+
+def test_dual_y_profile_and_normalizer_agree_on_numeric_category_contract() -> None:
+    for profile, normalizer in (
+        (X35_DUAL_Y_COLUMN_PROFILE, x35_series),
+        (X36_DUAL_Y_COLUMN_LINE_PROFILE, x36_series),
+    ):
+        assert "numeric" in profile.role_field_types["category"]
+        document, _actions, view = _dual_numeric_category_case(profile.profile_id)
+        assert normalizer(document, view).x_scale == "categorical"
+
+
 @pytest.mark.parametrize("group_count", (1, 3, 5))
 def test_x38_preserves_raw_aligned_series(group_count: int) -> None:
     document, _actions, view = _x38_case(group_count)
@@ -255,6 +296,146 @@ def test_independent_matplotlib_renderers_emit_semantic_objects(
     )
     assert (output / "preview.png").stat().st_size > 1_000
     assert (output / "preview.svg").stat().st_size > 1_000
+
+
+@pytest.mark.parametrize(
+    "renderer",
+    (X35DualYColumnRenderer(), X36DualYColumnLineRenderer()),
+)
+def test_dual_y_matplotlib_renderers_accept_numeric_category_values(
+    tmp_path: Path, renderer
+) -> None:
+    document, actions, view = _dual_numeric_category_case(renderer.profile_id)
+    backend = MatplotlibBackend(tmp_path / renderer.profile_id, (renderer,))
+
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
+    change.publish()
+    readback = backend.readback(document)
+
+    assert readback.backend == "matplotlib"
+
+
+@pytest.mark.parametrize(
+    "renderer",
+    (X35DualYColumnRenderer(), X36DualYColumnLineRenderer()),
+)
+def test_dual_y_matplotlib_uses_shared_product_series_colors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, renderer
+) -> None:
+    document, actions, view = _dual_case(renderer.profile_id)
+    create = actions[0]
+    actions = (create,)
+    document = document.model_copy(
+        update={
+            "plot_version": 1,
+            "parent_version": None,
+            "applied_action_ids": (create.action_id,),
+        }
+    )
+    observations: list[tuple[str, str]] = []
+
+    def capture_save(figure: Figure, *_args: object, **_kwargs: object) -> None:
+        left, right = figure.axes[:2]
+        left_color = to_hex(left.patches[0].get_facecolor())
+        right_artist = right.patches[0] if renderer.profile_id == "X35" else right.lines[0]
+        right_color = (
+            to_hex(right_artist.get_facecolor())
+            if renderer.profile_id == "X35"
+            else to_hex(right_artist.get_color())
+        )
+        observations.append((left_color, right_color))
+
+    monkeypatch.setattr(Figure, "savefig", capture_save)
+    backend = MatplotlibBackend(tmp_path / renderer.profile_id, (renderer,))
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
+    change.discard()
+
+    assert observations == [
+        tuple(color.casefold() for color in DUAL_Y_SERIES_COLORS),
+        tuple(color.casefold() for color in DUAL_Y_SERIES_COLORS),
+    ]
+
+
+@pytest.mark.parametrize(
+    "renderer",
+    (X35DualYColumnRenderer(), X36DualYColumnLineRenderer()),
+)
+def test_dual_y_matplotlib_assigns_each_colored_spine_to_one_axis(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, renderer
+) -> None:
+    document, actions, view = _dual_case(renderer.profile_id)
+    left_axis = SetAxis(
+        action_id=f"action:{renderer.profile_id.lower()}-left-axis-color",
+        target=f"axis:{renderer.profile_id.lower()}-t1.y_left",
+        expected_plot_version=document.plot_version,
+        title_color="#1676D2",
+        tick_color="#1676D2",
+        axis_line_color="#1676D2",
+        axis_line_width_pt=2.0,
+    )
+    right_axis = SetAxis(
+        action_id=f"action:{renderer.profile_id.lower()}-right-axis-color",
+        target=f"axis:{renderer.profile_id.lower()}-t1.y_right",
+        expected_plot_version=document.plot_version + 1,
+        title_color="#E07A00",
+        tick_color="#E07A00",
+        axis_line_color="#E07A00",
+        axis_line_width_pt=2.5,
+    )
+    actions = (*actions, left_axis, right_axis)
+    document = document.model_copy(
+        update={
+            "plot_version": document.plot_version + 2,
+            "parent_version": document.plot_version + 1,
+            "applied_action_ids": (
+                *document.applied_action_ids,
+                left_axis.action_id,
+                right_axis.action_id,
+            ),
+        }
+    )
+    observations: list[dict[str, object]] = []
+
+    def capture_save(figure: Figure, *_args: object, **_kwargs: object) -> None:
+        left, right = figure.axes[:2]
+        observations.append(
+            {
+                "left_color": to_hex(left.spines["left"].get_edgecolor()),
+                "right_color": to_hex(right.spines["right"].get_edgecolor()),
+                "left_width": left.spines["left"].get_linewidth(),
+                "right_width": right.spines["right"].get_linewidth(),
+                "unused_left_visible": right.spines["left"].get_visible(),
+                "unused_right_visible": left.spines["right"].get_visible(),
+                "left_title_color": to_hex(left.yaxis.label.get_color()),
+                "right_title_color": to_hex(right.yaxis.label.get_color()),
+                "left_tick_colors": {
+                    to_hex(label.get_color()) for label in left.get_yticklabels()
+                },
+                "right_tick_colors": {
+                    to_hex(label.get_color()) for label in right.get_yticklabels()
+                },
+            }
+        )
+
+    monkeypatch.setattr(Figure, "savefig", capture_save)
+    backend = MatplotlibBackend(tmp_path / renderer.profile_id, (renderer,))
+    change = backend.stage(document, actions, EngineRenderSource(data=view))
+    change.discard()
+
+    assert len(observations) == 2
+    for observed in observations:
+        assert observed == {
+            "left_color": "#1676d2",
+            "right_color": "#e07a00",
+            "left_width": 2.0,
+            "right_width": 2.5,
+            "unused_left_visible": False,
+            "unused_right_visible": False,
+            "left_title_color": "#1676d2",
+            "right_title_color": "#e07a00",
+            "left_tick_colors": {"#1676d2"},
+            "right_tick_colors": {"#e07a00"},
+        }
 
 
 def test_x38_matplotlib_backend_applies_numeric_x_bounds(
@@ -617,7 +798,62 @@ def test_origin_dual_y_special_uses_both_official_layers(
     assert project.sheet.properties["col1.categorical.type"] == 2
     assert project.sheet.properties["col1.categorical.sort"] == 0
     assert any(command == "doc -u;" for command in origin.commands)
-    assert not any("!page.active=1; set %C -pfb" in command for command in origin.commands)
+    assert any(
+        f'!page.active=1; set %C -pfb color("{DUAL_Y_SERIES_COLORS[0]}")'
+        in command
+        for command in origin.commands
+    )
+    right_property = "-pfb" if profile_id == "X35" else "-cl"
+    assert any(
+        f'!page.active=2; set %C {right_property} color("{DUAL_Y_SERIES_COLORS[1]}")'
+        in command
+        for command in origin.commands
+    )
+
+
+@pytest.mark.parametrize("profile_id", ("X35", "X36"))
+def test_origin_dual_y_special_writes_numeric_categories_as_discrete_labels(
+    monkeypatch, profile_id: str
+) -> None:
+    monkeypatch.setattr(
+        dual_origin, "resolve_official_template", lambda *_args: Path(f"{profile_id}.otpu")
+    )
+    document, actions, view = _dual_numeric_category_case(profile_id)
+    origin = _Origin()
+    project = DualYSpecialOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
+
+    project.create(Path("."), document, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
+
+    assert project.sheet.columns[0] == ["0", "10", "20"]
+    assert project.sheet.properties["col1.categorical.type"] == 2
+    assert project.sheet.properties["col1.categorical.sort"] == 0
+
+
+@pytest.mark.parametrize("profile_id", ("X35", "X36"))
+def test_origin_dual_y_final_structure_ignores_legitimate_visual_state_changes(
+    monkeypatch, profile_id: str
+) -> None:
+    monkeypatch.setattr(
+        dual_origin, "resolve_official_template", lambda *_args: Path(f"{profile_id}.otpu")
+    )
+    document, actions, view = _dual_case(profile_id)
+    origin = _Origin()
+    project = DualYSpecialOriginProject(origin, profile_id=profile_id)  # type: ignore[arg-type]
+    project.create(Path("."), document, view)
+    project.reconcile(document, split_visual_actions(actions)[0], view)
+
+    # Final visual verification owns labels/styles.  Deliberately alter a label
+    # here to prove the native/data contract does not compare pre-visual text.
+    project._layers()[0].labels["xb"].text = ""
+
+    snapshot = project.verify_final_native_structure(document, view)
+
+    assert snapshot["native_plot_ids"] == (
+        [203, 203] if profile_id == "X35" else [203, 202]
+    )
+    assert snapshot["row_count"] == 3
+    assert snapshot["source_y_columns"] == ["B", "C"]
 
 
 def test_origin_x35_rejects_automatic_axis_that_makes_right_column_float(

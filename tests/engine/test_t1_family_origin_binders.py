@@ -227,6 +227,7 @@ class FakeSheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, str] = {}
+        self.commands: list[str] = []
         self.cols = 0
 
     def from_list(self, col, data, **kwargs) -> None:
@@ -238,6 +239,10 @@ class FakeSheet:
 
     def activate(self) -> None:
         return None
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        return True
 
     def lt_range(self, *_args) -> str:
         return "[DataBook]Sheet1"
@@ -318,6 +323,9 @@ class FakeOrigin:
             match = re.search(r"worksheet -s 1 0 (\d+) 0", command)
             assert match is not None
             self.graph.layer.plots = [FakePlot() for _ in range(int(match.group(1)) // 2)]
+            for index, plot in enumerate(self.graph.layer.plots, start=1):
+                plot.symbol_kind = index
+                plot.symbol_size = 15.0
         if "worksheet -p 201 ERRBAR" in command:
             self.graph_created = True
             self.native_pid = 201
@@ -538,7 +546,14 @@ def test_k02_binds_one_native_line_symbol_plot_per_source_group(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     columns = (
-        _column("field:x", "Time", (0.0, 1.0, 0.0, 1.0)),
+        EngineColumn(
+            field=EngineField(
+                field_id="field:x",
+                name="Time",
+                logical_type="text",
+            ),
+            values=("Control", "Treatment", "Control", "Treatment"),
+        ),
         _column("field:y", "Signal", (1.0, 2.0, 1.5, 3.0)),
         EngineColumn(
             field=EngineField(
@@ -572,6 +587,12 @@ def test_k02_binds_one_native_line_symbol_plot_per_source_group(
         "legend:k02-origin.main",
     }
     assert origin.graph.layer.labels["legend"].get_int("show") == 1
+    assert origin.book.sheet.columns[0] == ["Control", "Treatment"]
+    assert origin.book.sheet.columns[2] == ["Control", "Treatment"]
+    assert origin.book.sheet.commands == [
+        "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;",
+        "wks.col3.categorical.type=2; wks.col3.categorical.sort=0;",
+    ]
 
 
 def test_k03_binds_one_native_scatter_plot_per_data_group(
@@ -651,10 +672,14 @@ def test_k03_binds_one_native_scatter_plot_per_data_group(
     assert any("worksheet -p 201 Scatter" in command for command in origin.commands)
     assert origin.graph.layer.add_calls == []
     assert origin.graph.layer.group_calls == []
-    assert origin.graph.layer.labels["legend"].text == ("\\l(1) %(1)\n\\l(2) %(2)")
+    assert origin.graph.layer.labels["legend"].text == (
+        "\\l(1, style:s) %(1)\n\\l(2, style:s) %(2)"
+    )
     assert origin.graph.layer.labels["xb"].text == "Dose"
     assert origin.graph.layer.labels["yl"].text == "Response"
-    assert origin.graph.layer.plots[1].symbol_kind == 2
+    assert [plot.symbol_kind for plot in origin.graph.layer.plots] == [2, 2]
+    assert [plot.symbol_size for plot in origin.graph.layer.plots] == [5.0, 5.0]
+    assert "layer -gu;" in origin.commands
     assert {
         item.semantic_id for item in readback.objects if item.object_kind == "scatter_series"
     } == {

@@ -34,6 +34,7 @@ def test_native_distribution_bridge_uses_reviewed_origin_c_entry_points() -> Non
     origin = _Origin()
 
     bridge.configure_native_distribution(origin, "Graph_1", 2, 13)
+    bridge.set_native_distribution_outliers(origin, "Graph_1", 2, visible=False)
     bridge.configure_native_distribution(origin, "Graph_1", 3, 14, bandwidth=0.625)
     value = bridge.read_native_distribution_value(
         origin,
@@ -52,6 +53,10 @@ def test_native_distribution_bridge_uses_reviewed_origin_c_entry_points() -> Non
     )
     assert any(
         'plotagent_configure_distribution("Graph_1",3,14,0.625)' in command
+        for command in origin.commands
+    )
+    assert any(
+        'plotagent_set_distribution_outliers("Graph_1",2,0)' in command
         for command in origin.commands
     )
     assert any(
@@ -78,6 +83,7 @@ def test_origin_c_bridge_uses_getformat_applyformat_and_pinned_theme_ids() -> No
     assert "plot.GetTheme(" not in source
     assert "layer.GetFormat(FPB_ALL, FOB_ALL, true, true)" in source
     assert "layer.ApplyFormat(format, true, true)" in source
+    assert "plotagent_set_distribution_outliers" in source
     assert "octree_get_node_by_id" in source
     for symbolic_id in (
         "OTID_BOXCHART_INFO_BOX_TYPE",

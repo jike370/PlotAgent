@@ -1923,6 +1923,8 @@ describe('PlotAgent real desktop workflow', () => {
     const planMessage = (await screen.findByRole('heading', { name: '任务计划' })).closest('.message')
     expect(plotCard?.compareDocumentPosition(planMessage as Node) ?? 0)
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(planMessage).toHaveTextContent('沿用原图数据与字段绑定')
+    expect(planMessage).not.toHaveTextContent('0 个来源')
     expect(prepareWorkflow).toHaveBeenCalledWith(expect.objectContaining({
       instruction: '@图1 把标题改成温度响应',
       selectedPlots: [{ plotId: 'plot:one', plotVersion: 1 }],

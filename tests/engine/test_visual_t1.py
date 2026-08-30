@@ -19,33 +19,50 @@ from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visual_actions,
     apply_visuals_before_save,
 )
+from plotagent.engine.backends.origin.native_visual_t1 import ScaleArrowState
 from plotagent.engine.backends.origin.visual_t1 import (
     _ORIGIN_FOUR_SIDED_FRAME_PROFILES,
+    _apply_action,
+    _apply_callouts,
+    _apply_k09_subset_fill_colors,
     _apply_origin_product_frame,
+    _apply_origin_product_typography,
+    _apply_reference_lines,
     _apply_series,
     _capture_origin_template_frame,
     _centered_levels,
     _color_scale_for_action,
     _fixed_axis_bounds_mode_is_valid,
+    _k09_legend_column_count,
+    _k09_requested_x_tick_font_size,
     _legend_column_count,
+    _origin_legend_anchor,
     _series_numeric_tolerance,
     _updated_tick_bits,
+    _verify_actions,
+    _verify_k09_subset_fill_color,
     _verify_origin_product_frame,
     _verify_origin_product_opposite_axes,
+    _verify_origin_product_typography,
 )
 from plotagent.engine.contracts import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     BindFields,
     CreatePlot,
     EngineDataRef,
     FieldBinding,
     PlotDocument,
+    PointMarkerMapEntry,
     SetAxis,
+    SetCanvas,
     SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
@@ -66,7 +83,10 @@ _VISUAL_ACTION_NAMES = (
     "SetColorMap",
     "SetErrorStyle",
     "SetDataLabels",
+    "SetCanvas",
     "AddAnnotation",
+    "AddReferenceLine",
+    "AddCallout",
 )
 
 
@@ -94,6 +114,60 @@ class _OriginFrameGraph(list[_OriginFrameLayer]):
     name = "Graph_1"
 
 
+class _OriginTypographyLabel:
+    def __init__(self, size: float = 20) -> None:
+        self.values = {"fsize": size}
+
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.values[name])
+
+
+class _OriginTypographyLayer:
+    def __init__(self, zero_based_index: int, labels: tuple[str, ...]) -> None:
+        self._index = zero_based_index
+        self.labels = {name: _OriginTypographyLabel() for name in labels}
+
+    def index(self) -> int:
+        return self._index
+
+    def label(self, name: str) -> _OriginTypographyLabel | None:
+        return self.labels.get(name)
+
+
+class _OriginTypographyGraph(list[_OriginTypographyLayer]):
+    name = "Graph_1"
+
+
+class _OriginDualAxisLayer:
+    def __init__(self, zero_based_index: int) -> None:
+        self._index = zero_based_index
+        self.properties: dict[str, int] = {}
+        self._axis = object()
+
+    def index(self) -> int:
+        return self._index
+
+    def axis(self, name: str) -> object:
+        assert name == "y"
+        return self._axis
+
+    def set_int(self, name: str, value: int) -> None:
+        self.properties[name] = value
+
+
+class _OriginDualAxisGraph(list[_OriginDualAxisLayer]):
+    name = "Graph_1"
+
+
+class _OriginColorOp:
+    def lt_float(self, expression: str) -> float:
+        assert expression.startswith('color("#')
+        return float(int(expression.split('"', 2)[1][1:], 16))
+
+
 class _OriginSeriesLayer:
     def index(self) -> int:
         return 0
@@ -104,8 +178,9 @@ class _OriginSeriesGraph(list[_OriginSeriesLayer]):
 
 
 class _OriginSeriesOp:
-    def __init__(self) -> None:
+    def __init__(self, *, plot_pid: int = 200) -> None:
         self.commands: list[str] = []
+        self.plot_pid = plot_pid
 
     def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
@@ -114,6 +189,177 @@ class _OriginSeriesOp:
     def lt_float(self, expression: str) -> float:
         if expression == "__PAT1COUNT":
             return 2
+        if expression == "__PAT1VALUE":
+            return float(self.plot_pid)
+        raise AssertionError(f"unexpected LabTalk expression {expression}")
+
+
+class _OriginReferenceObject:
+    def __init__(
+        self,
+        layer: _OriginReferenceLayer,
+        *,
+        name: str = "",
+        text: str = "",
+    ) -> None:
+        self.layer = layer
+        self._name = ""
+        self.name = name
+        self.text = text
+        self.values: dict[str, float | int] = {}
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        if getattr(self, "_name", ""):
+            self.layer.objects.pop(self._name, None)
+        self._name = value
+        if value:
+            self.layer.objects[value] = self
+
+    def set_int(self, name: str, value: int) -> None:
+        self.values[name] = value
+
+    def get_int(self, name: str) -> int:
+        return int(self.values.get(name, 0))
+
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.values.get(name, 0))
+
+
+class _OriginReferenceAxis:
+    def __init__(self, limits: tuple[float, float]) -> None:
+        self.limits = (*limits, 0.0)
+        self.scale = "linear"
+
+
+class _OriginReferenceLayer:
+    def __init__(self) -> None:
+        self.objects: dict[str, _OriginReferenceObject] = {}
+        self.properties: dict[str, float | int | str] = {}
+        self.axes = {
+            "x": _OriginReferenceAxis((0, 10)),
+            "y": _OriginReferenceAxis((0, 100)),
+        }
+
+    def index(self) -> int:
+        return 0
+
+    def activate(self) -> int:
+        return 0
+
+    def axis(self, name: str) -> _OriginReferenceAxis:
+        return self.axes[name]
+
+    def label(self, name: str) -> _OriginReferenceObject | None:
+        return self.objects.get(name)
+
+    def add_label(self, text: str) -> _OriginReferenceObject:
+        return _OriginReferenceObject(self, text=text)
+
+    def set_int(self, name: str, value: int) -> None:
+        self.properties[name] = value
+
+    def get_int(self, name: str) -> int:
+        return int(self.properties.get(name, 0))
+
+    def set_float(self, name: str, value: float) -> None:
+        self.properties[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.properties.get(name, 0))
+
+    def set_str(self, name: str, value: str) -> None:
+        self.properties[name] = value
+
+    def get_str(self, name: str) -> str:
+        return str(self.properties.get(name, ""))
+
+
+class _OriginReferenceGraph(list[_OriginReferenceLayer]):
+    name = "Graph_1"
+
+
+class _OriginReferenceOp:
+    def __init__(self, layer: _OriginReferenceLayer) -> None:
+        self.layer = layer
+        self.commands: list[str] = []
+
+    def lt_float(self, expression: str) -> float:
+        assert expression.startswith('color("#')
+        return float(int(expression.split('"', 2)[1][1:], 16))
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if not command.startswith("addline "):
+            return True
+        values = {
+            key: value.rstrip(";")
+            for key, value in (
+                token.split(":=", 1)
+                for token in command.split()
+                if ":=" in token
+            )
+        }
+        line = _OriginReferenceObject(self.layer, name=values["name"])
+        line.set_int("attach", 2)
+        line.set_int("color", int(values["color"]))
+        line.set_int("linetype", int(values["style"]))
+        line.set_float("linewidth", 1)
+        coordinate = "x" if int(values["type"]) == 0 else "y"
+        line.set_float(coordinate, float(values["value"]))
+        return True
+
+
+class _K09SubsetLayer:
+    def index(self) -> int:
+        return 0
+
+    def label(self, name: str):
+        assert name == "legend"
+        return type("Legend", (), {"text": "\\l(1.1) A\n\\l(1.2) B\n\\l(1.3) C"})()
+
+
+class _K09SubsetGraph(list[_K09SubsetLayer]):
+    name = "Graph_1"
+
+
+class _K09SubsetOrigin:
+    def __init__(self) -> None:
+        self.commands: list[str] = []
+        self.enabled = False
+        self.start = 2
+        self.datasets: dict[str, list[int]] = {}
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        if command.startswith("dataset __PAT1K09COLORS={"):
+            payload = command.split("{", 1)[1].split("}", 1)[0]
+            self.datasets["__PAT1K09COLORS"] = [int(value) for value in payload.split(",")]
+            self.enabled = True
+        elif command.startswith("dataset ") and "; get __PAT1P -cuf " in command:
+            variable = command.split("dataset ", 1)[1].split(";", 1)[0]
+            self.datasets[variable] = list(self.datasets["__PAT1K09COLORS"])
+        return True
+
+    def lt_float(self, expression: str) -> float:
+        if expression == "__PAT1COUNT":
+            return 1.0
+        if expression == "__PAT1K09ENABLED":
+            return float(self.enabled)
+        if expression == "__PAT1K09START":
+            return float(self.start)
+        if expression.startswith("color(\""):
+            return float(int(expression.split('"', 2)[1][1:], 16))
+        if "[" in expression and expression.endswith("]"):
+            variable, ordinal = expression[:-1].split("[", 1)
+            return float(self.datasets[variable][int(ordinal) - 1])
         raise AssertionError(f"unexpected LabTalk expression {expression}")
 
 
@@ -198,6 +444,49 @@ def test_rebinding_discards_only_data_derived_visual_edits() -> None:
 
     assert structural == (_create(), rebind)
     assert visual == (title,)
+
+
+def test_point_marker_map_and_uniform_marker_shape_follow_action_order() -> None:
+    point_map = SetPointMarkerMap(
+        action_id="action:point-map",
+        target="series:t1.series_2",
+        expected_plot_version=2,
+        field_id="field:group",
+        entries=(
+            PointMarkerMapEntry(value=True, marker_shape="circle"),
+            PointMarkerMapEntry(value=False, marker_shape="triangle_down"),
+        ),
+    )
+    style = SetSeriesStyle(
+        action_id="action:uniform-marker",
+        target="series:t1.series_2",
+        expected_plot_version=1,
+        marker_shape="diamond",
+        line_width_pt=2,
+    )
+
+    structural, visual = split_visual_actions((_create(), style, point_map))
+
+    assert structural == (_create(), point_map)
+    assert len(visual) == 1
+    assert isinstance(visual[0], SetSeriesStyle)
+    assert visual[0].marker_shape is None
+    assert visual[0].line_width_pt == 2
+
+    structural, visual = split_visual_actions((_create(), point_map, style))
+
+    assert structural == (_create(),)
+    assert visual == (style,)
+
+    rebind = BindFields(
+        action_id="action:point-map-rebind",
+        target="plot:t1",
+        expected_plot_version=3,
+        data=_data_ref(),
+        bindings=_document().bindings,
+    )
+    structural, _visual = split_visual_actions((_create(), point_map, rebind))
+    assert structural == (_create(), rebind)
 
 
 def test_later_chart_parameter_supersedes_only_earlier_colorbar_visibility() -> None:
@@ -404,6 +693,75 @@ def test_origin_template_frame_reads_every_side_without_normalizing_it(
     assert len(snapshot) == 8
 
 
+def test_origin_product_typography_uses_pt_defaults_and_explicit_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginTypographyGraph(
+        (
+            _OriginTypographyLayer(0, ("xb", "yl", "legend", "_ENGINE_TITLE")),
+            _OriginTypographyLayer(1, ("yr",)),
+        )
+    )
+    ticks: dict[tuple[int, int], float] = {}
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_axis_tick_font_size",
+        lambda _op, _graph, layer, axis, size: ticks.__setitem__((layer, axis), size),
+    )
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "read_axis_tick_font_size",
+        lambda _op, _graph, layer, axis: ticks[(layer, axis)],
+    )
+
+    _apply_origin_product_typography(object(), graph)
+
+    assert ticks == {
+        (1, 0): 8,
+        (1, 1): 8,
+        (2, 0): 8,
+        (2, 1): 8,
+        (2, 3): 8,
+    }
+    assert graph[0].labels["_ENGINE_TITLE"].get_float("fsize") == 10
+    assert graph[0].labels["xb"].get_float("fsize") == 9
+    assert graph[0].labels["legend"].get_float("fsize") == 8
+    assert graph[1].labels["yr"].get_float("fsize") == 9
+
+    ticks[(2, 3)] = 7
+    graph[0].labels["_ENGINE_TITLE"].set_float("fsize", 11)
+    graph[0].labels["legend"].set_float("fsize", 7.5)
+    graph[1].labels["yr"].set_float("fsize", 8.5)
+    actions = (
+        SetTitle(
+            action_id="action:product-title",
+            target="plot:t1",
+            expected_plot_version=1,
+            font_size_pt=11,
+        ),
+        SetAxis(
+            action_id="action:product-right-axis",
+            target="axis:t1.y_right",
+            expected_plot_version=2,
+            title_font_size_pt=8.5,
+            tick_font_size_pt=7,
+        ),
+        SetLegend(
+            action_id="action:product-legend",
+            target="legend:t1.main",
+            expected_plot_version=3,
+            font_size_pt=7.5,
+        ),
+    )
+
+    snapshot = _verify_origin_product_typography(object(), graph, actions)
+
+    assert snapshot["title.font_pt"] == 11
+    assert snapshot["layer:2.right.tick_font_pt"] == 7
+    assert snapshot["layer:2.yr.font_pt"] == 8.5
+    assert snapshot["layer:1.legend.font_pt"] == 7.5
+
+
 def test_origin_product_frame_boxes_only_eligible_cartesian_profiles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -577,6 +935,33 @@ def test_origin_product_frame_fresh_readback_respects_explicit_axis_override(
     assert snapshot["layer:2.right"] is True
 
 
+def test_origin_dual_y_axis_colors_target_distinct_official_layers() -> None:
+    graph = _OriginDualAxisGraph(
+        (_OriginDualAxisLayer(0), _OriginDualAxisLayer(1))
+    )
+    document = _document().model_copy(update={"profile_id": "X35"})
+    left = SetAxis(
+        action_id="action:x35-left-axis-color",
+        target="axis:t1.y_left",
+        expected_plot_version=1,
+        axis_line_color="#1676D2",
+    )
+    right = SetAxis(
+        action_id="action:x35-right-axis-color",
+        target="axis:t1.y_right",
+        expected_plot_version=2,
+        axis_line_color="#E07A00",
+    )
+
+    _apply_action(_OriginColorOp(), graph, document, left)
+    assert graph[0].properties == {"y.color": int("1676D2", 16)}
+    assert graph[1].properties == {}
+
+    _apply_action(_OriginColorOp(), graph, document, right)
+    assert graph[0].properties == {"y.color": int("1676D2", 16)}
+    assert graph[1].properties == {"y.color": int("E07A00", 16)}
+
+
 def test_origin_product_frame_fails_when_an_unedited_side_does_not_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -623,6 +1008,136 @@ def test_origin_series_edit_ungroups_multi_plot_layer_before_visible_style() -> 
     )
     assert ungroup < color < width
     assert any("range __PAT1P=[Graph_1]1!2" in command for command in origin.commands)
+
+
+@pytest.mark.parametrize("interior", ("open", "hollow"))
+def test_origin_non_solid_marker_interior_overrides_requested_fill(interior: str) -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp()
+
+    _apply_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id=f"action:{interior}-black",
+            target="series:t1.group_2",
+            expected_plot_version=1,
+            marker_interior=interior,
+            marker_fill_color="#000000",
+            marker_stroke_color="#000000",
+        ),
+    )
+
+    assert any("set __PAT1P -kf 1" in command for command in origin.commands)
+    assert any(
+        'set __PAT1P -csf color("#FFFFFF")' in command for command in origin.commands
+    )
+    assert not any(
+        'set __PAT1P -csf color("#000000")' in command for command in origin.commands
+    )
+
+
+def test_origin_line_symbol_color_cascades_to_unoverridden_marker_colors() -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp(plot_pid=202)
+
+    _apply_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id="action:x36-blue-line",
+            target="series:t1.right",
+            expected_plot_version=1,
+            line_stroke_color="#1676D2",
+        ),
+    )
+
+    assert any('set __PAT1P -cl color("#1676D2")' in item for item in origin.commands)
+    assert any('set __PAT1P -csf color("#1676D2")' in item for item in origin.commands)
+    assert any('set __PAT1P -cse color("#1676D2")' in item for item in origin.commands)
+
+
+def test_origin_k09_subset_fill_edit_preserves_unedited_native_subsets() -> None:
+    graph = _K09SubsetGraph((_K09SubsetLayer(),))
+    origin = _K09SubsetOrigin()
+    document = _document().model_copy(update={"profile_id": "K09"})
+    action = SetSeriesStyle(
+        action_id="action:k09-group-2-red",
+        target="series:t1.group_2",
+        expected_plot_version=1,
+        fill_color="#FF0000",
+    )
+
+    handled = _apply_k09_subset_fill_colors(origin, graph, document, (action,))
+
+    assert handled == frozenset({action.action_id})
+    assert origin.datasets["__PAT1K09COLORS"] == [2, 0xFF0000, 4]
+    assert _verify_k09_subset_fill_color(origin, graph, action) == {
+        "subset": 2,
+        "fill_color": 0xFF0000,
+        "custom_increment_list": True,
+    }
+    assert not any("[Graph_1]1!2" in command for command in origin.commands)
+
+
+def test_origin_k09_rejects_unverified_per_subset_border_edit() -> None:
+    graph = _K09SubsetGraph((_K09SubsetLayer(),))
+    document = _document().model_copy(update={"profile_id": "K09"})
+    action = SetSeriesStyle(
+        action_id="action:k09-group-2-border",
+        target="series:t1.group_2",
+        expected_plot_version=1,
+        fill_stroke_color="#FF0000",
+    )
+
+    with pytest.raises(ValueError, match="only independent fill_color"):
+        _apply_k09_subset_fill_colors(_K09SubsetOrigin(), graph, document, (action,))
+
+
+def test_origin_k09_reads_horizontal_legend_columns_from_native_subset_samples() -> None:
+    text = (
+        "\\l(1,m1,2) Absorption energy"
+        "\\l(1,m2,2) Defect formation energy"
+        "\\l(1,m3,2) Energy barrier"
+    )
+
+    assert _k09_legend_column_count(text) == 3
+    assert _k09_legend_column_count(text.replace("\\l(1,m2,2)", "\n\\l(1,m2,2)").replace(
+        "\\l(1,m3,2)", "\n\\l(1,m3,2)"
+    )) == 1
+
+    custom_blocks = (
+        "\\L(1, PatternFill:#5B7DB6 BorderColor:#5B7DB6 Width:40 Height:50)\\sc A"
+        "\\L(1, PatternFill:#0BA4A0 BorderColor:#0BA4A0 Width:40 Height:50)\\sc B"
+        "\\L(1, PatternFill:#FF5757 BorderColor:#FF5757 Width:40 Height:50)\\sc C"
+    )
+    assert _k09_legend_column_count(custom_blocks) == 3
+
+
+def test_origin_k09_presentation_keeps_explicit_category_tick_size() -> None:
+    actions = (
+        SetAxis(
+            action_id="action:k09-x-12",
+            target="axis:t1.x",
+            expected_plot_version=1,
+            tick_font_size_pt=12,
+        ),
+        SetAxis(
+            action_id="action:k09-x-9",
+            target="axis:t1.x",
+            expected_plot_version=2,
+            tick_font_size_pt=9,
+        ),
+        SetAxis(
+            action_id="action:k09-y-8",
+            target="axis:t1.y",
+            expected_plot_version=3,
+            tick_font_size_pt=8,
+        ),
+    )
+
+    assert _k09_requested_x_tick_font_size(actions) == 9
+    assert _k09_requested_x_tick_font_size((actions[-1],)) is None
 
 
 def test_matplotlib_automatic_bounds_restore_data_driven_limits() -> None:
@@ -749,6 +1264,49 @@ def test_origin_automatic_vertical_legend_normalizes_to_one_column() -> None:
     assert _legend_column_count(0) == 1
     assert _legend_column_count(1) == 1
     assert _legend_column_count(2) == 2
+
+
+@pytest.mark.parametrize(
+    ("anchor", "expected"),
+    (
+        ("inside", (0, 2136.0, 828.0)),
+        ("inside_top_left", (0, 624.0, 828.0)),
+        ("inside_top_right", (0, 2136.0, 828.0)),
+        ("inside_bottom_left", (0, 624.0, 2112.0)),
+        ("inside_bottom_right", (0, 2136.0, 2112.0)),
+        ("right", (0, 2952.0, 1470.0)),
+        ("bottom", (0, 1380.0, 2574.0)),
+    ),
+)
+def test_origin_legend_anchor_respects_layer_relative_inside_positions(
+    anchor: str,
+    expected: tuple[object, object, object],
+) -> None:
+    graph = _OriginCanvasGraph(width=8, height=6)
+    layer = type(
+        "LegendLayer",
+        (),
+        {
+            "get_float": lambda _self, name: {
+                "left": 10.0,
+                "top": 20.0,
+                "width": 50.0,
+                "height": 50.0,
+            }[name],
+            "get_int": lambda _self, name: {"unit": 1}[name],
+        },
+    )()
+    legend = type(
+        "LegendLabel",
+        (),
+        {
+            "get_float": lambda _self, name: {"width": 600.0, "height": 300.0}[name]
+        },
+    )()
+
+    observed = _origin_legend_anchor(graph, layer, legend, anchor)
+
+    assert observed == expected
 
 
 class _NativeColorScale:
@@ -935,6 +1493,447 @@ def test_matplotlib_shared_visual_language_edits_native_artists() -> None:
     assert sum(text.get_gid() == "plotagent-label:series:t1.primary" for text in axis.texts) == 3
     assert any(text.get_gid() == "annotation:t1.note" for text in axis.texts)
     plt.close(figure)
+
+
+def test_matplotlib_canvas_action_changes_the_output_page_not_data_axes() -> None:
+    figure, axis = plt.subplots(figsize=(6.4, 4.8))
+    axis.plot([0, 1], [2, 3])
+    limits_before = (axis.get_xlim(), axis.get_ylim())
+
+    apply_visual_actions(
+        figure,
+        _document(),
+        (
+            SetCanvas(
+                action_id="action:wide-canvas",
+                target="plot:t1",
+                expected_plot_version=1,
+                aspect_ratio=2.5,
+            ),
+        ),
+    )
+
+    assert tuple(float(value) for value in figure.get_size_inches()) == pytest.approx(
+        (12.0, 4.8)
+    )
+    assert (axis.get_xlim(), axis.get_ylim()) == limits_before
+    plt.close(figure)
+
+
+def test_matplotlib_reference_lines_use_target_axis_data_coordinates() -> None:
+    figure, left = plt.subplots()
+    right = left.twinx()
+    left.plot([0, 1, 2], [2, 4, 6])
+    right.plot([0, 1, 2], [20, 40, 60])
+    actions = (
+        AddReferenceLine(
+            action_id="action:x-threshold",
+            target="axis:t1.x",
+            expected_plot_version=1,
+            reference_line_id="reference_line:t1.x_threshold",
+            value=1.25,
+            label="X threshold",
+            line_color="#B42318",
+            line_width_pt=1.5,
+            line_style="dash",
+        ),
+        AddReferenceLine(
+            action_id="action:right-mean",
+            target="axis:t1.y_right",
+            expected_plot_version=2,
+            reference_line_id="reference_line:t1.right_mean",
+            value=35,
+            label="Mean",
+            line_color="#175CD3",
+            line_width_pt=2,
+            line_style="dot",
+        ),
+    )
+
+    apply_visual_actions(figure, _document(), actions)
+
+    x_line = next(line for line in left.lines if line.get_gid() == actions[0].reference_line_id)
+    right_line = next(
+        line for line in right.lines if line.get_gid() == actions[1].reference_line_id
+    )
+    assert tuple(x_line.get_xdata()) == pytest.approx((1.25, 1.25))
+    assert tuple(x_line.get_ydata()) == pytest.approx((0, 1))
+    assert tuple(right_line.get_xdata()) == pytest.approx((0, 1))
+    assert tuple(right_line.get_ydata()) == pytest.approx((35, 35))
+    assert x_line.get_linestyle() == "--"
+    assert right_line.get_linestyle() == ":"
+    assert any(text.get_gid() == actions[0].reference_line_id + ".label" for text in left.texts)
+    assert any(
+        text.get_gid() == actions[1].reference_line_id + ".label" for text in right.texts
+    )
+    plt.close(figure)
+
+
+def test_latest_reference_line_with_same_semantic_id_supersedes_earlier_state() -> None:
+    first = AddReferenceLine(
+        action_id="action:reference-first",
+        target="axis:t1.y",
+        expected_plot_version=1,
+        reference_line_id="reference_line:t1.threshold",
+        value=2,
+        line_color="#B42318",
+    )
+    latest = first.model_copy(
+        update={
+            "action_id": "action:reference-latest",
+            "expected_plot_version": 2,
+            "value": 3,
+            "line_color": "#175CD3",
+        }
+    )
+
+    assert effective_visual_actions((first, latest)) == (latest,)
+
+
+def test_matplotlib_callout_binds_to_reference_line_without_category_slot_coordinates() -> None:
+    figure, axis = plt.subplots()
+    axis.bar((0, 1, 2), (10, 20, 15))
+    reference = AddReferenceLine(
+        action_id="action:k08-mean",
+        target="axis:t1.y",
+        expected_plot_version=1,
+        reference_line_id="reference_line:t1.eu_mean",
+        value=16.26640875,
+        line_color="#D92D20",
+    )
+    callout = AddCallout(
+        action_id="action:k08-mean-callout",
+        target=reference.reference_line_id,
+        expected_plot_version=2,
+        callout_id="callout:t1.eu_mean_explanation",
+        text="Mean total content across EU",
+        anchor_fraction=0.55,
+        text_x_fraction=0.52,
+        text_y_fraction=0.82,
+        arrow_color="#101828",
+        arrow_width_pt=1.25,
+        arrow_head="filled",
+    )
+
+    apply_visual_actions(figure, _document(), (callout, reference))
+
+    annotation = next(
+        text for text in axis.texts if text.get_gid() == callout.callout_id
+    )
+    assert annotation.get_text() == callout.text
+    assert annotation.xy == pytest.approx((0.55, reference.value))
+    assert annotation.get_position() == pytest.approx((0.52, 0.82))
+    assert annotation.arrow_patch is not None
+    assert annotation.arrow_patch.get_gid() == callout.callout_id + ".arrow"
+    assert annotation.arrow_patch.get_linewidth() == pytest.approx(1.25)
+    plt.close(figure)
+
+
+def test_matplotlib_callout_rejects_missing_reference_line() -> None:
+    figure, axis = plt.subplots()
+    axis.plot((0, 1), (0, 1))
+    callout = AddCallout(
+        action_id="action:missing-callout-target",
+        target="reference_line:t1.missing",
+        expected_plot_version=1,
+        callout_id="callout:t1.missing",
+        text="Missing",
+        text_x_fraction=0.5,
+        text_y_fraction=0.5,
+    )
+
+    with pytest.raises(ValueError, match="not an effective reference line"):
+        apply_visual_actions(figure, _document(), (callout,))
+    plt.close(figure)
+
+
+def test_latest_callout_with_same_semantic_id_supersedes_earlier_state() -> None:
+    first = AddCallout(
+        action_id="action:callout-first",
+        target="reference_line:t1.mean",
+        expected_plot_version=1,
+        callout_id="callout:t1.mean",
+        text="Mean",
+        text_x_fraction=0.4,
+        text_y_fraction=0.8,
+    )
+    latest = first.model_copy(
+        update={
+            "action_id": "action:callout-latest",
+            "expected_plot_version": 2,
+            "text": "EU mean",
+        }
+    )
+
+    assert effective_visual_actions((first, latest)) == (latest,)
+
+
+def test_origin_reference_line_is_native_axis_scale_object_with_fresh_readback() -> None:
+    layer = _OriginReferenceLayer()
+    graph = _OriginReferenceGraph((layer,))
+    op = _OriginReferenceOp(layer)
+    action = AddReferenceLine(
+        action_id="action:origin-reference",
+        target="axis:t1.y",
+        expected_plot_version=1,
+        reference_line_id="reference_line:t1.mean",
+        value=42.5,
+        label="Mean",
+        line_color="#B42318",
+        line_width_pt=1.5,
+        line_style="dash",
+    )
+
+    _apply_action(op, graph, _document(), action)
+    snapshot = _verify_actions(op, graph, _document(), (action,))
+
+    assert layer.properties["y.reflines.count"] == 1
+    assert layer.properties["y.refline1.value"] == pytest.approx(42.5)
+    assert layer.properties["y.refline1.labeltext"] == "Mean"
+    assert op.commands == []
+    assert snapshot[action.action_id]["axis"] == "y"
+    assert snapshot[action.action_id]["native_index"] == 1
+    assert snapshot[action.action_id]["value"] == pytest.approx(42.5)
+    assert snapshot[action.action_id]["line_width_pt"] == pytest.approx(1.5)
+    assert snapshot[action.action_id]["label"] == "Mean"
+
+
+def test_origin_reference_line_rebuild_clears_touched_old_axis_and_indexes_per_axis() -> None:
+    layer = _OriginReferenceLayer()
+    graph = _OriginReferenceGraph((layer,))
+    op = _OriginReferenceOp(layer)
+    old_y = AddReferenceLine(
+        action_id="action:old-y",
+        target="axis:t1.y",
+        expected_plot_version=1,
+        reference_line_id="reference_line:t1.moved",
+        value=2,
+    )
+    x_one = AddReferenceLine(
+        action_id="action:x-one",
+        target="axis:t1.x",
+        expected_plot_version=2,
+        reference_line_id="reference_line:t1.moved",
+        value=3,
+    )
+    x_two = AddReferenceLine(
+        action_id="action:x-two",
+        target="axis:t1.x",
+        expected_plot_version=3,
+        reference_line_id="reference_line:t1.other",
+        value=4,
+    )
+
+    _apply_reference_lines(
+        op,
+        graph,
+        (x_one, x_two),
+        touched_actions=(old_y, x_one, x_two),
+    )
+
+    assert layer.properties["y.reflines.count"] == 0
+    assert layer.properties["x.reflines.count"] == 2
+    assert layer.properties["x.refline1.value"] == pytest.approx(3)
+    assert layer.properties["x.refline2.value"] == pytest.approx(4)
+
+
+def test_origin_callout_uses_native_scale_geometry_bound_to_reference_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layer = _OriginReferenceLayer()
+    graph = _OriginReferenceGraph((layer,))
+    op = _OriginReferenceOp(layer)
+    reference = AddReferenceLine(
+        action_id="action:origin-callout-reference",
+        target="axis:t1.y",
+        expected_plot_version=1,
+        reference_line_id="reference_line:t1.eu_mean",
+        value=16.5,
+        label="EU mean",
+    )
+    callout = AddCallout(
+        action_id="action:origin-callout",
+        target=reference.reference_line_id,
+        expected_plot_version=2,
+        callout_id="callout:t1.eu_mean_explanation",
+        text="Average across EU countries",
+        anchor_fraction=0.5,
+        text_x_fraction=0.2,
+        text_y_fraction=0.8,
+        arrow_color="#B42318",
+        arrow_width_pt=1.5,
+        arrow_head="open",
+        font_size_pt=9,
+        font_weight="bold",
+        italic=True,
+        text_color="#175CD3",
+    )
+    arrow_states: dict[str, ScaleArrowState] = {}
+
+    def remove_object(
+        _op: object,
+        _graph_name: str,
+        _layer_index: int,
+        object_name: str,
+    ) -> None:
+        layer.objects.pop(object_name, None)
+
+    def set_arrow(
+        _op: object,
+        _graph_name: str,
+        _layer_index: int,
+        arrow_name: str,
+        *,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+    ) -> None:
+        arrow_states[arrow_name] = ScaleArrowState(2, x0, y0, x1, y1, 0, 2)
+        _OriginReferenceObject(layer, name=arrow_name)
+
+    def read_arrow(
+        _op: object,
+        _graph_name: str,
+        _layer_index: int,
+        arrow_name: str,
+    ) -> ScaleArrowState:
+        return arrow_states[arrow_name]
+
+    monkeypatch.setattr(origin_visual_t1, "remove_graph_object", remove_object)
+    monkeypatch.setattr(origin_visual_t1, "set_scale_arrow", set_arrow)
+    monkeypatch.setattr(origin_visual_t1, "read_scale_arrow", read_arrow)
+    monkeypatch.setattr(origin_visual_t1, "set_scale_arrow_head", lambda *_args: None)
+
+    _apply_reference_lines(op, graph, (reference,))
+    _apply_callouts(
+        op,
+        graph,
+        (callout,),
+        reference_lines=(reference,),
+    )
+    snapshot = _verify_actions(op, graph, _document(), (callout, reference))
+
+    observed = snapshot[callout.action_id]
+    assert observed["reference_line_id"] == reference.reference_line_id
+    assert observed["arrow"] == {
+        "attach": 2,
+        "x0": pytest.approx(2),
+        "y0": pytest.approx(80),
+        "x1": pytest.approx(5),
+        "y1": pytest.approx(16.5),
+        "begin_style": 0,
+        "end_style": 2,
+    }
+    assert observed["arrow_head"] == "open"
+    assert observed["text"] == "Average across EU countries"
+    assert observed["text_x"] == pytest.approx(2)
+    assert observed["text_y"] == pytest.approx(80)
+
+
+def test_origin_callout_rejects_missing_effective_reference_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layer = _OriginReferenceLayer()
+    graph = _OriginReferenceGraph((layer,))
+    op = _OriginReferenceOp(layer)
+    callout = AddCallout(
+        action_id="action:origin-missing-callout",
+        target="reference_line:t1.missing",
+        expected_plot_version=1,
+        callout_id="callout:t1.missing",
+        text="Missing",
+        text_x_fraction=0.2,
+        text_y_fraction=0.8,
+    )
+    monkeypatch.setattr(origin_visual_t1, "remove_graph_object", lambda *_args: None)
+
+    with pytest.raises(ValueError, match="not an effective reference line"):
+        _apply_callouts(
+            op,
+            graph,
+            (callout,),
+            reference_lines=(),
+        )
+
+
+def test_latest_canvas_action_is_the_only_effective_page_state() -> None:
+    first = SetCanvas(
+        action_id="action:first-canvas",
+        target="plot:t1",
+        expected_plot_version=1,
+        width_mm=180,
+        height_mm=120,
+    )
+    latest = SetCanvas(
+        action_id="action:latest-canvas",
+        target="plot:t1",
+        expected_plot_version=2,
+        aspect_ratio=3,
+    )
+
+    effective = effective_visual_actions((first, latest))
+
+    assert effective == (latest,)
+
+
+class _OriginCanvasGraph:
+    def __init__(self, width: float = 8, height: float = 6) -> None:
+        self.obj = self
+        self.properties = {"width": width, "height": height}
+        self.keep_aspect_ratio = True
+
+    def GetWidth(self) -> float:
+        return self.properties["width"]
+
+    def GetHeight(self) -> float:
+        return self.properties["height"]
+
+    def LT_execute(self, command: str) -> bool:
+        if command == "gfitp margin:=5 aspect:=0;":
+            return True
+        assignments = {
+            token.split("=", 1)[0]: float(token.split("=", 1)[1])
+            for token in command.replace(";", "").split()
+        }
+        self.properties["width"] = assignments["page.width"] / 600
+        self.properties["height"] = assignments["page.height"] / 600
+        return True
+
+    def SetNumProp(self, name: str, value: int) -> int:
+        assert name == "KAR"
+        self.keep_aspect_ratio = bool(value)
+        return 1
+
+    def get_float(self, name: str) -> float:
+        if name in {"resx", "resy"}:
+            return 600.0
+        raise AssertionError(f"canvas must not read the theme-tree property {name}")
+
+    def set_float(self, name: str, value: float) -> None:
+        raise AssertionError(f"canvas must not write the theme-tree property {name}={value}")
+
+
+def test_origin_canvas_action_uses_inches_and_has_fresh_readback_evidence() -> None:
+    graph = _OriginCanvasGraph()
+    action = SetCanvas(
+        action_id="action:origin-canvas",
+        target="plot:t1",
+        expected_plot_version=1,
+        width_mm=254,
+        height_mm=127,
+    )
+
+    _apply_action(object(), graph, _document(), action)
+    snapshot = _verify_actions(object(), graph, _document(), (action,))
+
+    assert graph.properties == {"width": 10.0, "height": 5.0}
+    assert graph.keep_aspect_ratio is False
+    assert snapshot[action.action_id] == {
+        "width_mm": 254.0,
+        "height_mm": 127.0,
+        "aspect_ratio": 2.0,
+    }
 
 
 def test_matplotlib_cjk_edit_replaces_a_profile_local_latin_font() -> None:

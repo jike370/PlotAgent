@@ -135,6 +135,30 @@ def test_origin_backend_stages_opju_without_legacy_plan(tmp_path: Path) -> None:
     assert exported.artifact_size == len(b"fake-opju")
 
 
+@pytest.mark.parametrize("profile_id", ("K03", "K08"))
+def test_recreate_only_origin_backend_materializes_an_edited_revision_without_prior_opju(
+    tmp_path: Path,
+    profile_id: str,
+) -> None:
+    document, action, view = _document()
+    edited = document.model_copy(
+        update={
+            "plot_version": 2,
+            "parent_version": 1,
+            "profile_id": profile_id,
+        }
+    )
+    worker = Worker()
+    backend = OriginBackend(tmp_path / "origin", tmp_path / "install", worker)
+
+    change = backend.stage(edited, (action,), EngineRenderSource(data=view))
+    change.discard()
+
+    assert backend.requires_previous_version(edited) is False
+    assert worker.requests[0].previous_opju is None
+    assert worker.requests[0].document.plot_version == 2
+
+
 @pytest.mark.parametrize(
     "profile_id",
     ("K05", "K16", "K17", "K25", "S01", "S05", "S07", "S21", "S25", "S31", "X01"),
@@ -274,6 +298,7 @@ class FakeSheet:
     def __init__(self) -> None:
         self.columns: dict[int, list[object]] = {}
         self.designations: dict[int, int] = {}
+        self.commands: list[str] = []
 
     def from_list(self, col, data, **kwargs) -> None:
         self.columns[col] = list(data)
@@ -284,6 +309,10 @@ class FakeSheet:
 
     def activate(self) -> None:
         return None
+
+    def lt_exec(self, command: str) -> bool:
+        self.commands.append(command)
+        return True
 
     def get_int(self, name: str) -> int:
         ordinal = int(name.removeprefix("col").removesuffix(".type")) - 1
@@ -410,6 +439,42 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
     assert op.graph.layer.axes["y"].scale == "linear"
     assert op.graph.layer.plots[0].color == (22, 118, 210)
     assert "legend" not in op.graph.layer.labels
+
+
+def test_k01_binder_preserves_categorical_x_source_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, create, view = _document()
+    categorical_view = view.model_copy(
+        update={
+            "columns": (
+                EngineColumn(
+                    field=EngineField(
+                        field_id="field:x",
+                        name="Condition",
+                        logical_type="text",
+                    ),
+                    values=("Control", "Treatment"),
+                ),
+                view.columns[1],
+            )
+        }
+    )
+    monkeypatch.setattr(
+        k01_module,
+        "resolve_official_template",
+        lambda install, profile: tmp_path / "LINE.otpu",
+    )
+    op = FakeOrigin()
+    project = K01OriginProject(op)
+    project.create(tmp_path, document, categorical_view)
+    project.verify(document, (create,), categorical_view)
+
+    assert op.book.sheet.columns[0] == ["Control", "Treatment"]
+    assert op.book.sheet.commands == [
+        "wks.col1.categorical.type=2; wks.col1.categorical.sort=0;"
+    ]
 
 
 def test_k08_binder_uses_column_template_and_native_column_objects(

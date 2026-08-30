@@ -29,6 +29,39 @@ describe('chart library dataset compatibility', () => {
       totalFieldCount: 3,
     })).toEqual({ compatible: false })
   })
+
+  it('admits K01 and K02 when discrete text supplies x and one numeric field supplies y', () => {
+    const summary = {
+      numericFieldCount: 1,
+      categoricalFieldCount: 2,
+      totalFieldCount: 3,
+    }
+
+    for (const chartId of ['K01', 'K02']) {
+      const chart = chartCatalog.find((item) => item.id === chartId)
+      expect(chart).toBeDefined()
+      expect(chartCompatibility(chart!, summary)).toEqual({ compatible: true })
+    }
+  })
+
+  it('uses the generated role contract for mixed and datetime inputs', () => {
+    const column = chartCatalog.find((item) => item.id === 'K08')
+    const timeSeries = chartCatalog.find((item) => item.id === 'K19')
+    expect(column).toBeDefined()
+    expect(timeSeries).toBeDefined()
+
+    expect(chartCompatibility(column!, {
+      numericFieldCount: 1,
+      categoricalFieldCount: 1,
+      totalFieldCount: 2,
+    })).toEqual({ compatible: true })
+    expect(chartCompatibility(timeSeries!, {
+      numericFieldCount: 1,
+      categoricalFieldCount: 0,
+      datetimeFieldCount: 1,
+      totalFieldCount: 2,
+    })).toEqual({ compatible: true })
+  })
 })
 
 describe('chart library presentation', () => {

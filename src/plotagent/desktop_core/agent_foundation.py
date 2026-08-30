@@ -31,15 +31,19 @@ from plotagent.contracts.domain_knowledge import (
     ChartCatalogEntry,
     SelectedPlotBindingContext,
     SelectedPlotContext,
+    SelectedPlotReferenceLineContext,
     UntrustedSourceContext,
 )
 from plotagent.contracts.workflows import (
     MAX_WORKFLOW_SOURCES,
     CompiledTaskItem,
     DataOperation,
+    DraftAddCallout,
+    DraftAddReferenceLine,
     TaskDraft,
     TaskDraftItem,
     TaskPlan,
+    WorkflowAlias,
     WorkflowBudget,
     WorkflowContext,
     WorkflowField,
@@ -49,8 +53,17 @@ from plotagent.contracts.workflows import (
 )
 from plotagent.domain.context import ContextBuilder
 from plotagent.domain.knowledge import DOMAIN_KNOWLEDGE
-from plotagent.engine import EngineCatalog, PlotDocument, ProjectEngineDataProvider
+from plotagent.engine import (
+    AddReferenceLine,
+    EngineCatalog,
+    PlotDocument,
+    PlotEngineAction,
+    PlotJournalAction,
+    ProjectEngineDataProvider,
+    RestorePlotVersion,
+)
 from plotagent.engine.profiles import ENGINE_PROFILES
+from plotagent.engine.visual_t1 import effective_visual_actions
 from plotagent.storage import ProjectDomainRepository, ProjectStore, SourceDatasetRecord
 from plotagent.storage.errors import StorageErrorCode, StorageProblem
 from plotagent.tasking import TaskLedgerRepository
@@ -76,6 +89,7 @@ _INVESTIGATION_TOOLS = (
 )
 
 _DATA_OPERATION_ADAPTER: TypeAdapter[DataOperation] = TypeAdapter(DataOperation)
+_WORKFLOW_ALIAS_ADAPTER: TypeAdapter[WorkflowAlias] = TypeAdapter(WorkflowAlias)
 
 type WaitReason = Literal[
     "idle",
@@ -149,6 +163,7 @@ class DurableAgentCoreHost:
     ledger: TaskLedgerRepository
     catalog: EngineCatalog = field(default_factory=lambda: EngineCatalog(ENGINE_PROFILES))
     plot_lookup: Callable[[str], PlotDocument] | None = None
+    plot_action_lookup: Callable[[str], tuple[PlotJournalAction, ...]] | None = None
     _runtimes: dict[str, _ActivationRuntime] = field(default_factory=dict)
 
     def prepare(self, activation_id: str) -> dict[str, object]:
@@ -290,6 +305,7 @@ class DurableAgentCoreHost:
         if yielded.outcome == "intent_ready":
             intent = yielded.intent
             self._validate_profile_selections(runtime, intent)
+            self._validate_dynamic_visual_references(runtime, intent)
             if activation.reason in {"user_answered", "user_corrected"}:
                 prior = activation.confirmed_intent
                 if prior is None:
@@ -397,6 +413,35 @@ class DurableAgentCoreHost:
                     "must ask for input or produce a revised intent for reconfirmation.",
                 )
         return yielded
+
+    @staticmethod
+    def _validate_dynamic_visual_references(
+        runtime: _ActivationRuntime,
+        intent: TaskIntent,
+    ) -> None:
+        existing_by_plot = {
+            context.plot_alias: {
+                item.object_alias
+                for item in context.visual_objects
+                if item.object_kind == "reference_line"
+            }
+            for context in runtime.context.selected_plot_contexts
+        }
+        for item in intent.items:
+            available = set(existing_by_plot.get(item.target_plot_alias or "", set()))
+            for action in item.visual_actions:
+                if isinstance(action, DraftAddReferenceLine):
+                    available.add(action.reference_line_alias)
+                    continue
+                if (
+                    isinstance(action, DraftAddCallout)
+                    and action.reference_line_alias not in available
+                ):
+                    raise AgentFoundationError(
+                        "VISUAL_OBJECT_ALIAS_INVALID",
+                        "A callout must reference an earlier reference line in the same item "
+                        "or an authorized existing reference line from the selected plot.",
+                    )
 
     @staticmethod
     def _with_core_owned_intent_fields(
@@ -817,7 +862,9 @@ class DurableAgentCoreHost:
             plot_source_aliases: tuple[str, ...] = ()
             plot_data_operations: tuple[DataOperation, ...] = ()
             plot_bindings: tuple[SelectedPlotBindingContext, ...] = ()
+            plot_visual_objects: tuple[SelectedPlotReferenceLineContext, ...] = ()
             if document is not None:
+                plot_visual_objects = self._reference_line_contexts(document)
                 plot_source_alias: str | None = None
                 recovered = self._recover_plot_data_program(
                     document=document,
@@ -858,6 +905,7 @@ class DurableAgentCoreHost:
                     source_aliases=plot_source_aliases,
                     data_operations=plot_data_operations,
                     bindings=plot_bindings,
+                    visual_objects=plot_visual_objects,
                 )
             )
         if not sources and not plots:
@@ -900,6 +948,62 @@ class DurableAgentCoreHost:
             _InspectionRows(rows_by_alias=rows, metadata_by_alias=metadata),
             tuple(plot_contexts),
         )
+
+    def _reference_line_contexts(
+        self,
+        document: PlotDocument,
+    ) -> tuple[SelectedPlotReferenceLineContext, ...]:
+        """Expose only workflow-addressable effective reference lines.
+
+        Engine IDs created through the public Draft contract end in the
+        original ``reference_line_alias``. SDK-created IDs that cannot be
+        represented by the bounded workflow alias grammar remain available to
+        the renderer but are intentionally not guessed into Agent context.
+        """
+
+        if self.plot_action_lookup is None:
+            return ()
+        by_id = {
+            action.action_id: action
+            for action in self.plot_action_lookup(document.plot_id)
+        }
+        ordered: list[PlotEngineAction] = []
+        for action_id in document.applied_action_ids:
+            action = by_id.get(action_id)
+            if action is None or isinstance(action, RestorePlotVersion):
+                continue
+            ordered.append(action)
+        effective = effective_visual_actions(tuple(ordered))
+        profile = self.catalog.get(document.profile_id)
+        target_aliases = {
+            candidate.instantiate(document.plot_id): candidate.object_alias
+            for candidate in profile.objects
+        }
+        token = document.plot_id.removeprefix("plot:")
+        prefix = f"reference_line:{token}."
+        result: list[SelectedPlotReferenceLineContext] = []
+        for action in effective:
+            if not isinstance(action, AddReferenceLine):
+                continue
+            if not action.reference_line_id.startswith(prefix):
+                continue
+            raw_alias = action.reference_line_id.removeprefix(prefix)
+            try:
+                alias = _WORKFLOW_ALIAS_ADAPTER.validate_python(raw_alias)
+            except ValueError:
+                continue
+            target_alias = target_aliases.get(action.target)
+            if target_alias is None:
+                continue
+            result.append(
+                SelectedPlotReferenceLineContext(
+                    object_alias=alias,
+                    target_alias=target_alias,
+                    value=action.value,
+                    label=action.label,
+                )
+            )
+        return tuple(result)
 
     def _recover_plot_data_program(
         self,
@@ -1099,6 +1203,27 @@ class DurableAgentCoreHost:
             "series_1 etc. for series actions, and legend for set_legend. Emit only the "
             "requested edit actions and preserve every unspecified property. Do not inspect "
             "sources or search the chart catalog for such a task. "
+            "Translate requests to widen, narrow, lengthen, or set the output page dimensions "
+            "into set_canvas with target_alias=plot. Use aspect_ratio for a relative width/height "
+            "request and width_mm plus height_mm for explicit physical dimensions; set_canvas "
+            "changes the page, not data values or the chart profile. "
+            "Translate an explicit mean, threshold, baseline, or value reference line into "
+            "add_reference_line. Target the corresponding numeric axis: an X-axis target "
+            "creates a vertical line and a Y-axis target creates a horizontal line; value "
+            "is always in that axis's data coordinates. Use a stable descriptive "
+            "reference_line_alias and never approximate a line with add_annotation. "
+            "For a selected existing plot, selected_plot_contexts.visual_objects is the "
+            "authoritative inventory of workflow-addressable reference lines. Reuse its "
+            "object_alias to update the same line; never invent an alias for an existing "
+            "object. An empty or absent inventory means no existing dynamic object has been "
+            "authorized for this Agent turn. "
+            "When the user asks for explanatory text with an arrow pointing to a mean, "
+            "threshold, or baseline reference line, use add_callout. reference_line_alias "
+            "must name either an earlier add_reference_line in the same item or an existing "
+            "reference_line object in selected_plot_contexts.visual_objects. "
+            "anchor_fraction is the 0..1 position along the reference line; "
+            "text_x_fraction and text_y_fraction are axes-fraction positions. Never encode a "
+            "categorical slot number as a data coordinate for this action. "
             "When the selected EngineProfile exposes set_chart_parameter, translate an explicit "
             "chart-specific request into DraftSetChartParameter instead of omitting it. For "
             "example, a K21 request for a lower, upper, or full triangle uses parameter=triangle "
@@ -1171,6 +1296,25 @@ class DurableAgentCoreHost:
             "select the final common columns, and only then emit concatenate_sources. "
             "Use convert_type only after inspecting enough rows to establish an explicit, strict "
             "conversion; a failed token must remain an error rather than becoming missing data. "
+            "When one text field contains strict Python-style mapping literals, use "
+            "extract_mapping_fields only after inspecting enough rows to identify the complete "
+            "key set and scalar types. Declare every encountered key as an output, including "
+            "optional provenance or confidence keys; mark a key optional only when inspected "
+            "rows prove that it may be absent. The operation never evaluates code, accepts "
+            "nested values, coerces strings to numbers, or silently drops undeclared keys. "
+            "When a downstream encoding depends on whether an optional key exists rather than "
+            "on its scalar value, declare presence_output for that key. It is true when the key "
+            "exists (including an explicit null), false when a valid mapping omits the key, and "
+            "missing only when the entire source cell is missing. "
+            "When K04 points must use different marker shapes, first derive one complete boolean "
+            "or categorical field, then emit set_point_marker_map for series_1 with that exact "
+            "field_alias and one explicit entry for every observed value. Never invent a default, "
+            "silently accept missing values, or map categories by first-seen order. "
+            "When K13 must display every raw observation used by its boxes, emit "
+            "set_observation_overlay with target_alias=observations. This action always reuses "
+            "the already-bound value rows and deterministic regular jitter; never bind or invent "
+            "a second point dataset, substitute K12/X05, or treat significance labels and "
+            "hierarchical grouping as part of the same action. "
             "Numeric conversion accepts numeric scalars or numeric strings. For an explicitly "
             "requested calendar-day ordinal, set datetime_numeric_mode to ordinal_day and provide "
             "the exact datetime_format; never use ordinary numeric conversion for ISO date text. "

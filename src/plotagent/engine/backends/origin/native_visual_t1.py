@@ -7,12 +7,23 @@ from pathlib import Path
 from typing import Any, Literal, NamedTuple
 
 _SOURCE = Path(__file__).with_name("native_visual_t1.c").resolve()
-_BRIDGE_VERSION = 2026082201
+_BRIDGE_VERSION = 2026083004
 
 
 def _safe_graph_name(value: str) -> str:
     if not value or not value.replace("_", "").isalnum():
         raise RuntimeError(f"unsafe Origin T1 visual graph name: {value!r}")
+    return value
+
+
+def _safe_object_name(value: str) -> str:
+    if (
+        not value
+        or len(value) > 31
+        or not (value[0].isalpha() or value[0] == "_")
+        or not value.replace("_", "").isalnum()
+    ):
+        raise RuntimeError(f"unsafe Origin T1 visual object name: {value!r}")
     return value
 
 
@@ -23,7 +34,7 @@ def ensure_native_visual_bridge(op: Any) -> None:
         raise RuntimeError("Origin could not stage the T1 visual bridge path")
     command = (
         f"if(__PAT1BRIDGEVERSION!={_BRIDGE_VERSION}"
-        " || exist(plotagent_set_color_scale_tick_format,20)==0) {"
+        " || exist(plotagent_set_scale_arrow,20)==0) {"
         "__PAT1LOAD=run.LoadOC(__PAT1SOURCE$,16);"
         f"if(__PAT1LOAD==0) __PAT1BRIDGEVERSION={_BRIDGE_VERSION};"
         "} else __PAT1LOAD=0;"
@@ -104,6 +115,217 @@ class ColorScaleTickFormatState(NamedTuple):
     label_type: int
     numeric_format: int
     custom_format: str
+
+
+class K09AxisLabelState(NamedTuple):
+    table_enabled: int
+    table_design: int
+    subgroup_row_hidden: int
+
+
+class ScaleArrowState(NamedTuple):
+    attach: int
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+    begin_style: int
+    end_style: int
+
+
+def remove_graph_object(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    object_name: str,
+) -> None:
+    """Remove one renderer-owned native object if it exists."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    name = _safe_object_name(object_name)
+    if layer_index < 1:
+        raise ValueError("Origin T1 visual indexes are one-based")
+    if not op.set_lt_str("__PAT1OBJ", name):
+        raise RuntimeError("Origin could not stage the graph-object name")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_remove_graph_object("
+        f'"{graph}",{layer_index},__PAT1OBJ$'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native graph-object removal")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native graph-object removal failed: status={status}")
+
+
+def set_scale_arrow(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    arrow_name: str,
+    *,
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+) -> None:
+    """Create an arrow whose two vertices persist as native axis values."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    name = _safe_object_name(arrow_name)
+    coordinates = (x0, y0, x1, y1)
+    if layer_index < 1:
+        raise ValueError("Origin T1 visual indexes are one-based")
+    if not all(math.isfinite(value) for value in coordinates):
+        raise ValueError("Origin scale-arrow coordinates must be finite")
+    if not op.set_lt_str("__PAT1ARROW", name):
+        raise RuntimeError("Origin could not stage the scale-arrow name")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_set_scale_arrow("
+        f'"{graph}",{layer_index},__PAT1ARROW$,'
+        f"{x0:.17g},{y0:.17g},{x1:.17g},{y1:.17g}"
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native scale-arrow editing")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native scale-arrow editing failed: status={status}")
+
+
+def read_scale_arrow(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    arrow_name: str,
+) -> ScaleArrowState:
+    """Read persisted native vertices after a project round trip."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    name = _safe_object_name(arrow_name)
+    if layer_index < 1:
+        raise ValueError("Origin T1 visual indexes are one-based")
+    if not op.set_lt_str("__PAT1ARROW", name):
+        raise RuntimeError("Origin could not stage the scale-arrow name")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_read_scale_arrow("
+        f'"{graph}",{layer_index},__PAT1ARROW$'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native scale-arrow readback")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native scale-arrow readback failed: status={status}")
+    values = tuple(
+        float(op.lt_float(name))
+        for name in (
+            "__PAT1CALLATTACH",
+            "__PAT1CALLX0",
+            "__PAT1CALLY0",
+            "__PAT1CALLX1",
+            "__PAT1CALLY1",
+            "__PAT1CALLBEGIN",
+            "__PAT1CALLEND",
+        )
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise RuntimeError("Origin native scale-arrow geometry is missing")
+    return ScaleArrowState(
+        int(values[0]),
+        values[1],
+        values[2],
+        values[3],
+        values[4],
+        int(values[5]),
+        int(values[6]),
+    )
+
+
+def set_scale_arrow_head(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    arrow_name: str,
+    end_style: int,
+) -> None:
+    """Apply the arrow head after LabTalk line-style edits."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    name = _safe_object_name(arrow_name)
+    if layer_index < 1 or end_style not in {1, 2}:
+        raise ValueError("Origin scale-arrow head coordinates are invalid")
+    if not op.set_lt_str("__PAT1ARROW", name):
+        raise RuntimeError("Origin could not stage the scale-arrow name")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_set_scale_arrow_head("
+        f'"{graph}",{layer_index},__PAT1ARROW$,{end_style}'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native scale-arrow head editing")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native scale-arrow head editing failed: status={status}")
+
+
+def set_axis_tick_font_size(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    axis_code: int,
+    font_size_pt: float,
+) -> None:
+    """Set axis tick-label size through Origin 2024 SR1's format tree."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    if layer_index < 1 or axis_code not in {0, 1, 2, 3}:
+        raise ValueError("Origin T1 visual axis coordinates are invalid")
+    if not math.isfinite(font_size_pt) or font_size_pt <= 0:
+        raise ValueError("Origin T1 visual tick-label size must be positive and finite")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_set_axis_tick_font_size("
+        f'"{graph}",{layer_index},{axis_code},{font_size_pt:.12g}'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native axis tick-font editing")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native axis tick-font editing failed: status={status}")
+
+
+def read_axis_tick_font_size(
+    op: Any,
+    graph_name: str,
+    layer_index: int,
+    axis_code: int,
+) -> float:
+    """Read the persisted axis tick-label size from Origin's format tree."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    if layer_index < 1 or axis_code not in {0, 1, 2, 3}:
+        raise ValueError("Origin T1 visual axis coordinates are invalid")
+    command = (
+        f'run -oc {{__PAT1STATUS=plotagent_read_axis_tick_font_size("{graph}",'
+        f"{layer_index},{axis_code});}};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native axis tick-font readback")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native axis tick-font readback failed: status={status}")
+    value = float(op.lt_float("__PAT1AXISTICKSIZE"))
+    if not math.isfinite(value):
+        raise RuntimeError("Origin native axis tick-font size is missing")
+    return value
 
 
 def set_color_scale_anchor(
@@ -224,6 +446,52 @@ def read_color_scale_tick_format(
         numeric_format=int(values[2]),
         custom_format=str(op.get_lt_str("__PAT1CSTICKCUSTOM")),
     )
+
+
+def configure_k09_axis_labels(op: Any, graph_name: str, layer_index: int) -> None:
+    """Keep one category label per group without Origin's redundant table row."""
+
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    if layer_index < 1:
+        raise ValueError("Origin T1 visual indexes are one-based")
+    command = (
+        "run -oc {__PAT1STATUS=plotagent_configure_k09_axis_labels("
+        f'"{graph}",{layer_index}'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native K09 axis-label formatting")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native K09 axis-label formatting failed: status={status}")
+
+
+def read_k09_axis_labels(op: Any, graph_name: str, layer_index: int) -> K09AxisLabelState:
+    ensure_native_visual_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    if layer_index < 1:
+        raise ValueError("Origin T1 visual indexes are one-based")
+    command = (
+        f'run -oc {{__PAT1STATUS=plotagent_read_k09_axis_labels("{graph}",'
+        f"{layer_index});}};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke native K09 axis-label readback")
+    status = int(op.lt_float("__PAT1STATUS"))
+    if status != 0:
+        raise RuntimeError(f"Origin native K09 axis-label readback failed: status={status}")
+    values = tuple(
+        float(op.lt_float(name))
+        for name in (
+            "__PAT1K09ISTABLE",
+            "__PAT1K09TABLEDESIGN",
+            "__PAT1K09LEVEL1HIDDEN",
+        )
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise RuntimeError("Origin native K09 axis-label state is missing")
+    return K09AxisLabelState(*(int(value) for value in values))
 
 
 def set_axis_line_show(

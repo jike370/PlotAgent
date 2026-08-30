@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import plotagent.engine.backends.matplotlib.wide_series as matplotlib_module
 import plotagent.engine.backends.origin.wide_series as origin_module
 from plotagent.engine import (
     CreatePlot,
@@ -17,6 +18,7 @@ from plotagent.engine import (
     EngineField,
     FieldBinding,
     PlotDocument,
+    SetChartParameter,
 )
 from plotagent.engine.backends.matplotlib import (
     X03LollipopRenderer,
@@ -132,6 +134,26 @@ def _case(profile_id: str, *, series_count: int = 2, row_count: int = 4):
     return document, (create,), view
 
 
+def _hide_x40_identity_labels(
+    document: PlotDocument,
+    actions: tuple[CreatePlot, ...],
+) -> tuple[PlotDocument, tuple[CreatePlot | SetChartParameter, ...]]:
+    action = SetChartParameter(
+        action_id="action:x40-hide-identity-labels",
+        target=document.plot_id,
+        expected_plot_version=document.plot_version,
+        parameter="identity_labels_visible",
+        value=False,
+    )
+    return document.model_copy(
+        update={
+            "plot_version": document.plot_version + 1,
+            "parent_version": document.plot_version,
+            "applied_action_ids": (*document.applied_action_ids, action.action_id),
+        }
+    ), (*actions, action)
+
+
 def test_x03_accepts_contiguous_dynamic_series_columns() -> None:
     document, _, view = _case("X03", series_count=4, row_count=3)
     data = x03_lollipop(document, view)
@@ -160,6 +182,17 @@ def test_x40_preserves_subject_and_group_identity() -> None:
 
     assert data.row_labels == ("P01", "P02", "P03", "P04")
     assert data.row_groups == ("Control", "Control", "Treatment", "Treatment")
+
+
+def test_x40_profile_exposes_identity_label_visibility_without_unbinding_identity() -> None:
+    capability = next(
+        item
+        for item in X40_BEFORE_AFTER_PROFILE.capabilities
+        if item.operation == "set_chart_parameter"
+    )
+
+    assert capability.parameters == ("identity_labels_visible",)
+    assert X40_BEFORE_AFTER_PROFILE.required_roles == ("label", "series_1", "series_2")
 
 
 def test_x40_spreads_duplicate_identity_labels_without_changing_data() -> None:
@@ -230,6 +263,36 @@ def test_wide_series_matplotlib_renderers_follow_dynamic_data(
             if semantic_id.startswith(f"series:{token}.column_")
         ) == tuple(f"series:{token}.column_{index}" for index in range(1, series_count + 1))
         assert not any(".row_" in semantic_id for semantic_id in semantic_ids)
+
+
+def test_x40_matplotlib_hides_identity_labels_without_dropping_source_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, create_actions, view = _case("X40", row_count=4)
+    edited, actions = _hide_x40_identity_labels(document, create_actions)
+    original_close = matplotlib_module.plt.close
+    monkeypatch.setattr(matplotlib_module.plt, "close", lambda _figure: None)
+
+    X40BeforeAfterRenderer().render(
+        edited,
+        actions,
+        view,
+        tmp_path / "x40-hidden.png",
+        tmp_path / "x40-hidden.svg",
+    )
+    figure = matplotlib_module.plt.gcf()
+    visible_text = tuple(text.get_text() for text in figure.axes[0].texts)
+    original_close(figure)
+
+    assert visible_text == ()
+    assert wide_series(edited, view, profile_id="X40").row_labels == (
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+    )
+    assert (tmp_path / "x40-hidden.svg").stat().st_size > 0
 
 
 class _Plot:
@@ -583,6 +646,72 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
             "P04 · Treatment",
             "P05 · Treatment",
         )
+
+
+def test_x40_origin_hides_identity_labels_but_preserves_metadata_and_readback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, create_actions, view = _case("X40", row_count=4)
+    edited, actions = _hide_x40_identity_labels(document, create_actions)
+    monkeypatch.setattr(
+        origin_module,
+        "resolve_official_template",
+        lambda _install, selected: tmp_path / selected.filename,
+    )
+    origin = _Origin()
+    project = WideSeriesOriginProject(origin, profile_id="X40")
+    project.create(tmp_path, document, view)
+
+    project.apply(edited, actions[-1], view)
+    readback = project.verify(edited, actions, view)
+
+    assert all(label.get_int("show") == 0 for label in origin.graph.layer.labels)
+    assert origin.book.sheet.columns[2] == ["P01", "P02", "P03", "P04"]
+    assert origin.book.sheet.columns[3] == [
+        "Control",
+        "Control",
+        "Treatment",
+        "Treatment",
+    ]
+    assert readback.document.plot_version == 2
+
+
+def test_x40_origin_preserves_numeric_identity_source_while_rendering_text_labels(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, create_actions, view = _case("X40", row_count=4)
+    columns = list(view.columns)
+    subject = columns[2]
+    columns[2] = subject.model_copy(
+        update={
+            "field": subject.field.model_copy(update={"logical_type": "numeric"}),
+            "values": (1, 2, 3, 4),
+        }
+    )
+    numeric_view = view.model_copy(update={"columns": tuple(columns)})
+    series = wide_series(document, numeric_view, profile_id="X40")
+    monkeypatch.setattr(
+        origin_module,
+        "resolve_official_template",
+        lambda _install, selected: tmp_path / selected.filename,
+    )
+    origin = _Origin()
+    project = WideSeriesOriginProject(origin, profile_id="X40")
+
+    project.create(tmp_path, document, numeric_view)
+    readback = project.verify(document, create_actions, numeric_view)
+
+    assert series.row_labels == ("1", "2", "3", "4")
+    assert tuple(label.text for label in origin.graph.layer.labels) == (
+        "1 · Control",
+        "2 · Control",
+        "3 · Treatment",
+        "4 · Treatment",
+    )
+    assert origin.book.sheet.columns[2] == [1, 2, 3, 4]
+    assert readback.document.plot_version == 1
 
 
 @pytest.mark.parametrize(

@@ -151,6 +151,33 @@ _LABEL_T1 = (
     "font_weight",
     "font_color",
 )
+_CANVAS_T1 = ("width_mm", "height_mm", "aspect_ratio")
+_REFERENCE_LINE_T1 = ("value", "label", "line_color", "line_width_pt", "line_style")
+_CALLOUT_T1 = (
+    "text",
+    "anchor_fraction",
+    "text_x_fraction",
+    "text_y_fraction",
+    "arrow_color",
+    "arrow_width_pt",
+    "arrow_head",
+    "font_family",
+    "font_size_pt",
+    "font_weight",
+    "italic",
+    "text_color",
+)
+_OBSERVATION_OVERLAY_T1 = (
+    "visible",
+    "jitter_fraction",
+    "marker_shape",
+    "marker_size_pt",
+    "marker_interior",
+    "marker_fill_color",
+    "marker_stroke_color",
+    "marker_opacity",
+)
+_NO_NUMERIC_REFERENCE_AXIS = {"K20", "K21", "K24", "S61"}
 
 # OriginPro 2024 persists one transparency value for mixed primitives such as
 # line+symbol or fill+border plots.  Per-element opacity is therefore declared
@@ -167,15 +194,40 @@ def _capabilities(
     error: tuple[str, ...],
     labels: bool,
     chart: tuple[str, ...],
+    reference_line: bool,
+    point_marker_map: bool,
+    observation_overlay: bool,
 ) -> tuple[EngineCapability, ...]:
     result = [
         EngineCapability(operation="create_plot"),
         EngineCapability(operation="bind_fields"),
         EngineCapability(operation="set_title", parameters=_TITLE_T1),
         EngineCapability(operation="set_axis", parameters=tuple(dict.fromkeys(axis + _AXIS_T1))),
+        EngineCapability(operation="set_canvas", parameters=_CANVAS_T1),
     ]
+    if reference_line:
+        result.append(
+            EngineCapability(operation="add_reference_line", parameters=_REFERENCE_LINE_T1)
+        )
+        # The first public callout slice is intentionally bound to an existing
+        # semantic reference line, so both capabilities share one safe scope.
+        result.append(EngineCapability(operation="add_callout", parameters=_CALLOUT_T1))
     if series:
         result.append(EngineCapability(operation="set_series_style", parameters=series))
+    if point_marker_map:
+        result.append(
+            EngineCapability(
+                operation="set_point_marker_map",
+                parameters=("field", "entries"),
+            )
+        )
+    if observation_overlay:
+        result.append(
+            EngineCapability(
+                operation="set_observation_overlay",
+                parameters=_OBSERVATION_OVERLAY_T1,
+            )
+        )
     if legend:
         result.append(EngineCapability(operation="set_legend", parameters=_LEGEND_T1))
     if colormap:
@@ -195,16 +247,21 @@ def _profile(
     *,
     axis: tuple[str, ...] = ("label", "scale", "bounds", "reverse"),
     series: tuple[str, ...] = (),
+    series_visible: bool = True,
     legend: bool = False,
     colormap: bool = False,
     error: tuple[str, ...] = (),
     labels: bool = False,
     chart: tuple[str, ...] = (),
+    point_marker_map: bool = False,
+    observation_overlay: bool = False,
 ) -> EngineProfile:
     profile_id = str(data["profile_id"])
     semantic_objects = (*data.get("objects", ()), *data.get("repeatable_objects", ()))
     has_series = any(item.get("object_kind") == "series" for item in semantic_objects)
-    series_parameters = tuple(dict.fromkeys((("visible",) if has_series else ()) + series))
+    series_parameters = tuple(
+        dict.fromkeys((("visible",) if has_series and series_visible else ()) + series)
+    )
     return EngineProfile.model_validate(
         {
             **data,
@@ -217,6 +274,9 @@ def _profile(
                 error=error,
                 labels=labels,
                 chart=chart,
+                reference_line=profile_id not in _NO_NUMERIC_REFERENCE_AXIS,
+                point_marker_map=point_marker_map,
+                observation_overlay=observation_overlay,
             ),
         }
     )
@@ -331,6 +391,7 @@ K04_BUBBLE_PROFILE = _profile(
     legend=True,
     colormap=True,
     chart=("color_scale_visible", "size_key_visible"),
+    point_marker_map=True,
 )
 
 K06_POINT_ERROR_PROFILE = _profile(
@@ -418,13 +479,13 @@ K09_GROUPED_COLUMN_PROFILE = _profile(
             },
         ),
     },
-    series=(
-        "fill_color",
-        "fill_opacity",
-        "fill_stroke_color",
-        "fill_stroke_width_pt",
-        "fill_stroke_style",
-    ),
+    # Origin's official plot_gindexed route owns one native DataPlot whose
+    # semantic groups are subsets. Only subgroup fill_color currently has a
+    # persisted and fresh-reopened native contract; advertising the generic
+    # per-plot visibility/border/opacity fields would route group_n to the
+    # wrong object.
+    series=("fill_color",),
+    series_visible=False,
     legend=True,
     labels=True,
 )
@@ -526,6 +587,11 @@ K13_BOX_PROFILE = _profile(
         "objects": (
             {"object_alias": "x_axis", "object_kind": "axis", "object_key": "x"},
             {"object_alias": "y_axis", "object_kind": "axis", "object_key": "y"},
+            {
+                "object_alias": "observations",
+                "object_kind": "observation_overlay",
+                "object_key": "raw",
+            },
             {"object_alias": "legend", "object_kind": "legend", "object_key": "main"},
         ),
         "repeatable_objects": (
@@ -549,6 +615,7 @@ K13_BOX_PROFILE = _profile(
         "marker_stroke_color",
     ),
     legend=True,
+    observation_overlay=True,
 )
 
 K14_VIOLIN_PROFILE = _profile(
@@ -1125,6 +1192,7 @@ X40_BEFORE_AFTER_PROFILE = _profile(
         "marker_stroke_color",
     ),
     legend=True,
+    chart=("identity_labels_visible",),
 )
 
 ENGINE_PROFILES = (

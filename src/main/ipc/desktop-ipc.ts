@@ -93,6 +93,12 @@ export function importOptionPatch(code: string, value: string): Record<string, J
   if (code === 'IMPORT_DELIMITER_AMBIGUOUS') return { delimiter: value === 'TAB' || value === '\t' ? '\t' : value }
   if (code === 'IMPORT_DECIMAL_AMBIGUOUS') return { decimal_mark: value }
   if (code === 'IMPORT_HEADER_AMBIGUOUS') {
+    const scoped = /^sheet:([^|]+)\|(line:(\d+)|none)$/.exec(value)
+    if (scoped !== null) {
+      const sheet = decodeURIComponent(scoped[1])
+      const row = scoped[2] === 'none' ? 0 : Number(scoped[3])
+      return { header_rows: { [sheet]: row } }
+    }
     if (value === 'none') return { header_row: 0 }
     const match = /^line:(\d+)$/.exec(value)
     return match === null ? undefined : { header_row: Number(match[1]) }
@@ -108,6 +114,8 @@ export function importOptionLabel(code: string, value: string, fallback: string)
     if (value === '|') return '竖线（|）'
   }
   if (code === 'IMPORT_HEADER_AMBIGUOUS') {
+    const scoped = /^sheet:([^|]+)\|(line:(\d+)|none)$/.exec(value)
+    if (scoped !== null) return scoped[2] === 'none' ? '无表头' : `第 ${scoped[3]} 行作为表头`
     if (value === 'none') return '无表头'
     const match = /^line:(\d+)$/.exec(value)
     if (match !== null) return `第 ${match[1]} 行作为表头`
@@ -864,7 +872,20 @@ export function registerDesktopIpc({
             noLink: true,
           })
           if (answer.response === cancelId) break
-          options = { ...options, ...patches[answer.response] }
+          const patch = patches[answer.response] ?? {}
+          const previousHeaderRows = (
+            options.header_rows !== null && !Array.isArray(options.header_rows) && typeof options.header_rows === 'object'
+          ) ? options.header_rows : {}
+          const patchHeaderRows = (
+            patch.header_rows !== null && !Array.isArray(patch.header_rows) && typeof patch.header_rows === 'object'
+          ) ? patch.header_rows : {}
+          options = {
+            ...options,
+            ...patch,
+            ...(Object.keys(patchHeaderRows).length === 0 ? {} : {
+              header_rows: { ...previousHeaderRows, ...patchHeaderRows },
+            }),
+          }
         }
         const identified = withImportSourceIdentity(result, basename(path))
         rememberDatasetIdentities(input.projectId, identified)

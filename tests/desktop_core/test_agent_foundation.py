@@ -29,6 +29,7 @@ from plotagent.contracts.canonical import JsonValue, canonical_hash, canonical_j
 from plotagent.contracts.workflows import (
     AlignSourcesOnX,
     DeclareUnit,
+    DraftAddCallout,
     DraftFieldBinding,
     DraftSetTitle,
     FilterPredicate,
@@ -48,7 +49,7 @@ from plotagent.desktop_core.agent_foundation import (
     DurableAgentCoreHost,
     DurableTaskCoordinator,
 )
-from plotagent.engine import EngineDataRef, FieldBinding, PlotDocument
+from plotagent.engine import AddReferenceLine, EngineDataRef, FieldBinding, PlotDocument
 from plotagent.storage import (
     ImportCommitResult,
     ImportResource,
@@ -1400,9 +1401,17 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "never sort, interpolate, truncate, or coerce" in system_prompt
         assert "Never bind an aligned numeric series output directly to group" in system_prompt
         assert "Use convert_type only after inspecting enough rows" in system_prompt
+        assert "use extract_mapping_fields only after inspecting enough rows" in system_prompt
+        assert "Declare every encountered key as an output" in system_prompt
+        assert "declare presence_output for that key" in system_prompt
+        assert "emit set_point_marker_map for series_1" in system_prompt
+        assert "set_observation_overlay with target_alias=observations" in system_prompt
+        assert "never bind or invent a second point dataset" in system_prompt
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "K21 request for a lower, upper, or full triangle" in system_prompt
+        assert "into set_canvas with target_alias=plot" in system_prompt
+        assert "set_canvas changes the page, not data values" in system_prompt
         assert "use is_finite to keep only finite observations" in system_prompt
         assert "reshape_wide_to_long" in system_prompt
         assert "record one SemanticDecision with kind unit" in system_prompt
@@ -1961,6 +1970,150 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         assert plan.items[0].target_plot_id == "plot:existing"
         assert plan.items[0].target_plot_version == 3
         assert plan.items[0].visual_actions[0].operation == "set_title"
+
+
+def test_selected_plot_context_exposes_latest_addressable_reference_line(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        envelope = TaskEnvelope(
+            task_id="task:existing-reference-line",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction="Update the existing EU mean reference line.",
+            selected_plots=(
+                SelectedPlotRef(plot_id="plot:existing", plot_version=3, profile_id="K08"),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(envelope)
+        directive = DurableTaskCoordinator(ledger).next_action(envelope.task_id)
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        first = AddReferenceLine(
+            action_id="action:existing-reference-line.1",
+            target="axis:existing.y",
+            expected_plot_version=1,
+            reference_line_id="reference_line:existing.eu_mean",
+            value=16,
+            label="EU mean",
+        )
+        latest = first.model_copy(
+            update={
+                "action_id": "action:existing-reference-line.2",
+                "expected_plot_version": 2,
+                "value": 16.26640875,
+            }
+        )
+        document = PlotDocument(
+            plot_id="plot:existing",
+            plot_version=3,
+            parent_version=2,
+            profile_id="K08",
+            data=EngineDataRef(
+                kind="source",
+                dataset_id="source:not-selected",
+                version=1,
+                content_hash="f" * 64,
+            ),
+            bindings=(FieldBinding(role="category", field_id="field:not-selected"),),
+            applied_action_ids=(first.action_id, latest.action_id),
+        )
+        host = DurableAgentCoreHost(
+            project,
+            domain,
+            ledger,
+            plot_lookup=lambda _plot_id: document,
+            plot_action_lookup=lambda _plot_id: (first, latest),
+        )
+
+        prepared = host.prepare(activation_id)
+        context = cast(dict[str, object], prepared["context"])
+
+        assert context["selected_plot_contexts"] == [
+            {
+                "plot_alias": "plot_1",
+                "plot_id": "plot:existing",
+                "plot_version": 3,
+                "profile_id": "K08",
+                "source_aliases": [],
+                "data_operations": [],
+                "bindings": [],
+                "visual_objects": [
+                    {
+                        "object_kind": "reference_line",
+                        "object_alias": "eu_mean",
+                        "target_alias": "y_axis",
+                        "value": 16.26640875,
+                        "label": "EU mean",
+                    }
+                ],
+            }
+        ]
+        assert "selected_plot_contexts.visual_objects" in cast(
+            str, prepared["system_prompt"]
+        )
+
+        def callout_candidate(reference_line_alias: str) -> AgentIntentReady:
+            item = TaskDraftItem(
+                task_kind="edit",
+                item_id="item:existing-reference-line.1",
+                plot_alias="plot_result",
+                profile_id="K08",
+                target_plot_alias="plot_1",
+                visual_actions=(
+                    DraftAddCallout(
+                        reference_line_alias=reference_line_alias,
+                        callout_alias="eu_mean_note",
+                        text="EU mean",
+                        anchor_fraction=0.68,
+                        text_x_fraction=0.82,
+                        text_y_fraction=0.82,
+                    ),
+                ),
+            )
+            intent = TaskIntent(
+                intent_id="intent:existing-reference-line",
+                intent_version=1,
+                task_id=envelope.task_id,
+                task_version=1,
+                created_by_activation_id=activation_id,
+                summary="Explain the existing EU mean reference line.",
+                items=(item,),
+                profile_selections=(),
+                context_hash=cast(str, context["content_hash"]),
+                content_hash="0" * 64,
+            )
+            intent = intent.model_copy(
+                update={
+                    "content_hash": canonical_hash(
+                        intent.model_dump(mode="json", exclude={"content_hash"})
+                    )
+                }
+            )
+            return AgentIntentReady(
+                activation_id=activation_id,
+                task_id=envelope.task_id,
+                task_version=1,
+                intent=intent,
+            )
+
+        with pytest.raises(AgentFoundationError) as missing:
+            host.validate_yield(
+                activation_id,
+                cast(JsonValue, callout_candidate("missing").model_dump(mode="json")),
+            )
+        assert missing.value.code == "VISUAL_OBJECT_ALIAS_INVALID"
+
+        validated = host.validate_yield(
+            activation_id,
+            cast(JsonValue, callout_candidate("eu_mean").model_dump(mode="json")),
+        )
+        assert validated.outcome == "intent_ready"
 
 
 def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path) -> None:

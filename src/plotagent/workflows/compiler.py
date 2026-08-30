@@ -10,6 +10,8 @@ from plotagent.contracts.canonical import canonical_hash
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DataOperation,
+    DraftAddCallout,
+    DraftSetPointMarkerMap,
     DraftSetSeriesStyle,
     DraftVisualAction,
     ResolvedFieldBinding,
@@ -89,6 +91,14 @@ class DraftCompiler:
             if item.task_kind == "edit":
                 assert target is not None
                 self._validate_visual_actions(profile, item.visual_actions)
+                if any(
+                    isinstance(action, DraftSetPointMarkerMap)
+                    for action in item.visual_actions
+                ):
+                    raise WorkflowCompileError(
+                        "POINT_MARKER_MAP_REQUIRES_DATA_TASK",
+                        "点级形状映射必须在创建或更新数据任务中声明离散字段。",
+                    )
                 compiled.append(
                     CompiledTaskItem(
                         task_kind="edit",
@@ -137,6 +147,39 @@ class DraftCompiler:
                         name="Source",
                         logical_type="categorical",
                     )
+                elif operation.operation == "extract_mapping_fields":
+                    for mapping_output in operation.outputs:
+                        declared_outputs = (
+                            (
+                                mapping_output.output_field_alias,
+                                mapping_output.output_name,
+                                mapping_output.target_type,
+                            ),
+                            *(
+                                ()
+                                if mapping_output.presence_output is None
+                                else (
+                                    (
+                                        mapping_output.presence_output.output_field_alias,
+                                        mapping_output.presence_output.output_name,
+                                        "boolean",
+                                    ),
+                                )
+                            ),
+                        )
+                        for alias, name, logical_type in declared_outputs:
+                            if alias in fields or alias in synthetic_fields:
+                                raise WorkflowCompileError(
+                                    "FIELD_ALIAS_DUPLICATED",
+                                    "结构化字段输出别名必须互不重复。",
+                                )
+                            synthetic_fields[alias] = ResolvedWorkflowField(
+                                field_alias=alias,
+                                source_alias=operation.source_alias,
+                                field_id=f"field:workflow_{token}_{position}_{alias}",
+                                name=name,
+                                logical_type=logical_type,
+                            )
                 elif operation.operation == "align_sources_on_x":
                     first_x = synthetic_fields.get(operation.x_field_aliases[0]) or fields.get(
                         operation.x_field_aliases[0]
@@ -404,6 +447,38 @@ class DraftCompiler:
                         unit_label=field.unit_label,
                     ),
                 )
+            for action in item.visual_actions:
+                if not isinstance(action, DraftSetPointMarkerMap):
+                    continue
+                candidate = synthetic_fields.get(action.field_alias) or fields.get(
+                    action.field_alias
+                )
+                if (
+                    candidate is None
+                    or candidate.source_alias not in available_fields
+                    or action.field_alias not in available_fields[candidate.source_alias]
+                ):
+                    raise WorkflowCompileError(
+                        "FIELD_ALIAS_INVALID",
+                        "点级形状映射字段在数据处理后不可用。",
+                    )
+                if candidate.logical_type not in {"categorical", "boolean", "text"}:
+                    raise WorkflowCompileError(
+                        "FIELD_TYPE_INCOMPATIBLE",
+                        "点级形状映射字段必须是 categorical、boolean 或 text 类型。",
+                    )
+                if action.field_alias not in synthetic_fields:
+                    resolved_fields.setdefault(
+                        action.field_alias,
+                        ResolvedWorkflowField(
+                            field_alias=candidate.field_alias,
+                            source_alias=candidate.source_alias,
+                            field_id=candidate.field_id,
+                            name=candidate.name,
+                            logical_type=candidate.logical_type,
+                            unit_label=candidate.unit_label,
+                        ),
+                    )
             for operation in item.data_operations:
                 if operation.operation != "concatenate_sources":
                     continue
@@ -516,6 +591,12 @@ class DraftCompiler:
                     strict=True,
                 ):
                     lineage[output.field_alias] = merged(value_alias)
+            elif operation.operation == "extract_mapping_fields":
+                combined = merged(operation.field_alias)
+                for mapping_output in operation.outputs:
+                    lineage[mapping_output.output_field_alias] = combined
+                    if mapping_output.presence_output is not None:
+                        lineage[mapping_output.presence_output.output_field_alias] = combined
             elif operation.operation == "reshape_wide_to_long":
                 combined = merged(*operation.value_field_aliases)
                 lineage[operation.output_name] = combined
@@ -737,6 +818,8 @@ class DraftCompiler:
                         f"{profile.display_name} 没有可批量编辑的系列。",
                     )
                 continue
+            if isinstance(action, DraftAddCallout):
+                continue
             target_alias = action.target_alias
             if target_alias is None:
                 raise WorkflowCompileError(
@@ -765,6 +848,8 @@ class DraftCompiler:
         operation = dumped.pop("operation")
         dumped.pop("target_alias", None)
         dumped.pop("scope", None)
+        dumped.pop("reference_line_alias", None)
+        dumped.pop("callout_alias", None)
         if operation == "set_axis":
             bounds_mode = dumped.pop("bounds_mode", None)
             minimum = dumped.pop("minimum", None)
@@ -773,4 +858,6 @@ class DraftCompiler:
                 dumped["bounds"] = True
         if operation == "set_chart_parameter":
             return {str(dumped["parameter"])}
+        if operation == "set_point_marker_map":
+            dumped["field"] = dumped.pop("field_alias")
         return set(dumped)

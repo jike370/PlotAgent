@@ -698,7 +698,8 @@ class DesktopWorkflowService:
                         capability.operation
                         for capability in profile.capabilities
                         if capability.operation.startswith("set_")
-                        or capability.operation == "add_annotation"
+                        or capability.operation
+                        in {"add_annotation", "add_reference_line", "add_callout"}
                     ),
                 }
             )
@@ -734,6 +735,16 @@ class DesktopWorkflowService:
             "不能只提交 x/y bindings。提交前逐项检查 data_operations 是否覆盖原文中的每个数据动作；"
             "缺少任何一个动作时，先修正草稿或调用 ask_user，不得提交一个只有字段绑定的近似计划。"
             "set_title 的 target_alias 固定为 plot；plot_alias 是任务输出别名，不能作为动作目标。"
+            "用户要求拉宽、压窄、改变横纵比或设置物理宽高时，使用 set_canvas，"
+            "target_alias 固定为 plot；相对要求使用 aspect_ratio，明确尺寸同时使用 "
+            "width_mm 和 height_mm。set_canvas 只改变输出页面，不改写数据或图类。"
+            "用户要求均值线、阈值线、基准线或指定数值的横竖参考线时，使用 "
+            "add_reference_line；target_alias 必须是对应数值轴。x_axis 生成竖线，"
+            "y_axis、y_left_axis 或 y_right_axis 生成横线；value 使用轴的数据坐标。"
+            "用户要求用箭头和文字解释刚创建的均值线、阈值线或基准线时，使用 "
+            "add_callout；reference_line_alias 必须引用同一任务项内更早创建的参考线。"
+            "anchor_fraction 是沿参考线的 0..1 位置，text_x_fraction 和 "
+            "text_y_fraction 是轴框比例，禁止填类别序号冒充数据坐标。"
             "set_series_style 中，用户说全部、所有、每条、all 或 every 时必须使用 "
             "scope=all_series 并省略 target_alias；只有用户明确指出一条系列时才使用 "
             "scope=target 和该系列的准确 target_alias，禁止把复数要求缩成 series_1。"

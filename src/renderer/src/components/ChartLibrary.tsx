@@ -33,6 +33,7 @@ interface ChartLibraryProps {
   datasetCompatibility?: {
     numericFieldCount: number
     categoricalFieldCount: number
+    datetimeFieldCount?: number
     totalFieldCount: number
   }
   onClose: () => void

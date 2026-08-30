@@ -57,6 +57,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -195,6 +230,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -343,6 +413,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -483,6 +588,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -492,6 +632,13 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
+          ]
+        },
+        {
+          "operation": "set_point_marker_map",
+          "parameters": [
+            "field",
+            "entries"
           ]
         },
         {
@@ -644,6 +791,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -811,6 +993,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -962,6 +1179,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -1121,14 +1373,44 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
-            "visible",
-            "fill_color",
-            "fill_opacity",
-            "fill_stroke_color",
-            "fill_stroke_width_pt",
-            "fill_stroke_style"
+            "fill_color"
           ]
         },
         {
@@ -1274,6 +1556,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -1433,6 +1750,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -1589,6 +1941,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -1725,6 +2112,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -1738,6 +2160,19 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
+          ]
+        },
+        {
+          "operation": "set_observation_overlay",
+          "parameters": [
+            "visible",
+            "jitter_fraction",
+            "marker_shape",
+            "marker_size_pt",
+            "marker_interior",
+            "marker_fill_color",
+            "marker_stroke_color",
+            "marker_opacity"
           ]
         },
         {
@@ -1775,6 +2210,11 @@
           "object_alias": "y_axis",
           "object_key": "y",
           "object_kind": "axis"
+        },
+        {
+          "object_alias": "observations",
+          "object_key": "raw",
+          "object_kind": "observation_overlay"
         },
         {
           "object_alias": "legend",
@@ -1862,6 +2302,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -2003,6 +2478,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -2126,6 +2636,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -2279,6 +2824,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -2417,6 +2997,14 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
           ]
         },
         {
@@ -2562,6 +3150,14 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
           ]
         },
         {
@@ -2717,6 +3313,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible"
@@ -2849,6 +3480,14 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -2971,6 +3610,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -3121,6 +3795,14 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
           ]
         },
         {
@@ -3278,6 +3960,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -3419,6 +4136,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -3568,6 +4320,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -3701,6 +4488,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -3857,6 +4679,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -4017,6 +4874,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -4161,6 +5053,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -4326,6 +5253,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -4485,6 +5447,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -4658,6 +5655,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -4790,6 +5822,41 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
+          ]
+        },
+        {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
           ]
         },
         {
@@ -4937,6 +6004,41 @@
           ]
         },
         {
+          "operation": "set_canvas",
+          "parameters": [
+            "width_mm",
+            "height_mm",
+            "aspect_ratio"
+          ]
+        },
+        {
+          "operation": "add_reference_line",
+          "parameters": [
+            "value",
+            "label",
+            "line_color",
+            "line_width_pt",
+            "line_style"
+          ]
+        },
+        {
+          "operation": "add_callout",
+          "parameters": [
+            "text",
+            "anchor_fraction",
+            "text_x_fraction",
+            "text_y_fraction",
+            "arrow_color",
+            "arrow_width_pt",
+            "arrow_head",
+            "font_family",
+            "font_size_pt",
+            "font_weight",
+            "italic",
+            "text_color"
+          ]
+        },
+        {
           "operation": "set_series_style",
           "parameters": [
             "visible",
@@ -4963,6 +6065,12 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
+          ]
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "identity_labels_visible"
           ]
         },
         {

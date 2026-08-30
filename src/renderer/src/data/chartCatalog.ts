@@ -16,6 +16,7 @@ export interface ChartType {
   dataShape: string[]
   domains: string[]
   requiredFields: string[]
+  roleFieldTypes: Record<string, string[]>
   optionalFields: string[]
   repeatableRolePrefixes: string[]
   optionalParameters: string[]
@@ -155,6 +156,9 @@ const toChart = (profile: EngineProfile): ChartType => {
     dataShape: [profile.required_roles.join(' + ')],
     domains: profile.profile_id.startsWith('S') ? ['专业科研'] : ['通用科研'],
     requiredFields: [...profile.required_roles],
+    roleFieldTypes: Object.fromEntries(
+      Object.entries(profile.role_field_types).map(([role, fieldTypes]) => [role, [...fieldTypes]]),
+    ),
     optionalFields: [...profile.optional_roles],
     repeatableRolePrefixes: [...profile.repeatable_role_prefixes],
     optionalParameters: [...profile.optional_roles, ...chartParameters],

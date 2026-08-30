@@ -9,6 +9,7 @@ executable expression is representable here.
 from __future__ import annotations
 
 from datetime import date, datetime
+from math import isclose
 from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints, model_validator
@@ -412,6 +413,67 @@ class ConvertType(StrictModel):
         return self
 
 
+class MappingPresenceOutput(StrictModel):
+    """One boolean output that records whether a mapping key was present.
+
+    This is intentionally distinct from the extracted value: a declared key
+    may be present with a null value, while an optional key may be absent.  The
+    distinction is useful for downstream data encodings without teaching an
+    individual chart profile about one paper's source grammar.
+    """
+
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+
+
+class MappingFieldOutput(StrictModel):
+    """One explicitly declared scalar output from a mapping-literal field."""
+
+    key: Annotated[str, StringConstraints(min_length=1, max_length=128, strict=True)]
+    output_field_alias: WorkflowAlias
+    output_name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
+    target_type: Literal["numeric", "categorical", "boolean", "text"]
+    required: bool = True
+    presence_output: MappingPresenceOutput | None = None
+
+
+class ExtractMappingFields(StrictModel):
+    """Safely extract declared scalar keys from strict Python mapping literals.
+
+    Execution accepts only a string whose root is a dictionary with unique
+    string keys and scalar values.  Every encountered key must be declared in
+    ``outputs``; nested structures and implicit type conversion are forbidden.
+    """
+
+    operation: Literal["extract_mapping_fields"] = "extract_mapping_fields"
+    source_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    outputs: Annotated[tuple[MappingFieldOutput, ...], Field(min_length=1, max_length=32)]
+
+    @model_validator(mode="after")
+    def unique_declared_outputs(self) -> ExtractMappingFields:
+        keys = tuple(output.key for output in self.outputs)
+        if len(keys) != len(set(keys)):
+            raise ValueError("mapping extraction keys must be unique")
+        aliases = tuple(
+            alias
+            for output in self.outputs
+            for alias in (
+                output.output_field_alias,
+                *(
+                    ()
+                    if output.presence_output is None
+                    else (output.presence_output.output_field_alias,)
+                ),
+            )
+        )
+        if len(aliases) != len(set(aliases)):
+            raise ValueError("mapping extraction output aliases must be unique")
+        if self.field_alias in aliases:
+            raise ValueError("mapping extraction must create new field aliases")
+        return self
+
+
 class WorkflowOutputField(StrictModel):
     field_alias: WorkflowAlias
     name: Annotated[str, StringConstraints(min_length=1, max_length=256, strict=True)]
@@ -625,6 +687,7 @@ DataOperation = Annotated[
     | ExcludeRows
     | DropEmptyFields
     | ConvertType
+    | ExtractMappingFields
     | ReshapeLongToWide
     | ReshapeWideToLong
     | ConcatenateSources
@@ -661,6 +724,22 @@ def data_operation_field_aliases(
         return operation.field_aliases, ()
     if operation.operation == "convert_type":
         return (operation.field_alias,), (operation.output_field_alias,)
+    if operation.operation == "extract_mapping_fields":
+        return (
+            (operation.field_alias,),
+            tuple(
+                alias
+                for output in operation.outputs
+                for alias in (
+                    output.output_field_alias,
+                    *(
+                        ()
+                        if output.presence_output is None
+                        else (output.presence_output.output_field_alias,)
+                    ),
+                )
+            ),
+        )
     if operation.operation == "reshape_wide_to_long":
         return (
             operation.id_field_aliases + operation.value_field_aliases,
@@ -822,6 +901,50 @@ class DraftSetSeriesStyle(StrictModel):
         return self
 
 
+class DraftPointMarkerMapEntry(StrictModel):
+    value: bool | Annotated[
+        str, StringConstraints(min_length=1, max_length=256, strict=True)
+    ]
+    marker_shape: Literal[
+        "circle", "square", "triangle_up", "triangle_down", "diamond"
+    ]
+
+
+class DraftSetPointMarkerMap(StrictModel):
+    """Map every value of one discrete field to a point marker shape."""
+
+    operation: Literal["set_point_marker_map"] = "set_point_marker_map"
+    target_alias: WorkflowAlias
+    field_alias: WorkflowAlias
+    entries: Annotated[
+        tuple[DraftPointMarkerMapEntry, ...], Field(min_length=2, max_length=32)
+    ]
+
+    @model_validator(mode="after")
+    def unique_values(self) -> DraftSetPointMarkerMap:
+        identities = tuple((type(entry.value).__name__, entry.value) for entry in self.entries)
+        if len(identities) != len(set(identities)):
+            raise ValueError("point marker map values must be unique")
+        return self
+
+
+class DraftSetObservationOverlay(StrictModel):
+    """Show the box plot's already-bound raw values as deterministic points."""
+
+    operation: Literal["set_observation_overlay"] = "set_observation_overlay"
+    target_alias: WorkflowAlias = "observations"
+    visible: bool = True
+    jitter_fraction: Annotated[float, Field(ge=0, le=0.45, allow_inf_nan=False)] = 0.18
+    marker_shape: Literal[
+        "circle", "square", "triangle_up", "triangle_down", "diamond"
+    ] = "circle"
+    marker_size_pt: Annotated[float, Field(gt=0, le=24, allow_inf_nan=False)] = 4.0
+    marker_interior: WorkflowMarkerInterior = "solid"
+    marker_fill_color: WorkflowColor = "#FFFFFF"
+    marker_stroke_color: WorkflowColor = "#1A1A1A"
+    marker_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 0.85
+
+
 class DraftSetLegend(StrictModel):
     operation: Literal["set_legend"] = "set_legend"
     target_alias: WorkflowAlias = "legend"
@@ -927,6 +1050,36 @@ class DraftSetDataLabels(StrictModel):
         return self
 
 
+class DraftSetCanvas(StrictModel):
+    operation: Literal["set_canvas"] = "set_canvas"
+    target_alias: WorkflowAlias = "plot"
+    width_mm: Annotated[float, Field(ge=40, le=1000, allow_inf_nan=False)] | None = None
+    height_mm: Annotated[float, Field(ge=30, le=1000, allow_inf_nan=False)] | None = None
+    aspect_ratio: Annotated[float, Field(ge=0.2, le=5, allow_inf_nan=False)] | None = None
+
+    @model_validator(mode="after")
+    def valid_edit(self) -> DraftSetCanvas:
+        if self.target_alias != "plot":
+            raise ValueError("set_canvas target_alias must be plot")
+        if self.width_mm is None and self.height_mm is None and self.aspect_ratio is None:
+            raise ValueError("canvas edit needs a size or aspect ratio")
+        if (self.width_mm is None) != (self.height_mm is None) and self.aspect_ratio is None:
+            raise ValueError("one canvas dimension requires an aspect ratio")
+        if (
+            self.width_mm is not None
+            and self.height_mm is not None
+            and self.aspect_ratio is not None
+            and not isclose(
+                self.width_mm / self.height_mm,
+                self.aspect_ratio,
+                rel_tol=1e-6,
+                abs_tol=1e-6,
+            )
+        ):
+            raise ValueError("canvas dimensions and aspect ratio disagree")
+        return self
+
+
 class DraftSetChartParameter(StrictModel):
     operation: Literal["set_chart_parameter"] = "set_chart_parameter"
     target_alias: WorkflowAlias = "plot"
@@ -950,16 +1103,56 @@ class DraftAddAnnotation(StrictModel):
     rotation_deg: Annotated[float, Field(ge=-180, le=180, allow_inf_nan=False)] | None = None
 
 
+class DraftAddReferenceLine(StrictModel):
+    operation: Literal["add_reference_line"] = "add_reference_line"
+    target_alias: WorkflowAlias
+    reference_line_alias: WorkflowAlias
+    value: FiniteNumber
+    label: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    line_color: WorkflowColor | None = None
+    line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    line_style: WorkflowLineStyle | None = None
+
+    @model_validator(mode="after")
+    def visible_line_style(self) -> DraftAddReferenceLine:
+        if self.line_style == "none":
+            raise ValueError("reference line style cannot be none")
+        return self
+
+
+class DraftAddCallout(StrictModel):
+    operation: Literal["add_callout"] = "add_callout"
+    reference_line_alias: WorkflowAlias
+    callout_alias: WorkflowAlias
+    text: Annotated[str, StringConstraints(min_length=1, max_length=512, strict=True)]
+    anchor_fraction: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 0.5
+    text_x_fraction: Annotated[float, Field(ge=-0.25, le=1.25, allow_inf_nan=False)]
+    text_y_fraction: Annotated[float, Field(ge=-0.25, le=1.25, allow_inf_nan=False)]
+    arrow_color: WorkflowColor | None = None
+    arrow_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    arrow_head: Literal["open", "filled"] | None = None
+    font_family: WorkflowFontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: WorkflowFontWeight | None = None
+    italic: bool | None = None
+    text_color: WorkflowColor | None = None
+
+
 DraftVisualAction = Annotated[
     DraftSetTitle
     | DraftSetAxis
     | DraftSetSeriesStyle
+    | DraftSetPointMarkerMap
+    | DraftSetObservationOverlay
     | DraftSetLegend
     | DraftSetColorMap
     | DraftSetErrorStyle
     | DraftSetDataLabels
+    | DraftSetCanvas
     | DraftSetChartParameter
-    | DraftAddAnnotation,
+    | DraftAddAnnotation
+    | DraftAddReferenceLine
+    | DraftAddCallout,
     Field(discriminator="operation"),
 ]
 

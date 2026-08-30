@@ -6,7 +6,7 @@ import shutil
 import uuid
 from hashlib import sha256
 from pathlib import Path
-from typing import Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 import matplotlib
 
@@ -17,6 +17,7 @@ from plotagent.engine.ports import (
     EngineRenderSource,
     PlotBackendChange,
 )
+from plotagent.engine.product_style import PRODUCT_TYPOGRAPHY
 from plotagent.engine.repository import document_ref
 from plotagent.engine.visual_t1 import split_visual_actions, visual_style_hash
 
@@ -132,10 +133,11 @@ class MatplotlibBackend:
         structural_actions, visual_actions = split_visual_actions(actions)
         with (
             matplotlib.rc_context(
-                {
+                cast(Any, {
+                    **PRODUCT_TYPOGRAPHY.matplotlib_rc(),
                     "font.family": font_family,
                     "axes.unicode_minus": False,
-                }
+                })
             ),
             apply_visuals_before_save(
                 document,

@@ -56,13 +56,20 @@ Pi 可以替换，领域边界不能绕过。任何外部 Agent 也只能提交�
 - `set_title`
 - `set_axis`
 - `set_series_style`
+- `set_point_marker_map`
+- `set_observation_overlay`
 - `set_legend`
+- `set_canvas`
 - `set_chart_parameter`
 - `export_plot`
 
 `undo` / `redo` 是 PlotDocument 版本操作，不是 renderer action。底层兼容合同中的 `add_annotation` 没有任何正式 Profile/UI capability，当前不对 Agent 开放。
 
 只开放 Matplotlib 与 Origin 都能稳定表达并读回的共同能力。后端专属枚举、任意脚本、任意统计分析和开放式数据变换不向 Agent 暴露。
+
+`set_canvas` 只调整单图输出页面的物理宽高或宽高比。它不创建第二个面板、不允许任意摆放对象，也不改变数据轴含义，因此不等同于开放式画布。Matplotlib 以 figure page 尺寸执行；Origin 以 GraphPage 的英寸尺寸执行并在 fresh-reopen 后读回。Origin GraphPage 宽高的物理单位依据 [OriginLab GraphPage::SetWidth 文档](https://docs.originlab.com/python/pyorigin/classes/graphpage-setwidth/)。
+
+`set_observation_overlay` 当前只向 K13 开放。它没有第二数据绑定，始终复用计算箱体的同源 value 行，并以确定性横向位置显示全部观察值；箱体统计保持不变。任意第二数据集、密度排布、violin 混合、配对线、显著性标注和多级类别轴都不是该动作的隐式变体。
 
 ## 5. 数据与图类契约
 

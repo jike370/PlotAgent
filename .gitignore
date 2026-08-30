@@ -46,6 +46,11 @@ test-results/
 # Local design-review working evidence
 .impeccable/work/
 
+# Local investigation scratch space
+.codex-tmp/
+.tmp/
+/tmp/
+
 # Editors and operating systems
 .idea/
 .vscode/

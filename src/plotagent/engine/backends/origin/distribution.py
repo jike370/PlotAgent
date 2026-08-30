@@ -12,9 +12,14 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
+    SetObservationOverlay,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import DistributionData, distribution_groups
+from plotagent.engine.profile_data import (
+    DistributionData,
+    distribution_groups,
+    regular_observation_positions,
+)
 from plotagent.engine.repository import document_ref
 from plotagent.plot_calculations.kernels import scott_kde_geometry
 
@@ -33,6 +38,7 @@ from .native_distribution import (
     WHISKER_RANGE,
     configure_native_distribution,
     read_native_distribution_value,
+    set_native_distribution_outliers,
 )
 from .profile import (
     K12_ORIGIN_PROFILE,
@@ -45,7 +51,15 @@ from .profile import (
 from .trace import origin_trace_step, record_origin_trace
 
 _TITLE_NAME = "_ENGINE_TITLE"
-_SYMBOL_CODES = {"circle": 2, "square": 1, "triangle": 3, "triangle_up": 3, "diamond": 5}
+_SYMBOL_CODES = {
+    "circle": 2,
+    "square": 1,
+    "triangle": 3,
+    "triangle_up": 3,
+    "triangle_down": 4,
+    "diamond": 5,
+}
+_INTERIOR_CODES = {"solid": 0, "open": 1, "hollow": 1}
 _X05_OFFICIAL_MENU_COMMAND = "worksheet -s 1 0 {last_column} 0; worksheet -p 206 Beeswarm;"
 _OFFICIAL_MENU_COMMANDS = {
     "K12": "worksheet -s 1 0 {last_column} 0; worksheet -p 206 ColumnScatter;",
@@ -65,6 +79,11 @@ _BANDWIDTH_CUSTOM = -1
 _BANDWIDTH_CUSTOM_READBACK = 255
 _VIOLIN_SCALE_WIDTH = 1
 _VIOLIN_GRID_POINTS = 256
+_BOX_OUTLIER_LEGEND = '\\l(1,O) %(1,@V"Box_O")'
+# OriginPro 2024's COM/LabTalk text bridge is code-page dependent.  Keep this
+# engine-authored legend entry ASCII so a Chinese Windows code page cannot
+# corrupt it during save/reopen.
+_RAW_OBSERVATION_LEGEND_LABEL = "Raw observations"
 
 
 def _effective_actions(
@@ -195,9 +214,12 @@ class DistributionOriginProject:
         self.sheet = books[0][0]
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
-        self._distribution(document, data)
+        distribution = self._distribution(document, data)
         document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
+            return
+        if isinstance(action, SetObservationOverlay) and self.profile_id == "K13":
+            self._apply_observation_overlay(distribution, action)
             return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
@@ -214,7 +236,16 @@ class DistributionOriginProject:
         data: EngineDataView,
     ) -> EngineReadback:
         distribution = self._distribution(document, data)
-        if len(self.plots) != len(distribution.groups):
+        overlay = next(
+            (
+                action
+                for action in reversed(actions)
+                if isinstance(action, SetObservationOverlay)
+            ),
+            None,
+        )
+        expected_plot_count = len(distribution.groups) * (2 if overlay is not None else 1)
+        if len(self.plots) != expected_plot_count:
             raise RuntimeError(f"Origin {self.profile_id} group count differs after reopen")
         for index, group in enumerate(distribution.groups):
             actual = tuple(float(value) for value in self.sheet.to_list(index))
@@ -228,7 +259,13 @@ class DistributionOriginProject:
         if self.profile_id == "X05":
             snapshot.update(self._assert_official_x05_structure(distribution))
         else:
-            snapshot.update(self._assert_official_structure(distribution))
+            snapshot.update(self._assert_official_structure(distribution, overlay))
+        if overlay is not None:
+            snapshot["observation_overlay"] = self._verify_observation_overlay(
+                distribution,
+                overlay,
+            )
+        group_count = len(distribution.groups)
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -255,7 +292,22 @@ class DistributionOriginProject:
                     object_kind=f"{self.profile_id.lower()}_native_group",
                     native_ref=f"graph:{self.graph.name}.layer:1.plot:{index}",
                 )
-                for index in range(1, len(self.plots) + 1)
+                for index in range(1, group_count + 1)
+            ),
+            *(
+                (
+                    EngineObjectRef(
+                        semantic_id=f"observation_overlay:{token}.raw",
+                        backend="origin",
+                        object_kind="observation_overlay",
+                        native_ref=(
+                            f"graph:{self.graph.name}.layer:1.plots:"
+                            f"{group_count + 1}-{group_count * 2}"
+                        ),
+                    ),
+                )
+                if overlay is not None
+                else ()
             ),
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
@@ -278,6 +330,94 @@ class DistributionOriginProject:
     def _write_data(self, distribution: DistributionData) -> None:
         for index, group in enumerate(distribution.groups):
             self.sheet.from_list(index, list(group.values), lname=group.label, axis="Y")
+
+    def _apply_observation_overlay(
+        self,
+        distribution: DistributionData,
+        action: SetObservationOverlay,
+    ) -> None:
+        """Materialize deterministic scatter points over the official box plots."""
+
+        group_count = len(distribution.groups)
+        plots = list(self.layer.plot_list())
+        if len(plots) not in {group_count, group_count * 2}:
+            raise RuntimeError("Origin K13 observation overlay found unexpected plot structure")
+        for index, group in enumerate(distribution.groups):
+            x_values = regular_observation_positions(
+                index + 1,
+                len(group.values),
+                action.jitter_fraction,
+            )
+            self.sheet.from_list(
+                group_count + index,
+                list(x_values),
+                lname=f"{group.label} observation x",
+                axis="X",
+            )
+        if len(plots) == group_count:
+            for index in range(group_count):
+                plot = self.layer.add_plot(
+                    self.sheet,
+                    coly=index,
+                    colx=group_count + index,
+                    type="s",
+                )
+                if plot is None:
+                    raise RuntimeError("Origin K13 could not create a raw-observation plot")
+            plots = list(self.layer.plot_list())
+        self.plots = plots
+        graph_name = str(self.graph.name)
+        if not graph_name.replace("_", "").isalnum():
+            raise RuntimeError(f"unsafe Origin K13 graph name: {graph_name!r}")
+        self.graph.activate()
+        set_native_distribution_outliers(
+            self.op,
+            graph_name,
+            1,
+            visible=not action.visible,
+        )
+        self._update_observation_legend(group_count, visible=action.visible)
+        if not self.op.lt_exec("layer -gu;"):
+            raise RuntimeError("Origin K13 could not make observation styles independent")
+        for index in range(group_count):
+            plot_index = group_count + index + 1
+            plot_ref = f"__K13OBS{index + 1}"
+            command = (
+                f"range {plot_ref}=[{graph_name}]1!{plot_index}; "
+                f"set {plot_ref} -k {_SYMBOL_CODES[action.marker_shape]}; "
+                f"set {plot_ref} -z {action.marker_size_pt:.12g}; "
+                f"set {plot_ref} -kf {_INTERIOR_CODES[action.marker_interior]}; "
+                f'set {plot_ref} -csf color("{action.marker_fill_color}"); '
+                f'set {plot_ref} -cse color("{action.marker_stroke_color}");'
+            )
+            if not self.op.lt_exec(command):
+                raise RuntimeError("Origin K13 rejected an observation point style")
+            self.layer.set_int(f"plot{plot_index}.show", int(action.visible))
+            # ``Layer.set_float`` accepts only a subset of the LabTalk object
+            # tree.  It appeared to succeed for ``plotN.symbol.transparency``
+            # but Origin reopened the project with the template default.  Use
+            # the same explicit layer plot property contract as the common T1
+            # visual adapter so persistence is mechanically verifiable.
+            if not self.op.lt_exec(
+                f"layer.plot{plot_index}.symbol.transparency="
+                f"{(1 - action.marker_opacity) * 100:.12g};"
+            ):
+                raise RuntimeError("Origin K13 rejected observation point opacity")
+
+    def _update_observation_legend(self, group_count: int, *, visible: bool) -> None:
+        """Keep the native box legend truthful after replacing outlier symbols."""
+
+        legend = self.layer.label("legend")
+        if legend is None:
+            return
+        raw_line = f"\\l({group_count + 1}) {_RAW_OBSERVATION_LEGEND_LABEL}"
+        lines = [
+            line
+            for line in str(legend.text).splitlines()
+            if 'Box_O' not in line and _RAW_OBSERVATION_LEGEND_LABEL not in line
+        ]
+        lines.append(raw_line if visible else _BOX_OUTLIER_LEGEND)
+        legend.text = "\r\n".join(lines)
 
     def _configure_native_profile(self, distribution: DistributionData) -> None:
         if len(self.plots) != len(distribution.groups):
@@ -317,7 +457,11 @@ class DistributionOriginProject:
             bandwidth=bandwidth,
         )
 
-    def _assert_official_structure(self, distribution: DistributionData) -> dict[str, object]:
+    def _assert_official_structure(
+        self,
+        distribution: DistributionData,
+        overlay: SetObservationOverlay | None = None,
+    ) -> dict[str, object]:
         graph_name = str(self.graph.name)
         if not graph_name.replace("_", "").isalnum():
             raise RuntimeError(f"unsafe Origin {self.profile_id} graph name: {graph_name!r}")
@@ -332,8 +476,14 @@ class DistributionOriginProject:
                 f"get {variable_prefix}P -pt {variable_prefix}PT{index};"
             )
             plot_types.append(int(self.op.lt_float(f"{variable_prefix}PT{index}")))
-        if plot_count != len(distribution.groups) or any(
-            plot_type != 206 for plot_type in plot_types
+        group_count = len(distribution.groups)
+        expected_plot_count = group_count * (2 if overlay is not None else 1)
+        box_plot_types = plot_types[:group_count]
+        overlay_plot_types = plot_types[group_count:]
+        if (
+            plot_count != expected_plot_count
+            or any(plot_type != 206 for plot_type in box_plot_types)
+            or (overlay is not None and any(plot_type != 201 for plot_type in overlay_plot_types))
         ):
             raise RuntimeError(
                 f"Origin {self.profile_id} is not the official PID 206 group structure: "
@@ -350,7 +500,9 @@ class DistributionOriginProject:
         expected_sources = [
             str(self.sheet.obj[index].DatasetName) for index in range(len(distribution.groups))
         ]
-        actual_sources = [str(plot.obj.DatasetName) for plot in self.plots]
+        actual_sources = [
+            str(plot.obj.DatasetName) for plot in self.plots[:group_count]
+        ]
         if actual_sources != expected_sources:
             raise RuntimeError(
                 f"Origin {self.profile_id} native source bindings changed after readback"
@@ -361,7 +513,7 @@ class DistributionOriginProject:
                 "official_menu_command": _OFFICIAL_MENU_COMMANDS[self.profile_id].format(
                     last_column=len(distribution.groups)
                 ),
-                "native_plot_types": plot_types,
+                "native_plot_types": box_plot_types,
                 "worksheet_designations": actual_designations,
                 "native_sources": actual_sources,
                 "native_settings": "official_default_requires_live_visual_gate",
@@ -404,7 +556,7 @@ class DistributionOriginProject:
                     "BoxRange": _BOX_RANGE_25_75,
                     "WhiskerRange": _WHISKER_RANGE_OUTLIER,
                     "WhiskerCoeff": 1.5,
-                    "HasOutliers": 1,
+                    "HasOutliers": 0 if overlay is not None and overlay.visible else 1,
                 }:
                     raise RuntimeError("Origin K13 lost its explicit Tukey 1.5 x IQR contract")
             else:
@@ -453,10 +605,131 @@ class DistributionOriginProject:
             "official_menu_command": _OFFICIAL_MENU_COMMANDS[self.profile_id].format(
                 last_column=len(distribution.groups)
             ),
-            "native_plot_types": plot_types,
+            "native_plot_types": box_plot_types,
+            "observation_plot_types": overlay_plot_types,
             "worksheet_designations": actual_designations,
             "native_sources": actual_sources,
             "native_settings": native_settings,
+        }
+
+    def _verify_observation_overlay(
+        self,
+        distribution: DistributionData,
+        action: SetObservationOverlay,
+    ) -> dict[str, object]:
+        if self.profile_id != "K13":
+            raise RuntimeError("observation overlays are only valid for K13")
+        group_count = len(distribution.groups)
+        if len(self.plots) != group_count * 2:
+            raise RuntimeError("Origin K13 observation plots did not survive reopen")
+        designations = [
+            int(self.sheet.get_int(f"col{group_count + index + 1}.type"))
+            for index in range(group_count)
+        ]
+        if designations != [4] * group_count:
+            raise RuntimeError("Origin K13 observation X columns lost their X designation")
+        expected_sources = [
+            str(self.sheet.obj[index].DatasetName) for index in range(group_count)
+        ]
+        actual_sources = [
+            str(plot.obj.DatasetName) for plot in self.plots[group_count:]
+        ]
+        if actual_sources != expected_sources:
+            raise RuntimeError("Origin K13 observation plots no longer reuse box Y sources")
+        expected_fill = int(self.op.lt_float(f'color("{action.marker_fill_color}")'))
+        expected_stroke = int(self.op.lt_float(f'color("{action.marker_stroke_color}")'))
+        style_rows: list[dict[str, int | float]] = []
+        x_positions: list[list[float]] = []
+        graph_name = str(self.graph.name)
+        self.graph.activate()
+        x_start, x_end, x_step, *_ = (
+            float(value) for value in self.layer.axis("x").limits
+        )
+        expected_x_limits = (0.5, group_count + 0.5, 1.0)
+        if any(
+            abs(observed - wanted) > 1e-12
+            for observed, wanted in zip(
+                (x_start, x_end, x_step), expected_x_limits, strict=True
+            )
+        ):
+            raise RuntimeError("Origin K13 observation overlay changed category-axis limits")
+        legend = self.layer.label("legend")
+        if legend is not None:
+            legend_text = str(legend.text)
+            raw_line = f"\\l({group_count + 1}) {_RAW_OBSERVATION_LEGEND_LABEL}"
+            expected_line = raw_line if action.visible else _BOX_OUTLIER_LEGEND
+            forbidden = _BOX_OUTLIER_LEGEND if action.visible else raw_line
+            if expected_line not in legend_text or forbidden in legend_text:
+                raise RuntimeError("Origin K13 observation legend changed after reopen")
+        for index, group in enumerate(distribution.groups):
+            expected_x = regular_observation_positions(
+                index + 1,
+                len(group.values),
+                action.jitter_fraction,
+            )
+            actual_x = tuple(
+                float(value) for value in self.sheet.to_list(group_count + index)
+            )
+            if len(actual_x) != len(expected_x) or any(
+                abs(observed - wanted) > 1e-12
+                for observed, wanted in zip(actual_x, expected_x, strict=True)
+            ):
+                raise RuntimeError("Origin K13 deterministic observation positions changed")
+            x_positions.append(list(actual_x))
+            plot_index = group_count + index + 1
+            plot_ref = f"__K13VERIFY{index + 1}"
+            if not self.op.lt_exec(
+                f"range {plot_ref}=[{graph_name}]1!{plot_index}; "
+                f"get {plot_ref} -k __K13VK{index + 1}; "
+                f"get {plot_ref} -z __K13VZ{index + 1}; "
+                f"get {plot_ref} -kf __K13VF{index + 1}; "
+                f"get {plot_ref} -csf __K13VCF{index + 1}; "
+                f"get {plot_ref} -cse __K13VCE{index + 1};"
+            ):
+                raise RuntimeError("Origin K13 could not read observation point styles")
+            state: dict[str, int | float] = {
+                "visible": int(self.layer.get_int(f"plot{plot_index}.show")),
+                "marker_shape": int(self.op.lt_float(f"__K13VK{index + 1}")),
+                "marker_size_pt": float(self.op.lt_float(f"__K13VZ{index + 1}")),
+                "marker_interior": int(self.op.lt_float(f"__K13VF{index + 1}")),
+                "marker_fill_color": int(self.op.lt_float(f"__K13VCF{index + 1}")),
+                "marker_stroke_color": int(self.op.lt_float(f"__K13VCE{index + 1}")),
+                "marker_opacity": 1
+                - float(self.op.lt_float(f"layer.plot{plot_index}.symbol.transparency"))
+                / 100,
+            }
+            expected_state: dict[str, int | float] = {
+                "visible": int(action.visible),
+                "marker_shape": _SYMBOL_CODES[action.marker_shape],
+                "marker_size_pt": action.marker_size_pt,
+                "marker_interior": _INTERIOR_CODES[action.marker_interior],
+                "marker_fill_color": expected_fill,
+                "marker_stroke_color": expected_stroke,
+                "marker_opacity": action.marker_opacity,
+            }
+            for key, wanted in expected_state.items():
+                observed = state[key]
+                if isinstance(wanted, float):
+                    if abs(float(observed) - wanted) > 1e-9:
+                        raise RuntimeError(
+                            f"Origin K13 observation {key} changed after reopen"
+                        )
+                elif observed != wanted:
+                    raise RuntimeError(
+                        f"Origin K13 observation {key} changed after reopen"
+                    )
+            style_rows.append(state)
+        return {
+            "group_count": group_count,
+            "point_count": sum(len(group.values) for group in distribution.groups),
+            "jitter_fraction": action.jitter_fraction,
+            "category_axis_limits": list(expected_x_limits),
+            "legend_entry": (
+                _RAW_OBSERVATION_LEGEND_LABEL if action.visible else "native_outliers"
+            ),
+            "x_positions": x_positions,
+            "styles": style_rows,
+            "same_source_rows": True,
         }
 
     def _assert_official_x05_structure(self, distribution: DistributionData) -> dict[str, object]:

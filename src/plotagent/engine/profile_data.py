@@ -15,7 +15,13 @@ from typing import Literal
 
 from plotagent.plot_calculations.kernels import histogram_geometry
 
-from .contracts import EngineColumn, EngineDataView, PlotDocument
+from .contracts import (
+    EngineColumn,
+    EngineDataView,
+    PlotDocument,
+    PointMarkerShape,
+    SetPointMarkerMap,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +89,8 @@ class K03ScatterData:
     groups: tuple[ScatterGroupData, ...]
     x_field_name: str
     y_field_name: str
+    x_labels: tuple[str, ...] | None = None
+    x_scale: Literal["linear", "categorical"] = "linear"
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +103,64 @@ class K04BubbleData:
     y_field_name: str
     size_field_name: str | None
     color_field_name: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PointMarkerShapeData:
+    field_id: str
+    field_name: str
+    values: tuple[bool | str, ...]
+    shapes: tuple[PointMarkerShape, ...]
+
+
+def point_marker_shapes(
+    data: EngineDataView,
+    action: SetPointMarkerMap,
+) -> PointMarkerShapeData:
+    """Resolve one exhaustive discrete point-marker map without defaults."""
+
+    column = next(
+        (candidate for candidate in data.columns if candidate.field.field_id == action.field_id),
+        None,
+    )
+    if column is None:
+        raise ValueError("point marker map field is absent from the prepared data")
+    if column.field.logical_type not in {"categorical", "boolean", "text"}:
+        raise ValueError("point marker map field must be categorical, boolean, or text")
+    entries = {
+        (type(entry.value).__name__, entry.value): entry.marker_shape
+        for entry in action.entries
+    }
+    values: list[bool | str] = []
+    shapes: list[PointMarkerShape] = []
+    observed: set[tuple[str, bool | str]] = set()
+    for row_index, value in enumerate(column.values, start=1):
+        if not isinstance(value, (bool, str)):
+            raise ValueError(
+                f"point marker map field contains an unsupported or missing value at row "
+                f"{row_index}"
+            )
+        identity = (type(value).__name__, value)
+        try:
+            shape = entries[identity]
+        except KeyError as error:
+            raise ValueError(
+                f"point marker map has no entry for observed value {value!r}"
+            ) from error
+        values.append(value)
+        shapes.append(shape)
+        observed.add(identity)
+    unused = tuple(identity for identity in entries if identity not in observed)
+    if unused:
+        raise ValueError(
+            f"point marker map contains an unused value {unused[0][1]!r}; entries must be exact"
+        )
+    return PointMarkerShapeData(
+        field_id=column.field.field_id,
+        field_name=column.field.name,
+        values=tuple(values),
+        shapes=tuple(shapes),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,7 +487,26 @@ def grouped_xy(
         y = columns[bindings["y"]]
     except KeyError as error:
         raise ValueError(f"{profile_id} requires x and y bindings") from error
-    x_values = _numeric_values(x, "x", profile_id, allow_missing=True)
+    x_labels: tuple[str, ...] | None = None
+    x_scale: Literal["linear", "categorical"] = "linear"
+    if x.field.logical_type == "numeric":
+        x_values = _numeric_values(x, "x", profile_id, allow_missing=True)
+    elif profile_id in {"K01", "K02"} and x.field.logical_type in {
+        "categorical",
+        "text",
+        "boolean",
+    }:
+        source_labels = tuple(_label(value, "x") for value in x.values)
+        x_labels = tuple(dict.fromkeys(source_labels))
+        positions = {label: float(index) for index, label in enumerate(x_labels)}
+        x_values = tuple(positions[label] for label in source_labels)
+        x_scale = "categorical"
+    else:
+        raise ValueError(
+            f"{profile_id} x data must be numeric"
+            if profile_id not in {"K01", "K02"}
+            else f"{profile_id} x data must be numeric or label-compatible"
+        )
     y_values = _numeric_values(y, "y", profile_id, allow_missing=True)
     group_field_id = bindings.get("group")
     groups: tuple[ScatterGroupData, ...]
@@ -453,6 +538,8 @@ def grouped_xy(
         groups=groups,
         x_field_name=x.field.name,
         y_field_name=y.field.name,
+        x_labels=x_labels,
+        x_scale=x_scale,
     )
 
 
@@ -652,6 +739,33 @@ def distribution_groups(
                 raise ValueError(f"{profile_id} group {label!r} has no finite observations")
             grouped.append(DistributionGroupData(label=label, values=observations))
     return DistributionData(groups=tuple(grouped), value_field_name=value.field.name)
+
+
+def regular_observation_positions(
+    group_ordinal: int,
+    observation_count: int,
+    jitter_fraction: float,
+) -> tuple[float, ...]:
+    """Return backend-neutral deterministic X positions for raw observations.
+
+    Positions preserve source-row order and are regularly spaced around the
+    one-based group ordinal.  No randomness, value sorting, collision packing,
+    or second data source is permitted by this helper.
+    """
+
+    if group_ordinal < 1:
+        raise ValueError("observation overlay group ordinals start at one")
+    if observation_count < 1:
+        raise ValueError("observation overlay groups require at least one value")
+    if not 0 <= jitter_fraction <= 0.45:
+        raise ValueError("observation overlay jitter_fraction must be between 0 and 0.45")
+    if observation_count == 1 or jitter_fraction == 0:
+        return (float(group_ordinal),) * observation_count
+    step = (2 * jitter_fraction) / (observation_count - 1)
+    return tuple(
+        float(group_ordinal) - jitter_fraction + step * index
+        for index in range(observation_count)
+    )
 
 
 def x09_floating_intervals(
@@ -1133,11 +1247,19 @@ def _dual_y_series(
     left_values = tuple(_numeric(value) for value in left.values)
     right_values = tuple(_numeric(value) for value in right.values)
     x_scale: Literal["categorical", "linear"]
-    if x.field.logical_type in {"categorical", "text"}:
+    if profile_id in {"X35", "X36"}:
+        if x.field.logical_type not in {"categorical", "text", "numeric", "boolean"}:
+            raise ValueError(f"{profile_id} category data must be label-compatible")
         labels = tuple(_label(value, "x") for value in x.values)
         if len(labels) != len(set(labels)):
             raise ValueError(f"{profile_id} categorical labels must be unique")
         x_values: tuple[str | float, ...] = labels
+        x_scale = "categorical"
+    elif x.field.logical_type in {"categorical", "text"}:
+        labels = tuple(_label(value, "x") for value in x.values)
+        if len(labels) != len(set(labels)):
+            raise ValueError(f"{profile_id} categorical labels must be unique")
+        x_values = labels
         x_scale = "categorical"
     elif x.field.logical_type == "numeric":
         labels = None
@@ -1148,8 +1270,6 @@ def _dual_y_series(
         x_scale = "linear"
     else:
         raise ValueError(f"{profile_id} supports categorical or numeric x data")
-    if profile_id in {"X35", "X36"} and x_scale != "categorical":
-        raise ValueError(f"{profile_id} requires categorical data")
     return X23SeriesData(
         x_values=x_values,
         x_labels=labels,

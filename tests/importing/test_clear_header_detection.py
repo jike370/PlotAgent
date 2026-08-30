@@ -5,7 +5,7 @@ import pytest
 from openpyxl import Workbook
 
 import plotagent.importing.text as text_module
-from plotagent.importing import Imported, inspect_source
+from plotagent.importing import Clarification, Imported, inspect_source
 
 
 def test_clear_categorical_csv_header_does_not_require_confirmation(tmp_path: Path) -> None:
@@ -38,6 +38,38 @@ def test_clear_categorical_excel_sheet_does_not_block_other_sheets(tmp_path: Pat
 
     assert isinstance(result, Imported)
     assert tuple(item.recipe.sheet for item in result.sources) == ("Numeric", "S61_raw")
+
+
+def test_excel_header_clarification_is_scoped_to_one_sheet(tmp_path: Path) -> None:
+    source = tmp_path / "scoped-headers.xlsx"
+    workbook = Workbook()
+    data = workbook.active
+    data.title = "Data"
+    data.append(("category", "value"))
+    data.append((0, 0.33852964))
+    data.append((1, 0.30398383))
+    lineage = workbook.create_sheet("Lineage")
+    lineage.append(("Data lineage", "Value"))
+    lineage.append(("Paper", "Example"))
+    lineage.append(("Source", "Figure 2"))
+    workbook.save(source)
+
+    clarification = inspect_source(source)
+    assert isinstance(clarification, Clarification)
+    assert tuple(option.value for option in clarification.options) == (
+        "sheet:Lineage|line:1",
+        "sheet:Lineage|line:2",
+        "sheet:Lineage|none",
+    )
+
+    result = inspect_source(source, header_rows={"Lineage": 2})
+    assert isinstance(result, Imported)
+    data_artifact = next(item for item in result.sources if item.recipe.sheet == "Data")
+    assert tuple(field.name for field in data_artifact.source_dataset.field_schema) == (
+        "category",
+        "value",
+    )
+    assert data_artifact.rows == ((0, 0.33852964), (1, 0.30398383))
 
 
 def test_bracketed_excel_unit_row_is_metadata_not_sample_data(tmp_path: Path) -> None:

@@ -107,7 +107,12 @@ _FIXED: dict[ChartTypeId, tuple[str, ...]] = {
     "X35": ("左右 Y 独立缩放且均为从零基线起始的普通柱，不得变成浮动柱。",),
     "X36": ("左侧为柱、右侧为线点，两个 Y 轴独立缩放并共享 X。",),
     "X39": ("源表保持宽表；每行跨多个 Y 列形成一条线序列关系。",),
-    "X40": ("源表保持宽表；Before/After 按行成对连接并保留 subject 身份。",),
+    "X40": (
+        "源表保持宽表；Before/After 按行成对连接并保留 subject 身份。",
+        "label 角色始终保留逐行身份数据；若用户要求删去或隐藏 Mouse/subject 标签，"
+        "使用 set_chart_parameter：parameter=identity_labels_visible，value=false，"
+        "不要删除 label 绑定或改写来源数据。",
+    ),
 }
 
 _FORBIDDEN: dict[ChartTypeId, tuple[str, ...]] = {

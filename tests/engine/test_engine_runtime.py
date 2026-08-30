@@ -140,6 +140,11 @@ class FakeBackend:
         raise NotImplementedError
 
 
+class CurrentStateBackend(FakeBackend):
+    def requires_previous_version(self, document) -> bool:
+        return False
+
+
 def _runtime(tmp_path: Path, backends: tuple[FakeBackend, ...]):
     project = ProjectStore.create(tmp_path / "project", project_id="project:runtime")
     catalog = EngineCatalog(
@@ -287,6 +292,30 @@ def test_runtime_lazily_materializes_every_native_version_without_domain_mutatio
             == revision_before
         )
         assert runtime.service.repository.latest_version(created.plot_id) == 2
+
+
+def test_runtime_can_materialize_a_full_history_backend_at_only_the_requested_version(
+    tmp_path: Path,
+) -> None:
+    matplotlib = FakeBackend("matplotlib")
+    origin = CurrentStateBackend("origin")
+    project, _provider, runtime = _runtime(tmp_path, (matplotlib,))
+    with project:
+        created = runtime.execute(_create()).document
+        edited = runtime.execute(
+            SetTitle(
+                action_id="action:title-current-state",
+                target=created.plot_id,
+                expected_plot_version=created.plot_version,
+                text="Edited",
+            )
+        ).document
+
+        readback = runtime.materialize_backend(origin, edited)
+
+        assert readback.document == document_ref(edited)
+        assert [change.readback.document.plot_version for change in origin.changes] == [2]
+        assert origin.staged_action_ids == [("action:create", "action:title-current-state")]
 
 
 def test_runtime_restores_an_exact_snapshot_then_appends_new_edits_to_that_state(

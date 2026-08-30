@@ -7,10 +7,14 @@ import os
 import sys
 from hashlib import sha256
 from pathlib import Path
+from typing import Literal, cast
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 
+from plotagent.engine.backends.origin.dual_y_special import (  # noqa: E402
+    DualYSpecialOriginProject,
+)
 from plotagent.engine.backends.origin.k04 import K04OriginProject  # noqa: E402
 from plotagent.engine.backends.origin.messages import OriginWorkerRequest  # noqa: E402
 from plotagent.engine.backends.origin.s34 import (  # noqa: E402
@@ -18,11 +22,12 @@ from plotagent.engine.backends.origin.s34 import (  # noqa: E402
     verify_s34_equal_scale_layout,
 )
 from plotagent.engine.backends.origin.visual_t1 import _verify_actions  # noqa: E402
-from plotagent.engine.contracts import CreatePlot  # noqa: E402
+from plotagent.engine.contracts import CreatePlot, SetSeriesStyle  # noqa: E402
 from plotagent.engine.visual_t1 import (  # noqa: E402
     effective_visual_actions,
     split_visual_actions,
 )
+from scripts.origin_standalone_export import export_origin_png_standalone  # noqa: E402
 
 
 def _sha(path: Path) -> str:
@@ -50,12 +55,35 @@ def main() -> int:
     import originpro as op  # type: ignore[import-untyped]  # noqa: PLC0415
 
     op.set_show(False)
+    result: dict[str, object] | None = None
     try:
         structural_snapshot: dict[str, object] | None = None
+        dual_y_native_snapshot: dict[str, object] | None = None
+        dual_y_default_color_snapshot: dict[str, object] | None = None
         if visual:
-            op.new(asksave=False)
-            if not op.open(str(opju_path), readonly=True, asksave=False):
-                raise RuntimeError(f"Origin could not fresh-reopen {opju_path}")
+            if request.document.profile_id in {"X35", "X36"}:
+                dual_y_project = DualYSpecialOriginProject(
+                    op,
+                    profile_id=cast(
+                        Literal["X35", "X36"], request.document.profile_id
+                    ),
+                )
+                dual_y_project.open(opju_path)
+                dual_y_native_snapshot = dual_y_project.verify_final_native_structure(
+                    request.document,
+                    request.data,
+                )
+                if not any(
+                    isinstance(action, SetSeriesStyle)
+                    for action in effective_visual_actions(visual)
+                ):
+                    dual_y_default_color_snapshot = (
+                        dual_y_project.verify_product_default_series_colors()
+                    )
+            else:
+                op.new(asksave=False)
+                if not op.open(str(opju_path), readonly=True, asksave=False):
+                    raise RuntimeError(f"Origin could not fresh-reopen {opju_path}")
         else:
             project = K04OriginProject(op)
             project.reopen(opju_path)
@@ -86,16 +114,18 @@ def main() -> int:
                     effective_visual_actions(visual),
                 )
             )
+            if dual_y_native_snapshot is not None:
+                snapshot["dual_y_final_native_structure"] = dual_y_native_snapshot
+            if dual_y_default_color_snapshot is not None:
+                snapshot["dual_y_product_default_series_colors"] = (
+                    dual_y_default_color_snapshot
+                )
         else:
             snapshot = {"structural_readback": structural_snapshot}
         if request.document.profile_id == "S34" and s34_equal_axes_enabled(
             request.document, request.actions
         ):
             snapshot["profile_invariant"] = verify_s34_equal_scale_layout(graph)
-        png_path.parent.mkdir(parents=True, exist_ok=True)
-        graph.save_fig(str(png_path), type="png", replace=True, width=1600)
-        if not png_path.is_file() or png_path.stat().st_size <= 0:
-            raise RuntimeError("fresh Origin session did not export a non-empty PNG")
         result = {
             "schema_version": "plotagent.release-origin-fresh.v1",
             "process_id": os.getpid(),
@@ -106,15 +136,26 @@ def main() -> int:
             "worksheet_count": len(worksheets),
             "matrix_count": len(matrices),
             "verification_mode": "visual" if visual else "structural",
+            "visual_export_mode": "origin_standalone_commandline",
             "visual_snapshot": snapshot,
             "opju_sha256": _sha(opju_path),
             "opju_size": opju_path.stat().st_size,
-            "png_sha256": _sha(png_path),
-            "png_size": png_path.stat().st_size,
         }
-        result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     finally:
         op.exit()
+    if result is None:
+        raise RuntimeError("fresh Origin verification did not produce a result")
+    export_origin_png_standalone(
+        install_dir=Path(request.install_dir),
+        opju_path=opju_path,
+        png_path=png_path,
+    )
+    result["png_sha256"] = _sha(png_path)
+    result["png_size"] = png_path.stat().st_size
+    result_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return 0
 
 

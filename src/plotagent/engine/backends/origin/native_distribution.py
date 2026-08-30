@@ -79,6 +79,34 @@ def configure_native_distribution(
         )
 
 
+def set_native_distribution_outliers(
+    op: Any,
+    graph_name: str,
+    plot_index: int,
+    *,
+    visible: bool,
+) -> None:
+    """Toggle dedicated outlier symbols when all raw observations are visible."""
+
+    ensure_native_distribution_bridge(op)
+    graph = _safe_graph_name(graph_name)
+    if plot_index < 1:
+        raise ValueError("Origin distribution plot indexes are one-based")
+    command = (
+        "run -oc {__PADISTSTATUS=plotagent_set_distribution_outliers("
+        f'"{graph}",{plot_index},{int(visible)}'
+        ");};"
+    )
+    if not op.lt_exec(command):
+        raise RuntimeError("Origin could not invoke the native outlier formatter")
+    status = int(op.lt_float("__PADISTSTATUS"))
+    if status != 0:
+        raise RuntimeError(
+            "Origin native outlier formatter failed: "
+            f"plot={plot_index}, visible={visible}, status={status}"
+        )
+
+
 def read_native_distribution_value(
     op: Any,
     graph_name: str,

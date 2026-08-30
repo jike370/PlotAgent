@@ -8,23 +8,36 @@ from dataclasses import dataclass
 from typing import Literal
 
 from plotagent.engine import (
+    AddCallout,
+    AddReferenceLine,
     EngineCatalog,
     EngineReadback,
     PlotDocument,
     PlotEngineAction,
+    PointMarkerMapEntry,
     SetAxis,
+    SetCanvas,
     SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetObservationOverlay,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
 from plotagent.engine.profiles import ENGINE_PROFILES
 from scripts.release_matrix_cases import ReleaseCase
 
-_ACTION_METADATA = {"operation", "action_id", "target", "expected_plot_version"}
+_ACTION_METADATA = {
+    "operation",
+    "action_id",
+    "target",
+    "expected_plot_version",
+    "reference_line_id",
+    "callout_id",
+}
 
 _AXIS_SUFFIX = {
     "S34": "x",
@@ -108,9 +121,11 @@ def _bound_values(case: ReleaseCase) -> tuple[float, float]:
 
 def _numeric_values(case: ReleaseCase, roles: set[str]) -> list[float]:
     result: list[float] = []
-    for binding, column in zip(case.create.bindings, case.view.columns, strict=True):
+    columns = {column.field.field_id: column for column in case.view.columns}
+    for binding in case.create.bindings:
         if binding.role not in roles:
             continue
+        column = columns[binding.field_id]
         for value in column.values:
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 result.append(float(value))
@@ -378,6 +393,7 @@ _CHART_PARAMETER_VALUES: dict[str, str | int | bool] = {
     "levels": 7,
     "show_counts": False,
     "size_key_visible": False,
+    "identity_labels_visible": False,
     "triangle": "lower",
 }
 
@@ -390,6 +406,7 @@ class IsolatedEditCase:
     operation: str
     focal_parameters: tuple[str, ...]
     dependency_parameters: tuple[str, ...]
+    setup_actions: tuple[PlotEngineAction, ...]
     action: PlotEngineAction
     comparison_action: PlotEngineAction
     comparison_mode: Literal["pixel_ab", "shared_property"]
@@ -461,12 +478,74 @@ def _chart_parameter_actions(
     )
 
 
+def _reference_line_action(
+    case: ReleaseCase,
+    readback: EngineReadback,
+    *,
+    expected_version: int,
+) -> AddReferenceLine:
+    suffix = _AXIS_SUFFIX.get(case.profile_id, "y")
+    roles = set(_BOUND_ROLES.get(case.profile_id, ()))
+    values = _numeric_values(case, roles) if roles else []
+    if not values:
+        values = [
+            float(value)
+            for column in case.view.columns
+            for value in column.values
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        ]
+    if not values:
+        raise RuntimeError(f"{case.profile_id} has no numeric reference-line value")
+    value = (min(values) + max(values)) / 2
+    return AddReferenceLine(
+        action_id=f"action:release-{case.profile_id.lower()}-reference-line",
+        target=_target(readback, "axis", suffix=suffix),
+        expected_plot_version=expected_version,
+        reference_line_id=f"reference_line:release.{case.profile_id.lower()}.threshold",
+        value=value,
+        label="Reference",
+        line_color="#B42318",
+        line_width_pt=1.5,
+        line_style="dash",
+    )
+
+
+def _callout_action(
+    case: ReleaseCase,
+    reference_line: AddReferenceLine,
+    *,
+    expected_version: int,
+) -> AddCallout:
+    return AddCallout(
+        action_id=f"action:release-{case.profile_id.lower()}-reference-callout",
+        target=reference_line.reference_line_id,
+        expected_plot_version=expected_version,
+        callout_id=f"callout:release.{case.profile_id.lower()}.threshold",
+        text="Reference callout",
+        anchor_fraction=0.68,
+        text_x_fraction=0.82,
+        text_y_fraction=0.82,
+        arrow_color="#B42318",
+        arrow_width_pt=1.5,
+        arrow_head="filled",
+        font_family="Arial",
+        font_size_pt=9,
+        font_weight="bold",
+        italic=True,
+        text_color="#B42318",
+    )
+
+
 def action_parameter_names(action: PlotEngineAction) -> frozenset[str]:
     """Return the public capability parameters exercised by one edit action."""
 
     if isinstance(action, SetChartParameter):
         return frozenset((action.parameter,))
-    metadata = {"operation", "action_id", "target", "expected_plot_version"}
+    if isinstance(action, SetPointMarkerMap):
+        return frozenset(("field", "entries"))
+    metadata = _ACTION_METADATA
     names = set(action.model_dump(exclude_none=True)) - metadata
     if isinstance(action, SetAxis) and {"minimum", "maximum"} <= names:
         names -= {"minimum", "maximum"}
@@ -475,8 +554,35 @@ def action_parameter_names(action: PlotEngineAction) -> frozenset[str]:
 
 
 def _isolated_dependencies(action: PlotEngineAction, parameter: str) -> tuple[str, ...]:
+    if isinstance(action, SetPointMarkerMap):
+        return ("entries",) if parameter == "field" else ("field",)
+    if isinstance(action, SetObservationOverlay):
+        return tuple(
+            item
+            for item in (
+                "visible",
+                "jitter_fraction",
+                "marker_shape",
+                "marker_size_pt",
+                "marker_interior",
+                "marker_fill_color",
+                "marker_stroke_color",
+                "marker_opacity",
+            )
+            if item != parameter
+        )
     if isinstance(action, SetTitle) and parameter != "text":
         return ("text",)
+    if isinstance(action, AddReferenceLine) and parameter != "value":
+        return ("value",)
+    if isinstance(action, AddCallout):
+        required = ("text", "anchor_fraction", "text_x_fraction", "text_y_fraction")
+        return tuple(item for item in required if item != parameter)
+    if isinstance(action, SetCanvas):
+        if parameter == "width_mm":
+            return ("height_mm",)
+        if parameter == "height_mm":
+            return ("width_mm",)
     if isinstance(action, SetAxis):
         if parameter.startswith("title_"):
             return ("label",)
@@ -525,6 +631,8 @@ def _isolated_dependencies(action: PlotEngineAction, parameter: str) -> tuple[st
 
 
 def _isolated_value(action: PlotEngineAction, parameter: str) -> object:
+    if isinstance(action, SetPointMarkerMap):
+        return action.field_id if parameter == "field" else action.entries
     overrides: dict[str, object] = {
         "reverse": True,
         "tick_labels_visible": False,
@@ -581,6 +689,7 @@ def _alternate_text(parameter: str, value: str) -> str:
         "tick_font_family": "Calibri" if value != "Calibri" else "Arial",
         "font_weight": "normal" if value != "normal" else "bold",
         "title_font_weight": "normal" if value != "normal" else "bold",
+        "arrow_head": "open" if value != "open" else "filled",
     }
     if parameter in choices:
         return choices[parameter]
@@ -608,6 +717,16 @@ def _alternate_number(parameter: str, value: int | float) -> int | float:
         return -25.0 if float(value) >= 0 else 25.0
     if parameter == "major_tick_step":
         return float(value) * 0.57
+    if parameter in {"width_mm", "height_mm"}:
+        return float(value) * 0.8
+    if parameter == "aspect_ratio":
+        return min(5.0, float(value) * 1.25)
+    if parameter in {"anchor_fraction", "text_x_fraction", "text_y_fraction"}:
+        return 0.25 if float(value) > 0.5 else 0.75
+    if parameter == "jitter_fraction":
+        return 0.35 if float(value) < 0.3 else 0.1
+    if parameter == "value":
+        return float(value) + max(abs(float(value)) * 0.2, 0.5)
     if "font_size_pt" in parameter:
         return min(72.0, float(value) + 4.0)
     if parameter.endswith("width_pt") or parameter in {
@@ -624,6 +743,24 @@ def _comparison_action(
 ) -> PlotEngineAction:
     payload = action.model_dump(mode="python")
     payload["action_id"] = str(action.action_id) + "-comparison"
+    if isinstance(action, SetPointMarkerMap):
+        if focal_parameters == ("field",):
+            payload["field_id"] = str(action.field_id).replace(
+                "-marker-class", "-marker-class-alt"
+            )
+        elif focal_parameters == ("entries",):
+            payload["entries"] = tuple(
+                {
+                    "value": entry.value,
+                    "marker_shape": (
+                        "triangle_down" if entry.marker_shape == "circle" else "circle"
+                    ),
+                }
+                for entry in action.entries
+            )
+        else:
+            raise RuntimeError(f"unsupported point-marker comparison {focal_parameters!r}")
+        return SetPointMarkerMap.model_validate(payload)
     if isinstance(action, SetChartParameter):
         value = action.value
         if isinstance(value, bool):
@@ -674,12 +811,19 @@ def _isolated_action(
     dependency_parameters: tuple[str, ...],
 ) -> PlotEngineAction:
     payload = action.model_dump(mode="python")
-    metadata = {name: payload[name] for name in _ACTION_METADATA}
+    metadata = {name: payload[name] for name in _ACTION_METADATA if name in payload}
     metadata["action_id"] = (
         f"action:isolated-{str(metadata['target']).partition(':')[2].replace('.', '-')}-"
         f"{'-'.join(focal_parameters).replace('_', '-')}"
     )
     metadata["expected_plot_version"] = 1
+    if isinstance(action, SetPointMarkerMap):
+        return action.model_copy(
+            update={
+                "action_id": metadata["action_id"],
+                "expected_plot_version": 1,
+            }
+        )
     if isinstance(action, SetAxis) and "bounds" in focal_parameters:
         metadata["minimum"] = action.minimum
         metadata["maximum"] = action.maximum
@@ -729,6 +873,7 @@ def isolated_edit_cases(
                         operation=capability.operation,
                         focal_parameters=(action.parameter,),
                         dependency_parameters=(),
+                        setup_actions=(),
                         action=isolated_chart,
                         comparison_action=_comparison_action(
                             isolated_chart,
@@ -765,6 +910,16 @@ def isolated_edit_cases(
                 if item not in focal
             )
             isolated_action = _isolated_action(representative_action, focal, dependencies)
+            setup_actions: tuple[PlotEngineAction, ...] = ()
+            if isinstance(isolated_action, AddCallout):
+                reference_action = next(
+                    item
+                    for item in representative
+                    if isinstance(item, AddReferenceLine)
+                    and item.reference_line_id == isolated_action.target
+                ).model_copy(update={"expected_plot_version": 1})
+                isolated_action = isolated_action.model_copy(update={"expected_plot_version": 2})
+                setup_actions = (reference_action,)
             comparison_action = _comparison_action(isolated_action, focal)
             catalog.validate_action(profile, isolated_action)
             catalog.validate_action(profile, comparison_action)
@@ -786,6 +941,7 @@ def isolated_edit_cases(
                     operation=capability.operation,
                     focal_parameters=focal,
                     dependency_parameters=dependencies,
+                    setup_actions=setup_actions,
                     action=isolated_action,
                     comparison_action=comparison_action,
                     comparison_mode=comparison_mode,
@@ -815,9 +971,20 @@ def representative_edit_actions(
         )
     ]
     actions.append(_axis_action(case, readback, expected_version=len(actions) + 1))
+    actions.append(
+        SetCanvas(
+            action_id=f"action:release-{case.profile_id.lower()}-canvas",
+            target=case.document.plot_id,
+            expected_plot_version=len(actions) + 1,
+            width_mm=180,
+            height_mm=100,
+            aspect_ratio=1.8,
+        )
+    )
     profile = next(
         profile for profile in ENGINE_PROFILES if str(profile.profile_id) == case.profile_id
     )
+    operation_names = {item.operation for item in profile.capabilities}
     all_series_actions = _series_actions(
         case,
         readback,
@@ -833,6 +1000,41 @@ def representative_edit_actions(
         for action in all_series_actions
         if action_parameter_names(action) != frozenset(("visible",))
     )
+    if "set_point_marker_map" in operation_names:
+        marker_field = next(
+            column
+            for column in case.view.columns
+            if str(column.field.field_id).endswith("-marker-class")
+        )
+        actions.append(
+            SetPointMarkerMap(
+                action_id=f"action:release-{case.profile_id.lower()}-point-marker-map",
+                target=_target(readback, "series"),
+                expected_plot_version=len(actions) + 1,
+                field_id=marker_field.field.field_id,
+                entries=(
+                    PointMarkerMapEntry(value="measured", marker_shape="circle"),
+                    PointMarkerMapEntry(value="derived", marker_shape="triangle_down"),
+                ),
+            )
+        )
+    if "set_observation_overlay" in operation_names:
+        token = str(case.document.plot_id).removeprefix("plot:")
+        actions.append(
+            SetObservationOverlay(
+                action_id=f"action:release-{case.profile_id.lower()}-observation-overlay",
+                target=f"observation_overlay:{token}.raw",
+                expected_plot_version=len(actions) + 1,
+                visible=True,
+                jitter_fraction=0.2,
+                marker_shape="diamond",
+                marker_size_pt=5,
+                marker_interior="solid",
+                marker_fill_color="#F2F4F7",
+                marker_stroke_color="#344054",
+                marker_opacity=0.75,
+            )
+        )
     if any(item.operation == "set_legend" for item in profile.capabilities):
         actions.append(
             SetLegend(
@@ -851,7 +1053,21 @@ def representative_edit_actions(
                 frame_width_pt=1,
             )
         )
-    operation_names = {item.operation for item in profile.capabilities}
+    if "add_reference_line" in operation_names:
+        reference_line = _reference_line_action(
+            case,
+            readback,
+            expected_version=len(actions) + 1,
+        )
+        actions.append(reference_line)
+        if "add_callout" in operation_names:
+            actions.append(
+                _callout_action(
+                    case,
+                    reference_line,
+                    expected_version=len(actions) + 1,
+                )
+            )
     if "set_chart_parameter" in operation_names:
         actions.extend(
             _chart_parameter_actions(case, expected_version=len(actions) + 1)

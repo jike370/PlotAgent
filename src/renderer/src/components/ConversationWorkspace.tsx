@@ -856,6 +856,9 @@ function WorkflowPlanObject({
   const sourceCount = new Set(plan.steps.flatMap((step) => step.sourceDatasetIds)).size
   const bindingCount = plan.steps.reduce((total, step) => total + step.bindings.length, 0)
   const bindingSummary = bindingCount > 0 ? `${bindingCount} 个字段角色` : '字段绑定待补充'
+  const sourceBindingSummary = plan.steps.length > 0 && plan.steps.every((step) => step.taskKind === 'edit')
+    ? '沿用原图数据与字段绑定'
+    : `${sourceCount} 个来源 · ${bindingSummary}`
   const objectChartNames = [...new Set(plan.steps.flatMap((step) => {
     const chart = chartCatalog.find((candidate) => candidate.id === step.profileId)
     return chart ? [`${chart.id} ${chart.name}`] : []
@@ -895,7 +898,7 @@ function WorkflowPlanObject({
         </article>
         <article className="agent-context-card" role="listitem">
           <TableProperties size={16} aria-hidden="true" />
-          <strong>{sourceCount} 个来源 · {bindingSummary}</strong>
+          <strong>{sourceBindingSummary}</strong>
         </article>
         <article className="agent-context-card" role="listitem">
           <Images size={16} aria-hidden="true" />

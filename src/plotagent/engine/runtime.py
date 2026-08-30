@@ -160,7 +160,10 @@ class PlotEngineRuntime:
             return backend.readback(document)
         except (FileNotFoundError, NotADirectoryError):
             pass
-        if document.plot_version > 1:
+        requires_previous = getattr(backend, "requires_previous_version", None)
+        if document.plot_version > 1 and (
+            requires_previous is None or bool(requires_previous(document))
+        ):
             previous = self.service.repository.get(
                 document.plot_id,
                 document.plot_version - 1,

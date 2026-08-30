@@ -110,6 +110,16 @@ def test_bubble_recipe_separates_the_menu_creation_id_from_persisted_plot_id() -
     assert recipe.native_plot_types == (201,)
 
 
+def test_recreate_only_recipes_skip_previous_versions_on_first_opju_export() -> None:
+    for profile_id in ("K03", "K08"):
+        assert origin_recipe(profile_id).revision_materialization == "current_state"
+    assert all(
+        recipe.revision_materialization == "previous_project"
+        for profile_id, recipe in ORIGIN_RECIPES.items()
+        if profile_id not in {"K03", "K08"}
+    )
+
+
 def test_dual_layer_recipes_pin_the_official_native_plot_families() -> None:
     population = origin_recipe("X13")
     double_y = origin_recipe("X23")

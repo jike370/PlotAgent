@@ -153,6 +153,10 @@ def execute_edit_matrix(
                     "operation": isolated.operation,
                     "focal_parameters": isolated.focal_parameters,
                     "dependency_parameters": isolated.dependency_parameters,
+                    "setup_actions": [
+                        action.model_dump(mode="json")
+                        for action in isolated.setup_actions
+                    ],
                     "comparison_mode": isolated.comparison_mode,
                     "evidence_reason": isolated.evidence_reason,
                     "action_a": isolated.action.model_dump(mode="json"),

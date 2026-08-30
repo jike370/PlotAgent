@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import quote
 
 from openpyxl import load_workbook  # type: ignore[import-untyped]
 from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
@@ -81,8 +83,11 @@ def _read_openpyxl(path: Path) -> tuple[_SheetMatrix, ...]:
                 for column_number, (formula_cell, cached_cell) in enumerate(
                     zip(formula_row, cached_row, strict=False), start=1
                 ):
-                    coordinate = f"{formula_sheet.title}!{formula_cell.coordinate}"
                     if formula_cell.data_type == "f":
+                        coordinate = (
+                            f"{formula_sheet.title}!"
+                            f"{get_column_letter(column_number)}{row_number}"
+                        )
                         cached_value = normalize_excel_scalar(cached_cell.value)
                         row_values.append(cached_value)
                         kind = (
@@ -294,14 +299,15 @@ def _header(
         text_first = tuple("" if value is None else str(value) for value in first)
         if looks_like_declared_header(text_first) or _declared_units(second) is not None:
             return text_first, region.start_row, region.start_row + 1
+        sheet_token = quote(sheet.name, safe="")
         raise ImportProblem(
             ImportErrorCode.HEADER_AMBIGUOUS,
             f"工作表 {sheet.name} 的前两行都可能是表头。",
             "请选择表头行，或明确该区域无表头。",
             clarification_options=(
-                f"line:{region.start_row}",
-                f"line:{region.start_row + 1}",
-                "none",
+                f"sheet:{sheet_token}|line:{region.start_row}",
+                f"sheet:{sheet_token}|line:{region.start_row + 1}",
+                f"sheet:{sheet_token}|none",
             ),
         )
     if second_typed > first_typed:
@@ -394,7 +400,12 @@ def _candidate(
 
 
 def inspect_excel(
-    *, path: Path, source_hash: str, selected_sheet: str | None, header_row: int | None
+    *,
+    path: Path,
+    source_hash: str,
+    selected_sheet: str | None,
+    header_row: int | None,
+    header_rows: Mapping[str, int] | None = None,
 ) -> tuple[SourceDatasetArtifact, ...]:
     suffix = path.suffix.casefold()
     if suffix == ".xls":
@@ -434,7 +445,11 @@ def inspect_excel(
                 source_hash=source_hash,
                 parser_name=parser_name,
                 parser_version=parser_version,
-                header_row=header_row,
+                header_row=(
+                    header_rows.get(sheet.name, header_row)
+                    if header_rows is not None
+                    else header_row
+                ),
             )
         )
     if not candidates:

@@ -12,6 +12,8 @@ from dataclasses import dataclass
 
 from plotagent.engine.contracts import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     BindFields,
     CreatePlot,
     EngineCapability,
@@ -22,11 +24,14 @@ from plotagent.engine.contracts import (
     PlotJournalAction,
     RestorePlotVersion,
     SetAxis,
+    SetCanvas,
     SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetObservationOverlay,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
@@ -195,6 +200,19 @@ class EngineCatalog:
                 )
                 if getattr(action, name) is not None
             }
+        if isinstance(action, SetPointMarkerMap):
+            return {"field", "entries"}
+        if isinstance(action, SetObservationOverlay):
+            return {
+                "visible",
+                "jitter_fraction",
+                "marker_shape",
+                "marker_size_pt",
+                "marker_interior",
+                "marker_fill_color",
+                "marker_stroke_color",
+                "marker_opacity",
+            }
         if isinstance(action, SetLegend):
             return {
                 name
@@ -212,7 +230,7 @@ class EngineCatalog:
                 )
                 if getattr(action, name) is not None
             }
-        if isinstance(action, (SetColorMap, SetErrorStyle, SetDataLabels)):
+        if isinstance(action, (SetColorMap, SetErrorStyle, SetDataLabels, SetCanvas)):
             return {
                 name
                 for name, value in action
@@ -237,6 +255,36 @@ class EngineCatalog:
                         "italic",
                         "color",
                         "rotation_deg",
+                    )
+                    if getattr(action, name) is not None
+                ),
+            }
+        if isinstance(action, AddReferenceLine):
+            return {
+                "value",
+                *(
+                    name
+                    for name in ("label", "line_color", "line_width_pt", "line_style")
+                    if getattr(action, name) is not None
+                ),
+            }
+        if isinstance(action, AddCallout):
+            return {
+                "text",
+                "anchor_fraction",
+                "text_x_fraction",
+                "text_y_fraction",
+                *(
+                    name
+                    for name in (
+                        "arrow_color",
+                        "arrow_width_pt",
+                        "arrow_head",
+                        "font_family",
+                        "font_size_pt",
+                        "font_weight",
+                        "italic",
+                        "text_color",
                     )
                     if getattr(action, name) is not None
                 ),

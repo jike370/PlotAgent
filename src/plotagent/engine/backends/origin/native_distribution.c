@@ -178,6 +178,29 @@ int plotagent_configure_distribution(
     return layer.ApplyFormat(format, true, true) ? PA_OK : PA_APPLY_FAILED;
 }
 
+int plotagent_set_distribution_outliers(
+    string graph_name,
+    int plot_index,
+    int visible
+)
+{
+    GraphLayer layer;
+    int status = _plotagent_distribution_layer(graph_name, plot_index, layer);
+    if (status != PA_OK)
+        return status;
+    TreeNode format = layer.GetFormat(FPB_ALL, FOB_ALL, true, true);
+    if (!format)
+        return PA_BAD_FORMAT;
+    status = _plotagent_distribution_set_int(
+        format,
+        OTID_BOXCHART_INFO_BOX_HAS_OUTLIERS,
+        visible ? 1 : 0
+    );
+    if (status != PA_OK)
+        return status;
+    return layer.ApplyFormat(format, true, true) ? PA_OK : PA_APPLY_FAILED;
+}
+
 double plotagent_distribution_value(
     string graph_name,
     int plot_index,

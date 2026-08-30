@@ -91,6 +91,8 @@ class K02LineSymbolRenderer:
         axis.set_ylabel(state.y_axis.label)
         self._apply_axis(axis, "x", state.x_axis)
         self._apply_axis(axis, "y", state.y_axis)
+        if grouped.x_labels is not None:
+            axis.set_xticks(range(len(grouped.x_labels)), grouped.x_labels)
         self._apply_legend(axis, state)
         png_path.parent.mkdir(parents=True, exist_ok=True)
         figure.savefig(png_path, dpi=160)

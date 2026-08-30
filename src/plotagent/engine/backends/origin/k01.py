@@ -140,7 +140,11 @@ class K01OriginProject:
         record_origin_trace("reopened_line_confirmed", "completed", details=native)
         self._assert_linked_legend(grouped, visible=len(grouped.groups) > 1)
         for index, group in enumerate(grouped.groups):
-            self._assert_values(self.sheet.to_list(index * 2), group.x_values, "x")
+            self._assert_values(
+                self.sheet.to_list(index * 2),
+                self._x_values(grouped, group.x_values),
+                "x",
+            )
             self._assert_values(self.sheet.to_list(index * 2 + 1), group.y_values, "y")
         token = document.plot_id.removeprefix("plot:")
         style_snapshot: dict[str, object] = {"native_structure": native}
@@ -189,9 +193,10 @@ class K01OriginProject:
 
     def _write_data(self, grouped: K03ScatterData) -> None:
         for index, group in enumerate(grouped.groups):
+            x_values = self._x_values(grouped, group.x_values)
             self.sheet.from_list(
                 index * 2,
-                list(group.x_values),
+                list(x_values),
                 lname=grouped.x_field_name,
                 axis="X",
             )
@@ -201,6 +206,23 @@ class K01OriginProject:
                 lname=group.label,
                 axis="Y",
             )
+            if grouped.x_scale == "categorical":
+                ordinal = index * 2 + 1
+                result = self.sheet.lt_exec(
+                    f"wks.col{ordinal}.categorical.type=2; "
+                    f"wks.col{ordinal}.categorical.sort=0;"
+                )
+                if result is False:
+                    raise RuntimeError("Origin could not preserve K01 categorical X order")
+
+    @staticmethod
+    def _x_values(
+        grouped: K03ScatterData,
+        positions: tuple[float, ...],
+    ) -> tuple[object, ...]:
+        if grouped.x_labels is None:
+            return positions
+        return tuple(grouped.x_labels[int(position)] for position in positions)
 
     def _set_legend(self, grouped: K03ScatterData, *, visible: bool) -> None:
         self.graph.activate()

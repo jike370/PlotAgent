@@ -9,30 +9,41 @@ from plotagent.contracts.errors import ERRORS_BY_CODE
 from plotagent.contracts.workflows import (
     CompiledTaskItem,
     DraftAddAnnotation,
+    DraftAddCallout,
+    DraftAddReferenceLine,
     DraftSetAxis,
+    DraftSetCanvas,
     DraftSetChartParameter,
     DraftSetColorMap,
     DraftSetDataLabels,
     DraftSetErrorStyle,
     DraftSetLegend,
+    DraftSetObservationOverlay,
+    DraftSetPointMarkerMap,
     DraftSetSeriesStyle,
     DraftSetTitle,
     TaskPlanSnapshot,
 )
 from plotagent.engine import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     BindFields,
     CreatePlot,
     EngineCatalog,
     EngineDataRef,
     FieldBinding,
     PlotEngineAction,
+    PointMarkerMapEntry,
     SetAxis,
+    SetCanvas,
     SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetObservationOverlay,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
@@ -287,6 +298,39 @@ class TaskPlanExecutor:
                     expected_plot_version=plot_version,
                     **draft.model_dump(exclude={"operation", "target_alias", "scope"}),
                 )
+            elif isinstance(draft, DraftSetPointMarkerMap):
+                field = next(
+                    (
+                        candidate
+                        for candidate in item.resolved_fields
+                        if candidate.field_alias == draft.field_alias
+                    ),
+                    None,
+                )
+                if field is None:
+                    raise WorkflowExecutionError(
+                        "FIELD_ALIAS_INVALID",
+                        "点级形状映射字段未解析到整理后数据。",
+                    )
+                action = SetPointMarkerMap(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "series"),
+                    expected_plot_version=plot_version,
+                    field_id=field.field_id,
+                    entries=tuple(
+                        PointMarkerMapEntry.model_validate(entry.model_dump(mode="python"))
+                        for entry in draft.entries
+                    ),
+                )
+            elif isinstance(draft, DraftSetObservationOverlay):
+                action = SetObservationOverlay(
+                    action_id=action_id,
+                    target=self._target(
+                        item, draft.target_alias, "observation_overlay"
+                    ),
+                    expected_plot_version=plot_version,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                )
             elif isinstance(draft, DraftSetLegend):
                 action = SetLegend(
                     action_id=action_id,
@@ -315,6 +359,13 @@ class TaskPlanExecutor:
                     expected_plot_version=plot_version,
                     **draft.model_dump(exclude={"operation", "target_alias"}),
                 )
+            elif isinstance(draft, DraftSetCanvas):
+                action = SetCanvas(
+                    action_id=action_id,
+                    target=item.plot_id,
+                    expected_plot_version=plot_version,
+                    **draft.model_dump(exclude={"operation", "target_alias"}),
+                )
             elif isinstance(draft, DraftSetChartParameter):
                 action = SetChartParameter(
                     action_id=action_id,
@@ -340,6 +391,41 @@ class TaskPlanExecutor:
                     italic=draft.italic,
                     color=draft.color,
                     rotation_deg=draft.rotation_deg,
+                )
+            elif isinstance(draft, DraftAddReferenceLine):
+                token = item.plot_id.removeprefix("plot:")
+                action = AddReferenceLine(
+                    action_id=action_id,
+                    target=self._target(item, draft.target_alias, "axis"),
+                    expected_plot_version=plot_version,
+                    reference_line_id=(
+                        f"reference_line:{token}.{draft.reference_line_alias}"
+                    ),
+                    value=draft.value,
+                    label=draft.label,
+                    line_color=draft.line_color,
+                    line_width_pt=draft.line_width_pt,
+                    line_style=draft.line_style,
+                )
+            elif isinstance(draft, DraftAddCallout):
+                token = item.plot_id.removeprefix("plot:")
+                action = AddCallout(
+                    action_id=action_id,
+                    target=f"reference_line:{token}.{draft.reference_line_alias}",
+                    expected_plot_version=plot_version,
+                    callout_id=f"callout:{token}.{draft.callout_alias}",
+                    text=draft.text,
+                    anchor_fraction=draft.anchor_fraction,
+                    text_x_fraction=draft.text_x_fraction,
+                    text_y_fraction=draft.text_y_fraction,
+                    arrow_color=draft.arrow_color,
+                    arrow_width_pt=draft.arrow_width_pt,
+                    arrow_head=draft.arrow_head,
+                    font_family=draft.font_family,
+                    font_size_pt=draft.font_size_pt,
+                    font_weight=draft.font_weight,
+                    italic=draft.italic,
+                    text_color=draft.text_color,
                 )
             else:
                 raise AssertionError("unknown workflow visual action")

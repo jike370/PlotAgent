@@ -281,7 +281,7 @@
           "type": "string"
         },
         "semantic_id": {
-          "pattern": "^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "pattern": "^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
           "title": "Semantic Id",
           "type": "string"
         }

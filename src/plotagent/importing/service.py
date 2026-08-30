@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from plotagent.importing.errors import ImportErrorCode, ImportProblem
@@ -46,6 +47,7 @@ def inspect_source(
     delimiter: str | None = None,
     decimal_mark: str | None = None,
     header_row: int | None = None,
+    header_rows: Mapping[str, int] | None = None,
     sheet: str | None = None,
 ) -> ImportResponse:
     """Inspect and fully parse a supported source without executing embedded content."""
@@ -96,6 +98,7 @@ def inspect_source(
                 source_hash=source_hash,
                 selected_sheet=sheet,
                 header_row=header_row,
+                header_rows=header_rows,
             )
     except ImportProblem as problem:
         return _problem_response(problem, sniff_trace)

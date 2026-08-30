@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from matplotlib.axes import Axes
 
+import plotagent.engine.backends.matplotlib.line_symbol as line_symbol_module
 from plotagent.engine import (
     CreatePlot,
     EngineColumn,
@@ -24,6 +25,7 @@ from plotagent.engine.backends.matplotlib import (
     K18AreaRenderer,
     X02DropLineRenderer,
 )
+from plotagent.engine.profile_data import grouped_xy
 from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "3" * 64
@@ -184,9 +186,19 @@ def test_t1_family_renders_from_engine_data_without_legacy_resolver(
     assert "ResolvedPlot" not in source
 
 
-def test_k02_materializes_one_line_symbol_series_per_group(tmp_path: Path) -> None:
+def test_k02_materializes_one_line_symbol_series_per_group(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     columns = (
-        _column("field:x", "Time", (0.0, 1.0, 0.0, 1.0)),
+        EngineColumn(
+            field=EngineField(
+                field_id="field:x",
+                name="Time",
+                logical_type="text",
+            ),
+            values=("Control", "Treatment", "Control", "Treatment"),
+        ),
         _column("field:y", "Signal", (1.0, 2.0, 1.5, 3.0)),
         EngineColumn(
             field=EngineField(
@@ -198,6 +210,8 @@ def test_k02_materializes_one_line_symbol_series_per_group(tmp_path: Path) -> No
         ),
     )
     document, actions, view = _case("K02", ("x", "y", "group"), columns)
+    original_close = line_symbol_module.plt.close
+    monkeypatch.setattr(line_symbol_module.plt, "close", lambda _figure: None)
     readback = K02LineSymbolRenderer().render(
         document,
         split_visual_actions(actions)[0],
@@ -205,12 +219,20 @@ def test_k02_materializes_one_line_symbol_series_per_group(tmp_path: Path) -> No
         tmp_path / "k02-grouped.png",
         tmp_path / "k02-grouped.svg",
     )
+    figure = line_symbol_module.plt.gcf()
+    tick_labels = tuple(label.get_text() for label in figure.axes[0].get_xticklabels())
+    original_close(figure)
 
     assert {item.semantic_id for item in readback.objects} >= {
         "series:k02-demo.group_1",
         "series:k02-demo.group_2",
         "legend:k02-demo.main",
     }
+    assert grouped_xy(document, view, profile_id="K02").x_labels == (
+        "Control",
+        "Treatment",
+    )
+    assert tick_labels == ("Control", "Treatment")
 
 
 def test_k06_rejects_negative_error_magnitudes(tmp_path: Path) -> None:

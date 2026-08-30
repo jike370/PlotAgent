@@ -45,6 +45,10 @@ OriginRebuildPolicy = Literal[
     "recreate_from_source",
     "recompute_analysis",
 ]
+OriginRevisionMaterialization = Literal[
+    "previous_project",
+    "current_state",
+]
 
 _HelpUrl = Annotated[
     str,
@@ -79,6 +83,7 @@ class OriginRecipe(StrictModel):
     source_layout: OriginSourceLayout
     designation_contract: tuple[_NonEmpty, ...]
     rebuild_policy: OriginRebuildPolicy
+    revision_materialization: OriginRevisionMaterialization = "previous_project"
     native_plot_types: tuple[int, ...] = ()
     readback_contract: tuple[_NonEmpty, ...]
     support_status: OriginSupportStatus = "renderable"
@@ -284,6 +289,7 @@ def _r(
     template_keys: tuple[str, ...] = (),
     binder_key: str | None = None,
     rebuild_policy: OriginRebuildPolicy = "recreate_from_source",
+    revision_materialization: OriginRevisionMaterialization = "previous_project",
     native_plot_types: tuple[int, ...] = (),
     support_status: OriginSupportStatus = "renderable",
     proof_level: OriginProofLevel = "proven_native_structure",
@@ -303,6 +309,7 @@ def _r(
         source_layout=source_layout,
         designation_contract=designation,
         rebuild_policy=rebuild_policy,
+        revision_materialization=revision_materialization,
         native_plot_types=native_plot_types,
         readback_contract=readback,
         support_status=support_status,
@@ -353,6 +360,11 @@ _RECIPES = (
         template_keys=("scatter",),
         binder_key="K03",
         native_plot_types=(201,),
+        # K03 always reconstructs the requested graph from immutable source
+        # data plus the complete effective action history.  Its binder never
+        # opens ``previous_opju``; recursively materializing v1..vN before a
+        # first export only repeats Origin startup and template construction.
+        revision_materialization="current_state",
     ),
     _r(
         "K04",
@@ -416,6 +428,10 @@ _RECIPES = (
         template_keys=("column",),
         binder_key="K08",
         native_plot_types=(203,),
+        # K08 always rebuilds the requested native state from source plus the
+        # complete action history.  Replaying v1..vN before a first export only
+        # multiplies Origin startup cost and does not contribute state.
+        revision_materialization="current_state",
     ),
     _r(
         "K09",

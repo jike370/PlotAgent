@@ -24,6 +24,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import DUAL_Y_SERIES_COLORS, PRODUCT_SERIES_PALETTE
 from plotagent.engine.profile_data import (
     OffsetStackData,
     ParetoData,
@@ -35,7 +36,7 @@ from plotagent.engine.profile_data import (
 )
 from plotagent.engine.repository import document_ref
 
-_PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
+_PALETTE = PRODUCT_SERIES_PALETTE
 _LINE_STYLE = {"solid": "-", "dash": "--", "dot": ":", "dash_dot": "-.", "none": ""}
 _MARKER = {"circle": "o", "square": "s", "diamond": "D", "triangle": "^", "triangle_up": "^"}
 
@@ -302,8 +303,8 @@ def _pareto_state(
         x_axis=_AxisState("", "categorical"),
         left_axis=_AxisState(data.value_field_name),
         right_axis=_AxisState("Cumulative (%)"),
-        left_series=_SeriesState("#1676D2"),
-        right_series=_SeriesState("#D97800"),
+        left_series=_SeriesState(DUAL_Y_SERIES_COLORS[0]),
+        right_series=_SeriesState(DUAL_Y_SERIES_COLORS[1]),
         legend_visible=False,
     )
     token = document.plot_id.removeprefix("plot:")
@@ -327,8 +328,8 @@ def _dual_state(
         x_axis=_AxisState(data.x_field_name, "categorical"),
         left_axis=_AxisState(data.left_field_name),
         right_axis=_AxisState(data.right_field_name),
-        left_series=_SeriesState("#1676D2"),
-        right_series=_SeriesState("#D97800"),
+        left_series=_SeriesState(DUAL_Y_SERIES_COLORS[0]),
+        right_series=_SeriesState(DUAL_Y_SERIES_COLORS[1]),
     )
     token = document.plot_id.removeprefix("plot:")
     for action in actions:
@@ -387,6 +388,7 @@ def _finish_dual(
     png_path: Path,
     svg_path: Path,
 ) -> None:
+    _establish_dual_axis_ownership(left, right)
     left.set_title(state.title)
     left.set_xlabel(state.x_axis.label)
     left.set_ylabel(state.left_axis.label)
@@ -402,6 +404,23 @@ def _finish_dual(
             frameon=False,
         )
     _save(figure, png_path, svg_path)
+
+
+def _establish_dual_axis_ownership(left: Axes, right: Axes) -> None:
+    """Make each twinned Y axis own only the spine it represents.
+
+    ``Axes.twinx()`` leaves both axes with left and right spines.  When both
+    copies remain visible, an unused default-black spine can be drawn over the
+    semantic ``y_left`` or ``y_right`` spine after a visual edit.  Hiding the
+    non-owning copies makes the visible artist match the public axis target.
+    """
+
+    left.spines["right"].set_visible(False)
+    right.spines["left"].set_visible(False)
+    left.yaxis.set_ticks_position("left")
+    left.yaxis.set_label_position("left")
+    right.yaxis.set_ticks_position("right")
+    right.yaxis.set_label_position("right")
 
 
 def _apply_axis(axis: Axes, name: Literal["x", "y"], state: _AxisState) -> None:

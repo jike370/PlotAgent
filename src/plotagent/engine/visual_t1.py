@@ -5,14 +5,19 @@ from __future__ import annotations
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
     AddAnnotation,
+    AddCallout,
+    AddReferenceLine,
     BindFields,
     PlotEngineAction,
     SetAxis,
+    SetCanvas,
     SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
     SetLegend,
+    SetObservationOverlay,
+    SetPointMarkerMap,
     SetSeriesStyle,
     SetTitle,
 )
@@ -26,9 +31,29 @@ VISUAL_ACTION_TYPES = (
     SetColorMap,
     SetErrorStyle,
     SetDataLabels,
+    SetCanvas,
     AddAnnotation,
+    AddReferenceLine,
+    AddCallout,
 )
 DATA_DERIVED_VISUAL_TYPES = (SetSeriesStyle, SetColorMap, SetErrorStyle, SetDataLabels)
+
+
+def resolve_canvas_inches(
+    current_width: float,
+    current_height: float,
+    action: SetCanvas,
+) -> tuple[float, float]:
+    """Resolve one page edit against the current native page size."""
+
+    width = current_width if action.width_mm is None else action.width_mm / 25.4
+    height = current_height if action.height_mm is None else action.height_mm / 25.4
+    if action.aspect_ratio is not None:
+        if action.width_mm is not None and action.height_mm is None:
+            height = width / action.aspect_ratio
+        elif action.width_mm is None:
+            width = height * action.aspect_ratio
+    return width, height
 
 
 def _belongs_to_plot(target: str, plot_target: str) -> bool:
@@ -81,9 +106,61 @@ def split_visual_actions(
     visual: list[PlotEngineAction] = []
     for action in actions:
         if isinstance(action, BindFields):
+            structural = [
+                item for item in structural if not isinstance(item, SetPointMarkerMap)
+            ]
             structural.append(action)
             visual = [item for item in visual if not isinstance(item, DATA_DERIVED_VISUAL_TYPES)]
+        elif isinstance(action, SetPointMarkerMap):
+            structural = [
+                item
+                for item in structural
+                if not (
+                    isinstance(item, SetPointMarkerMap) and item.target == action.target
+                )
+            ]
+            structural.append(action)
+            normalized_visual: list[PlotEngineAction] = []
+            for item in visual:
+                if (
+                    isinstance(item, SetSeriesStyle)
+                    and item.target == action.target
+                    and item.marker_shape is not None
+                ):
+                    payload = item.model_dump(
+                        exclude={
+                            "operation",
+                            "action_id",
+                            "target",
+                            "expected_plot_version",
+                        },
+                        exclude_none=True,
+                    )
+                    payload.pop("marker_shape", None)
+                    if payload:
+                        normalized_visual.append(item.model_copy(update={"marker_shape": None}))
+                else:
+                    normalized_visual.append(item)
+            visual = normalized_visual
+        elif isinstance(action, SetObservationOverlay):
+            structural = [
+                item
+                for item in structural
+                if not (
+                    isinstance(item, SetObservationOverlay)
+                    and item.target == action.target
+                )
+            ]
+            structural.append(action)
         elif isinstance(action, VISUAL_ACTION_TYPES):
+            if isinstance(action, SetSeriesStyle) and action.marker_shape is not None:
+                structural = [
+                    item
+                    for item in structural
+                    if not (
+                        isinstance(item, SetPointMarkerMap) and item.target == action.target
+                    )
+                ]
             visual.append(action)
         else:
             structural.append(action)
@@ -101,7 +178,7 @@ def effective_visual_actions(
     objects, but it is incorrect for state whose temporary value removes an
     object (for example a hidden Matplotlib colorbar).  Both backends therefore
     consume the same final state per action type and target.  Annotations remain
-    independent append-only objects.
+    independent addressable objects.
     """
 
     stateful = (
@@ -115,6 +192,20 @@ def effective_visual_actions(
     )
     merged: dict[tuple[type[PlotEngineAction], str], PlotEngineAction] = {}
     last_positions: dict[tuple[type[PlotEngineAction], str], int] = {}
+    last_canvas_position = max(
+        (index for index, action in enumerate(actions) if isinstance(action, SetCanvas)),
+        default=-1,
+    )
+    last_reference_line_positions = {
+        action.reference_line_id: index
+        for index, action in enumerate(actions)
+        if isinstance(action, AddReferenceLine)
+    }
+    last_callout_positions = {
+        action.callout_id: index
+        for index, action in enumerate(actions)
+        if isinstance(action, AddCallout)
+    }
     for index, action in enumerate(actions):
         if not isinstance(action, stateful):
             continue
@@ -140,6 +231,18 @@ def effective_visual_actions(
 
     result: list[PlotEngineAction] = []
     for index, action in enumerate(actions):
+        if isinstance(action, SetCanvas):
+            if index == last_canvas_position:
+                result.append(action)
+            continue
+        if isinstance(action, AddReferenceLine):
+            if last_reference_line_positions[action.reference_line_id] == index:
+                result.append(action)
+            continue
+        if isinstance(action, AddCallout):
+            if last_callout_positions[action.callout_id] == index:
+                result.append(action)
+            continue
         if not isinstance(action, stateful):
             result.append(action)
             continue

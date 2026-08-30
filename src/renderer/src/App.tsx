@@ -1686,7 +1686,8 @@ export function App(): React.JSX.Element {
 
   const chartCompatibility = useMemo(() => ({
     numericFieldCount: activeDataset?.fields.filter((field) => ['number', 'numeric', 'float', 'integer', 'decimal'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
-    categoricalFieldCount: activeDataset?.fields.filter((field) => ['string', 'categorical', 'category', 'boolean'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
+    categoricalFieldCount: activeDataset?.fields.filter((field) => ['string', 'text', 'categorical', 'category', 'boolean'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
+    datetimeFieldCount: activeDataset?.fields.filter((field) => ['date', 'datetime', 'timestamp'].includes(field.logicalType.toLocaleLowerCase('en-US'))).length ?? 0,
     totalFieldCount: activeDataset?.fields.length ?? 0,
   }), [activeDataset])
   const canUndo = undoStack.at(-1)?.plotId === plot?.plotId

@@ -111,6 +111,15 @@ class OriginBackend:
         self._install_dir = install_dir
         self._worker = worker
 
+    def requires_previous_version(self, document: PlotDocument) -> bool:
+        """Return whether this recipe consumes the prior native project."""
+
+        return (
+            document.plot_version > 1
+            and origin_recipe(document.profile_id).revision_materialization
+            == "previous_project"
+        )
+
     def stage(
         self,
         document: PlotDocument,
@@ -124,7 +133,7 @@ class OriginBackend:
         staging = self._root / ".staging" / uuid.uuid4().hex
         staging.mkdir(parents=True)
         previous = None
-        if document.plot_version > 1:
+        if self.requires_previous_version(document):
             previous = (
                 self._root
                 / document.plot_id.removeprefix("plot:")

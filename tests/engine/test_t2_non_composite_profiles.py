@@ -534,6 +534,7 @@ def test_k24_agent_surface_matches_native_trellis_editability() -> None:
         "bind_fields",
         "set_title",
         "set_axis",
+        "set_canvas",
         "set_series_style",
         "export_plot",
     }

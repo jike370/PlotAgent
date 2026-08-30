@@ -11,6 +11,9 @@
 5. [Beta 性能测试与发布门禁](./PERFORMANCE-TEST-RELEASE.md)：冻结候选与最终发布条件。
 6. [发布候选已知问题](./PLOTAGENT-V3-RELEASE-CANDIDATE-KNOWN-ISSUES.md)：当前仍未关闭的问题，不收录已经实现的事项。
 7. [黑盒能力说明](./PLOTAGENT-V3-BLACK-BOX-CAPABILITY.md)：供测试者使用的当前用户可见能力，不包含历史结果。
+8. [真实科研任务驱动的产品升级路线](./REAL-WORLD-RESEARCH-FIGURE-ROADMAP.md)：以论文图复现校准产品、重构测试并兼顾日更内容的执行路线。
+9. [真实论文图案例台账](./REAL-WORLD-CASE-LEDGER.md)：真实案例资产、分级、问题基线与逐级验收状态。
+10. [真实任务升级第一阶段完成审计](./REAL-WORLD-FIRST-PHASE-AUDIT.md)：逐项证明路线、台账、契约基线、X35/X36 定向修复、首批日更库存和下一公共能力，并分离第二阶段边界。
 
 ## 2. Agent、任务与数据
 

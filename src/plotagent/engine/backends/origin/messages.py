@@ -41,8 +41,11 @@ class OriginWorkerRequest(StrictModel):
             raise ValueError("Origin worker action history contains duplicate action ids")
         if self.document.plot_version == 1 and self.previous_opju is not None:
             raise ValueError("the first Origin version cannot have a previous project")
-        if self.document.plot_version > 1 and self.previous_opju is None:
-            raise ValueError("an edited Origin version requires the previous project")
+        # Some reviewed binders rebuild the requested revision completely from
+        # immutable source plus the full action history.  For those recipes an
+        # edited revision intentionally has no previous OPJU.  Backends own the
+        # recipe policy; incremental binders still receive and validate a prior
+        # project path.
         if Path(self.output_opju).suffix.casefold() != ".opju":
             raise ValueError("Origin worker output must be OPJU")
         return self

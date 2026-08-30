@@ -10,6 +10,7 @@ an Origin graph.
 from __future__ import annotations
 
 from datetime import date, datetime
+from math import isclose
 from typing import Annotated, Literal
 
 from pydantic import Field, StringConstraints, model_validator
@@ -36,7 +37,7 @@ ActionId = Annotated[
 SemanticObjectId = Annotated[
     str,
     StringConstraints(
-        pattern=r"^(plot|axis|series|legend|annotation|panel):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        pattern=r"^(plot|axis|series|legend|annotation|reference_line|callout|panel|observation_overlay):[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
         strict=True,
     ),
 ]
@@ -69,6 +70,13 @@ MarkerShape = Literal[
     "star",
     "pentagon",
     "none",
+]
+PointMarkerShape = Literal[
+    "circle",
+    "square",
+    "triangle_up",
+    "triangle_down",
+    "diamond",
 ]
 MarkerInterior = Literal["solid", "open", "hollow"]
 PaletteName = Literal[
@@ -403,6 +411,71 @@ class SetSeriesStyle(VersionedPlotAction):
         return self
 
 
+class PointMarkerMapEntry(StrictModel):
+    """One exact discrete value-to-marker mapping for point-level encoding."""
+
+    value: bool | Annotated[
+        str, StringConstraints(min_length=1, max_length=256, strict=True)
+    ]
+    marker_shape: PointMarkerShape
+
+
+class SetPointMarkerMap(VersionedPlotAction):
+    """Encode one discrete data field as point-wise marker shapes.
+
+    Renderers must require an exact, exhaustive match between observed values
+    and entries.  There is deliberately no default or missing-value branch:
+    the Agent must first derive an explicit categorical or boolean field.
+    """
+
+    operation: Literal["set_point_marker_map"] = "set_point_marker_map"
+    action_id: ActionId
+    target: SemanticObjectId
+    field_id: FieldId
+    entries: Annotated[tuple[PointMarkerMapEntry, ...], Field(min_length=2, max_length=32)]
+
+    @model_validator(mode="after")
+    def valid_point_map(self) -> SetPointMarkerMap:
+        if not self.target.startswith("series:"):
+            raise ValueError("set_point_marker_map requires a series target")
+        identities = tuple((type(entry.value).__name__, entry.value) for entry in self.entries)
+        if len(identities) != len(set(identities)):
+            raise ValueError("point marker map values must be unique")
+        return self
+
+
+class SetObservationOverlay(VersionedPlotAction):
+    """Show the same raw observations that define a distribution summary.
+
+    This action deliberately has no data or field argument.  A renderer must
+    reuse the exact value rows already bound to the box plot, so the public
+    contract cannot silently introduce a second dataset or a different sample.
+    ``jitter_fraction`` is the deterministic half-width in category-step units;
+    renderers distribute points regularly in source-row order and must not use
+    backend random jitter.
+    """
+
+    operation: Literal["set_observation_overlay"] = "set_observation_overlay"
+    action_id: ActionId
+    target: SemanticObjectId
+    visible: bool = True
+    jitter_fraction: Annotated[float, Field(ge=0, le=0.45, allow_inf_nan=False)] = 0.18
+    marker_shape: PointMarkerShape = "circle"
+    marker_size_pt: Annotated[float, Field(gt=0, le=24, allow_inf_nan=False)] = 4.0
+    marker_interior: MarkerInterior = "solid"
+    marker_fill_color: ColorHex = "#FFFFFF"
+    marker_stroke_color: ColorHex = "#1A1A1A"
+    marker_opacity: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 0.85
+
+    @model_validator(mode="after")
+    def valid_observation_overlay(self) -> SetObservationOverlay:
+        if not self.target.startswith("observation_overlay:"):
+            raise ValueError(
+                "set_observation_overlay requires an observation_overlay target"
+            )
+        return self
+
+
 class SetLegend(VersionedPlotAction):
     operation: Literal["set_legend"] = "set_legend"
     action_id: ActionId
@@ -536,6 +609,39 @@ class SetDataLabels(VersionedPlotAction):
         return self
 
 
+class SetCanvas(VersionedPlotAction):
+    """Change output page dimensions without changing chart data semantics."""
+
+    operation: Literal["set_canvas"] = "set_canvas"
+    action_id: ActionId
+    target: SemanticObjectId
+    width_mm: Annotated[float, Field(ge=40, le=1000, allow_inf_nan=False)] | None = None
+    height_mm: Annotated[float, Field(ge=30, le=1000, allow_inf_nan=False)] | None = None
+    aspect_ratio: Annotated[float, Field(ge=0.2, le=5, allow_inf_nan=False)] | None = None
+
+    @model_validator(mode="after")
+    def valid_canvas_edit(self) -> SetCanvas:
+        if not self.target.startswith("plot:"):
+            raise ValueError("set_canvas requires a plot target")
+        if self.width_mm is None and self.height_mm is None and self.aspect_ratio is None:
+            raise ValueError("set_canvas requires a size or aspect ratio")
+        if (self.width_mm is None) != (self.height_mm is None) and self.aspect_ratio is None:
+            raise ValueError("one canvas dimension requires an aspect ratio")
+        if (
+            self.width_mm is not None
+            and self.height_mm is not None
+            and self.aspect_ratio is not None
+            and not isclose(
+                self.width_mm / self.height_mm,
+                self.aspect_ratio,
+                rel_tol=1e-6,
+                abs_tol=1e-6,
+            )
+        ):
+            raise ValueError("canvas dimensions and aspect ratio disagree")
+        return self
+
+
 class SetChartParameter(VersionedPlotAction):
     operation: Literal["set_chart_parameter"] = "set_chart_parameter"
     action_id: ActionId
@@ -564,6 +670,70 @@ class AddAnnotation(VersionedPlotAction):
     def annotation_target_kind(self) -> AddAnnotation:
         if not self.annotation_id.startswith("annotation:"):
             raise ValueError("annotation_id must identify an annotation")
+        return self
+
+
+class AddReferenceLine(VersionedPlotAction):
+    """Add one addressable horizontal or vertical line in axis data coordinates.
+
+    The semantic axis target defines direction: an X-axis target creates a
+    vertical line, while a Y-axis target creates a horizontal line. Keeping
+    direction derived from the target prevents contradictory requests.
+    """
+
+    operation: Literal["add_reference_line"] = "add_reference_line"
+    action_id: ActionId
+    target: SemanticObjectId
+    reference_line_id: SemanticObjectId
+    value: FiniteNumber
+    label: Annotated[str, StringConstraints(max_length=256, strict=True)] | None = None
+    line_color: ColorHex | None = None
+    line_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    line_style: LineStyle | None = None
+
+    @model_validator(mode="after")
+    def reference_line_target_kind(self) -> AddReferenceLine:
+        if not self.target.startswith("axis:"):
+            raise ValueError("add_reference_line requires an axis target")
+        if not self.reference_line_id.startswith("reference_line:"):
+            raise ValueError("reference_line_id must identify a reference line")
+        if self.line_style == "none":
+            raise ValueError("reference line style cannot be none")
+        return self
+
+
+class AddCallout(VersionedPlotAction):
+    """Explain one existing reference line with a semantic arrow and text.
+
+    The first public slice deliberately targets only ``reference_line``
+    objects. ``anchor_fraction`` is measured along the perpendicular plot
+    axis, while the text position uses explicit axes-fraction coordinates.
+    This avoids exposing backend-private categorical slot numbers.
+    """
+
+    operation: Literal["add_callout"] = "add_callout"
+    action_id: ActionId
+    target: SemanticObjectId
+    callout_id: SemanticObjectId
+    text: Annotated[str, StringConstraints(min_length=1, max_length=512, strict=True)]
+    anchor_fraction: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] = 0.5
+    text_x_fraction: Annotated[float, Field(ge=-0.25, le=1.25, allow_inf_nan=False)]
+    text_y_fraction: Annotated[float, Field(ge=-0.25, le=1.25, allow_inf_nan=False)]
+    arrow_color: ColorHex | None = None
+    arrow_width_pt: Annotated[float, Field(gt=0, le=20, allow_inf_nan=False)] | None = None
+    arrow_head: Literal["open", "filled"] | None = None
+    font_family: FontFamily | None = None
+    font_size_pt: Annotated[float, Field(ge=5, le=72, allow_inf_nan=False)] | None = None
+    font_weight: FontWeight | None = None
+    italic: bool | None = None
+    text_color: ColorHex | None = None
+
+    @model_validator(mode="after")
+    def callout_target_kinds(self) -> AddCallout:
+        if not self.target.startswith("reference_line:"):
+            raise ValueError("add_callout currently requires a reference_line target")
+        if not self.callout_id.startswith("callout:"):
+            raise ValueError("callout_id must identify a callout")
         return self
 
 
@@ -596,12 +766,17 @@ PlotEngineAction = Annotated[
     | SetTitle
     | SetAxis
     | SetSeriesStyle
+    | SetPointMarkerMap
+    | SetObservationOverlay
     | SetLegend
     | SetColorMap
     | SetErrorStyle
     | SetDataLabels
+    | SetCanvas
     | SetChartParameter
     | AddAnnotation
+    | AddReferenceLine
+    | AddCallout
     | ExportPlot,
     Field(discriminator="operation"),
 ]
@@ -613,12 +788,17 @@ PlotJournalAction = Annotated[
     | SetTitle
     | SetAxis
     | SetSeriesStyle
+    | SetPointMarkerMap
+    | SetObservationOverlay
     | SetLegend
     | SetColorMap
     | SetErrorStyle
     | SetDataLabels
+    | SetCanvas
     | SetChartParameter
     | AddAnnotation
+    | AddReferenceLine
+    | AddCallout
     | ExportPlot
     | RestorePlotVersion,
     Field(discriminator="operation"),
@@ -639,12 +819,17 @@ class EngineCapability(StrictModel):
         "set_title",
         "set_axis",
         "set_series_style",
+        "set_point_marker_map",
+        "set_observation_overlay",
         "set_legend",
         "set_colormap",
         "set_error_style",
         "set_data_labels",
+        "set_canvas",
         "set_chart_parameter",
         "add_annotation",
+        "add_reference_line",
+        "add_callout",
         "export_plot",
     ]
     parameters: tuple[Token, ...] = ()
@@ -657,7 +842,7 @@ class EngineObjectTemplate(StrictModel):
         str,
         StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$", strict=True),
     ]
-    object_kind: Literal["axis", "series", "legend", "panel"]
+    object_kind: Literal["axis", "series", "legend", "panel", "observation_overlay"]
     object_key: Token
 
     def instantiate(self, plot_id: PlotId) -> SemanticObjectId:

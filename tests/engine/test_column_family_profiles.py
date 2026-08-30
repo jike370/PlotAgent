@@ -20,6 +20,7 @@ from plotagent.engine import (
     PlotDocument,
     PlotEngineAction,
     SetLegend,
+    SetObservationOverlay,
     SetSeriesStyle,
     SetTitle,
 )
@@ -59,6 +60,7 @@ from plotagent.engine.profile_data import (
     category_series_grid,
     distribution_groups,
     k09_grouped_indexed_data,
+    regular_observation_positions,
 )
 from plotagent.engine.visual_t1 import split_visual_actions
 
@@ -275,13 +277,15 @@ class _Axis:
 
 
 class _Plot:
-    def __init__(self, dataset_name: str = "") -> None:
+    def __init__(self, dataset_name: str = "", plot_type: int = 206) -> None:
         self.obj = self
         self.DatasetName = dataset_name
+        self.plot_type = plot_type
         self._color = (22, 118, 210)
         self.floats = {"line.width": 0.8}
         self.commands: list[str] = []
         self.ints = {"show": 1}
+        self.style_options: dict[str, int | float] = {}
 
     @property
     def color(self):
@@ -342,6 +346,7 @@ class _Layer:
         self.plots: list[_Plot] = []
         self.add_calls: list[dict[str, object]] = []
         self.group_calls: list[tuple[object, ...]] = []
+        self.numeric_properties: dict[str, int | float] = {}
         self.theme = _ThemeNode(
             "Root",
             children=(
@@ -359,7 +364,9 @@ class _Layer:
         self.add_calls.append(kwargs)
         coly = kwargs.get("coly")
         dataset_name = "" if coly is None else sheet.obj[int(coly)].DatasetName
-        plot = _Plot(dataset_name)
+        raw_type = kwargs.get("type", kwargs.get("official", 206))
+        plot_type = 201 if raw_type in {"s", "scatter", 201} else 206
+        plot = _Plot(dataset_name, plot_type)
         self.plots.append(plot)
         return plot
 
@@ -371,6 +378,18 @@ class _Layer:
 
     def rescale(self) -> None:
         return None
+
+    def set_int(self, name: str, value: int) -> None:
+        self.numeric_properties[name] = int(value)
+
+    def get_int(self, name: str) -> int:
+        return int(self.numeric_properties.get(name, 0))
+
+    def set_float(self, name: str, value: float) -> None:
+        self.numeric_properties[name] = float(value)
+
+    def get_float(self, name: str) -> float:
+        return float(self.numeric_properties.get(name, 0.0))
 
     def label(self, name: str):
         direct = self.labels.get(name)
@@ -481,6 +500,7 @@ class _Origin:
         self.k09_colors: list[int] = []
         self.group_edit_mode = 0
         self.member_fill = 0
+        self.numeric_vars: dict[str, float] = {}
 
     def new(self, *, asksave: bool) -> None:
         return None
@@ -526,6 +546,11 @@ class _Origin:
                     coly=column,
                     official=menu_name,
                 )
+            self.graph.layer.axes["x"].limits = (
+                0.5,
+                float(self.book.sheet.cols) + 0.5,
+                1.0,
+            )
         elif command.startswith("legendupdate"):
             self.graph.layer.labels["legend"] = _Label(
                 "\n".join(
@@ -546,13 +571,43 @@ class _Origin:
             self.member_fill = int(command.split('color("', 1)[1].split('"', 1)[0][1:], 16)
         elif "set __K14HEAD -gm 1" in command:
             self.group_edit_mode = 1
+        elif command.startswith("range __K13OBS"):
+            plot_index = int(command.split("]1!", 1)[1].split(";", 1)[0])
+            plot = self.graph.layer.plots[plot_index - 1]
+            for part in command.split("set ")[1:]:
+                statement = part.split(";", 1)[0]
+                if " -k " in statement:
+                    plot.style_options["-k"] = int(statement.rsplit(" ", 1)[1])
+                elif " -z " in statement:
+                    plot.style_options["-z"] = float(statement.rsplit(" ", 1)[1])
+                elif " -kf " in statement:
+                    plot.style_options["-kf"] = int(statement.rsplit(" ", 1)[1])
+                elif " -csf " in statement:
+                    color = statement.split('color("', 1)[1].split('"', 1)[0]
+                    plot.style_options["-csf"] = int(color[1:], 16)
+                elif " -cse " in statement:
+                    color = statement.split('color("', 1)[1].split('"', 1)[0]
+                    plot.style_options["-cse"] = int(color[1:], 16)
+        elif command.startswith("range __K13VERIFY"):
+            plot_index = int(command.split("]1!", 1)[1].split(";", 1)[0])
+            plot = self.graph.layer.plots[plot_index - 1]
+            for part in command.split("get ")[1:]:
+                tokens = part.split(";", 1)[0].split()
+                option, variable = tokens[-2:]
+                self.numeric_vars[variable] = float(plot.style_options[option])
+        elif command.startswith("layer.plot") and ".symbol.transparency=" in command:
+            property_path, raw_value = command.rstrip(";").split("=", 1)
+            self.numeric_vars[property_path] = float(raw_value)
         return True
 
     def lt_float(self, expression: str) -> float:
         if expression.startswith(("__K12COUNT", "__K13COUNT", "__K14COUNT")):
             return float(len(self.graph.layer.plots))
         if expression.startswith(("__K12PT", "__K13PT", "__K14PT")):
-            return 206.0
+            index = int(expression.rsplit("PT", 1)[1])
+            return float(self.graph.layer.plots[index - 1].plot_type)
+        if expression in self.numeric_vars:
+            return self.numeric_vars[expression]
         if expression.startswith("layer.plot") and expression.endswith(".pid"):
             return 203.0 if "plot_gindexed" in self.commands[0] else 213.0
         if expression.startswith("__K") and expression.endswith("ENABLED"):
@@ -849,6 +904,62 @@ def test_k14_matplotlib_omits_extrema_edge_lines() -> None:
     assert all(segment[0][1] == pytest.approx(segment[-1][1]) for segment in segments)
 
 
+def test_k13_observation_overlay_is_deterministic_and_preserves_box_geometry() -> None:
+    document, actions, view = _distribution_case("K13", 3)
+    overlay = SetObservationOverlay(
+        action_id="action:k13-observations",
+        target="observation_overlay:k13-distribution.raw",
+        expected_plot_version=document.plot_version,
+        jitter_fraction=0.2,
+        marker_shape="triangle_down",
+        marker_size_pt=5,
+    )
+    rendered_document = document.model_copy(
+        update={
+            "plot_version": document.plot_version + 1,
+            "parent_version": document.plot_version,
+            "applied_action_ids": (*document.applied_action_ids, overlay.action_id),
+        }
+    )
+    renderer = K13BoxRenderer()
+    distribution = distribution_groups(rendered_document, view, profile_id="K13")
+
+    baseline_state = renderer._state(
+        document,
+        split_visual_actions(actions)[0],
+        distribution,
+    )
+    baseline_figure, baseline_axis = plt.subplots()
+    renderer._draw(baseline_axis, distribution, baseline_state)
+    baseline_lines = tuple(
+        tuple(tuple(float(cell) for cell in row) for row in line.get_xydata())
+        for line in baseline_axis.lines
+        if line.get_marker() in {None, "None", ""}
+    )
+
+    structural, _ = split_visual_actions((*actions, overlay))
+    overlay_state = renderer._state(rendered_document, structural, distribution)
+    overlay_figure, overlay_axis = plt.subplots()
+    renderer._draw(overlay_axis, distribution, overlay_state)
+    overlay_lines = tuple(
+        tuple(tuple(float(cell) for cell in row) for row in line.get_xydata())
+        for line in overlay_axis.lines
+        if line.get_marker() in {None, "None", ""}
+    )
+    assert overlay_lines == baseline_lines
+    assert len(overlay_axis.collections) == 3
+    for ordinal, collection in enumerate(overlay_axis.collections, start=1):
+        offsets = collection.get_offsets()
+        assert tuple(float(value) for value in offsets[:, 0]) == pytest.approx(
+            regular_observation_positions(ordinal, 6, 0.2)
+        )
+        assert tuple(float(value) for value in offsets[:, 1]) == distribution.groups[
+            ordinal - 1
+        ].values
+    plt.close(baseline_figure)
+    plt.close(overlay_figure)
+
+
 @pytest.mark.parametrize(
     ("profile_id", "profile"),
     (("K12", K12_ORIGIN_PROFILE), ("K13", K13_ORIGIN_PROFILE), ("K14", K14_ORIGIN_PROFILE)),
@@ -929,6 +1040,101 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
         assert native_values[(1, DIST_BANDWIDTH_FACTOR)] == pytest.approx(expected_bandwidth)
         assert native_values[(1, DIST_EXTEND)] == 0.0
         assert origin.group_edit_mode == 1
+
+
+def test_k13_origin_overlay_reuses_y_sources_and_persists_deterministic_x(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, actions, view = _distribution_case("K13", 3)
+    overlay = SetObservationOverlay(
+        action_id="action:k13-origin-observations",
+        target="observation_overlay:k13-distribution.raw",
+        expected_plot_version=document.plot_version,
+        jitter_fraction=0.2,
+        marker_shape="triangle_down",
+        marker_size_pt=5,
+        marker_interior="open",
+        marker_fill_color="#F4F4F4",
+        marker_stroke_color="#222222",
+        marker_opacity=0.75,
+    )
+    rendered_document = document.model_copy(
+        update={
+            "plot_version": document.plot_version + 1,
+            "parent_version": document.plot_version,
+            "applied_action_ids": (*document.applied_action_ids, overlay.action_id),
+        }
+    )
+    monkeypatch.setattr(
+        distribution_origin_module,
+        "resolve_official_template",
+        lambda install, selected: tmp_path / selected.filename,
+    )
+    native_values = {
+        theme_id: value
+        for theme_id, value in {
+            BOX_TYPE: 0,
+            BOX_RANGE: 2,
+            WHISKER_RANGE: 6,
+            WHISKER_COEFF: 1.5,
+            HAS_OUTLIERS: 1,
+        }.items()
+    }
+    monkeypatch.setattr(
+        distribution_origin_module,
+        "configure_native_distribution",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        distribution_origin_module,
+        "read_native_distribution_value",
+        lambda _op, _graph, _plot, theme_id, *, numeric_type: native_values[theme_id],
+    )
+    monkeypatch.setattr(
+        distribution_origin_module,
+        "set_native_distribution_outliers",
+        lambda _op, _graph, _plot, *, visible: native_values.__setitem__(
+            HAS_OUTLIERS, int(visible)
+        ),
+    )
+    origin = _Origin()
+    project = DistributionOriginProject(origin, profile_id="K13")
+    project.create(tmp_path, rendered_document, view)
+    structural, _ = split_visual_actions((*actions, overlay))
+    for action in structural:
+        project.apply(rendered_document, action, view)
+    # Reapplying the same complete state must update, not duplicate, native plots.
+    project.apply(rendered_document, overlay, view)
+    readback = project.verify(rendered_document, structural, view)
+
+    assert [plot.plot_type for plot in origin.graph.layer.plots] == [
+        206,
+        206,
+        206,
+        201,
+        201,
+        201,
+    ]
+    assert len(origin.graph.layer.plots) == 6
+    assert native_values[HAS_OUTLIERS] == 0
+    assert tuple(origin.book.sheet.to_list(3)) == pytest.approx(
+        regular_observation_positions(1, 6, 0.2)
+    )
+    assert tuple(origin.book.sheet.to_list(4)) == pytest.approx(
+        regular_observation_positions(2, 6, 0.2)
+    )
+    assert tuple(origin.book.sheet.to_list(5)) == pytest.approx(
+        regular_observation_positions(3, 6, 0.2)
+    )
+    assert [
+        plot.DatasetName for plot in origin.graph.layer.plots[3:]
+    ] == [plot.DatasetName for plot in origin.graph.layer.plots[:3]]
+    assert any(
+        item.semantic_id == "observation_overlay:k13-distribution.raw"
+        and item.object_kind == "observation_overlay"
+        for item in readback.objects
+    )
 
 
 def test_k14_matplotlib_writes_the_same_shared_absolute_bandwidth_contract() -> None:

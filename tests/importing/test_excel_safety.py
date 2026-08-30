@@ -40,6 +40,14 @@ class _FakeCell:
     coordinate: str
 
 
+@dataclass
+class _FakeEmptyCell:
+    """Match openpyxl's read-only EmptyCell surface: no coordinate attribute."""
+
+    value: object = None
+    data_type: str = "n"
+
+
 class _FakeSheet:
     def __init__(self, title: str, rows: tuple[tuple[_FakeCell, ...], ...]) -> None:
         self.title = title
@@ -95,6 +103,30 @@ def test_uncached_formula_becomes_missing_without_execution(monkeypatch: Any) ->
     assert candidate.rows == ((2, None),)
     assert candidate.source_dataset.quality.missing_values == 1
     assert sheets[0].provenance[0][2].kind == "formula_uncached"
+
+
+def test_sparse_read_only_empty_cell_does_not_require_coordinate(monkeypatch: Any) -> None:
+    formula_sheet = _FakeSheet(
+        "Data",
+        (
+            (_FakeCell("x", "s", "A1"), _FakeEmptyCell(), _FakeCell("y", "s", "C1")),
+            (_FakeCell(1, "n", "A2"), _FakeEmptyCell(), _FakeCell(2, "n", "C2")),
+        ),
+    )
+    cached_sheet = _FakeSheet(
+        "Data",
+        (
+            (_FakeCell("x", "s", "A1"), _FakeEmptyCell(), _FakeCell("y", "s", "C1")),
+            (_FakeCell(1, "n", "A2"), _FakeEmptyCell(), _FakeCell(2, "n", "C2")),
+        ),
+    )
+    books = iter((_FakeBook(formula_sheet), _FakeBook(cached_sheet)))
+    monkeypatch.setattr(excel_module, "load_workbook", lambda *args, **kwargs: next(books))
+
+    sheets = excel_module._read_openpyxl(Path("sparse.xlsx"))
+
+    assert sheets[0].rows == (("x", None, "y"), (1, None, 2))
+    assert sheets[0].provenance == ()
 
 
 class _FakeXlsSheet:

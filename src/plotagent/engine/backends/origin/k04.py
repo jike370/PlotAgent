@@ -14,9 +14,15 @@ from plotagent.engine.contracts import (
     PlotDocument,
     PlotEngineAction,
     SetChartParameter,
+    SetPointMarkerMap,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import K04BubbleData, k04_bubble
+from plotagent.engine.profile_data import (
+    K04BubbleData,
+    PointMarkerShapeData,
+    k04_bubble,
+    point_marker_shapes,
+)
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
@@ -28,7 +34,14 @@ _COLOR_SCALE_NAME = "SPECTRUM1"
 _BUBBLE_SCALE_OBJECT_TYPE = 29
 _COLOR_SCALE_OBJECT_TYPE = 13
 _TITLE_NAME = "_ENGINE_TITLE"
-_SYMBOL_CODES = {"square": 1, "circle": 2, "triangle": 3, "triangle_up": 3, "diamond": 5}
+_SYMBOL_CODES = {
+    "square": 1,
+    "circle": 2,
+    "triangle": 3,
+    "triangle_up": 3,
+    "triangle_down": 4,
+    "diamond": 5,
+}
 _OFFICIAL_HELP_URL = "https://docs.originlab.com/origin-help/bubble-color-map-graph/"
 _OFFICIAL_MENU = "Plot > Basic 2D: Bubble + Color Mapped"
 
@@ -52,7 +65,10 @@ def _effective_actions(
     return tuple(
         action
         for index, action in enumerate(actions)
-        if not (index < last_binding and isinstance(action, SetChartParameter))
+        if not (
+            index < last_binding
+            and isinstance(action, (SetChartParameter, SetPointMarkerMap))
+        )
     )
 
 
@@ -65,6 +81,7 @@ class K04OriginProject:
         self.layer: Any = None
         self.plot: Any = None
         self.sheet: Any = None
+        self.book: Any = None
 
     def create(self, install_dir: Path, document: PlotDocument, data: EngineDataView) -> None:
         with origin_trace_step(
@@ -80,6 +97,7 @@ class K04OriginProject:
             book = self.op.new_book("w", f"D{token}", hidden=True)
         if book is None:
             raise RuntimeError("Origin could not create the K04 workbook")
+        self.book = book
         self.sheet = book[0]
         with origin_trace_step(
             "source_data_write",
@@ -124,7 +142,7 @@ class K04OriginProject:
         color_scale = self.layer.label(_COLOR_SCALE_NAME)
         if color_scale is not None:
             color_scale.set_int("show", 0)
-        native = self._assert_native_structure(bubble, columns, plot_id)
+        native = self._assert_native_structure(bubble, columns, plot_id, None)
         record_origin_trace("native_bubble_confirmed", "completed", details=native)
 
     def reopen(self, project_path: Path) -> None:
@@ -141,7 +159,8 @@ class K04OriginProject:
         if len(plots) != 1:
             raise RuntimeError("fresh K04 project must contain one native bubble plot")
         self.plot = plots[0]
-        self.sheet = books[0][0]
+        self.book = books[0]
+        self.sheet = self.book[0]
 
     def apply(self, document: PlotDocument, action: PlotEngineAction, data: EngineDataView) -> None:
         bubble = k04_bubble(document, data)
@@ -161,6 +180,12 @@ class K04OriginProject:
                 self._set_auxiliary(_BUBBLE_SCALE_NAME, _BUBBLE_SCALE_OBJECT_TYPE, action.value)
             else:
                 raise ValueError(f"Origin K04 does not support parameter {action.parameter}")
+            return
+        if isinstance(action, SetPointMarkerMap):
+            token = document.plot_id.removeprefix("plot:")
+            if action.target != f"series:{token}.primary":
+                raise ValueError("K04 point marker map must target the primary series")
+            self._apply_point_marker_map(bubble, action, data)
             return
         raise ValueError(f"Origin K04 binder cannot apply {action.operation}")
 
@@ -188,6 +213,13 @@ class K04OriginProject:
                 if abs(float(observed) - wanted) > 1e-12:
                     raise RuntimeError(f"Origin K04 {role} values differ after reopen")
         state = self._state(document, actions, bubble)
+        marker_action = next(
+            (action for action in reversed(actions) if isinstance(action, SetPointMarkerMap)),
+            None,
+        )
+        marker_data = (
+            None if marker_action is None else point_marker_shapes(data, marker_action)
+        )
         plot_id, _ = self._official_plot_route(bubble)
         columns = {
             "x": 0,
@@ -197,7 +229,7 @@ class K04OriginProject:
                 2 + int(bubble.size_values is not None) if bubble.color_values is not None else None
             ),
         }
-        native = self._assert_native_structure(bubble, columns, plot_id)
+        native = self._assert_native_structure(bubble, columns, plot_id, marker_data)
         self._assert_auxiliary(_COLOR_SCALE_NAME, state.color_scale_visible)
         self._assert_auxiliary(_BUBBLE_SCALE_NAME, state.size_key_visible)
         token = document.plot_id.removeprefix("plot:")
@@ -308,6 +340,7 @@ class K04OriginProject:
         bubble: K04BubbleData,
         columns: dict[str, int | None],
         expected_plot_id: int,
+        marker_data: PointMarkerShapeData | None,
     ) -> dict[str, object]:
         if len(list(self.layer.plot_list())) != 1:
             raise RuntimeError("Origin K04 native plot count differs after reopen")
@@ -327,6 +360,8 @@ class K04OriginProject:
             expected_designations.append(1)
         if bubble.color_values is not None:
             expected_designations.append(1)
+        if marker_data is not None:
+            expected_designations.append(1)
         observed_designations = [
             int(self.sheet.get_int(f"col{index}.type"))
             for index in range(1, len(expected_designations) + 1)
@@ -340,6 +375,7 @@ class K04OriginProject:
             if size_modifier != expected_modifier:
                 raise RuntimeError("Origin K04 size column modifier is not native")
         color_range: list[float] | None = None
+        color_dataset: str | None = None
         if columns["color"] is not None:
             theme = self.plot.obj.GetTheme()
             color_map = self._theme_child(theme, "ColorMap")
@@ -347,21 +383,95 @@ class K04OriginProject:
             maximum = float(self._theme_child(color_map, "Max").GetValue())
             major_levels = int(self._theme_child(color_map, "MajorLevels").GetValue())
             values = tuple(value for value in bubble.color_values or () if value == value)
+            data_minimum = min(values) if values else 0.0
+            data_maximum = max(values) if values else 0.0
+            span = data_maximum - data_minimum
+            padding = (data_minimum - minimum) + (maximum - data_maximum)
+            if not self.op.lt_exec(
+                f"range __K04COLORPLOT=[{graph_name}]Layer1!1; "
+                "string __K04COLORDATA$; "
+                "get __K04COLORPLOT -csfd __K04COLORDATA$;"
+            ):
+                raise RuntimeError("Origin K04 color modifier source is unreadable")
+            color_dataset = str(self.op.get_lt_str("__K04COLORDATA"))
+            color_column = int(columns["color"])
+            expected_color_dataset = (
+                f"{self.book.name}_{chr(ord('A') + color_column)}"
+            )
             if (
                 not values
-                or abs(minimum - min(values)) > 1e-9
-                or abs(maximum - max(values)) > 1e-9
+                or minimum > data_minimum
+                or maximum < data_maximum
+                or padding > max(span * 0.05, 1e-12)
                 or major_levels != 8
+                or color_dataset != expected_color_dataset
             ):
-                raise RuntimeError("Origin K04 color modifier is not bound to its source range")
+                raise RuntimeError(
+                    "Origin K04 color modifier is not bound to its source range: "
+                    f"observed=({minimum!r}, {maximum!r}, levels={major_levels}), "
+                    f"expected_envelope=({data_minimum!r}, {data_maximum!r}, levels=8), "
+                    f"dataset={color_dataset!r}, expected_dataset={expected_color_dataset!r}"
+                )
             color_range = [minimum, maximum]
+        shape_modifier: int | None = None
+        if marker_data is not None:
+            shape_column = len(self._column_values(bubble))
+            expected_codes = [_SYMBOL_CODES[shape] for shape in marker_data.shapes]
+            observed_codes = [int(float(value)) for value in self.sheet.to_list(shape_column)]
+            if observed_codes != expected_codes:
+                raise RuntimeError("Origin K04 point marker shape codes differ after reopen")
+            if not self.op.lt_exec(
+                f"range __K04SHAPEPLOT=[{graph_name}]Layer1!1; "
+                "get __K04SHAPEPLOT -k __K04SHAPEINDEX;"
+            ):
+                raise RuntimeError("Origin K04 point marker shape modifier is unreadable")
+            shape_modifier = int(float(self.op.lt_float("__K04SHAPEINDEX")))
+            expected_shape_modifier = 100 + shape_column - 1
+            if shape_modifier != expected_shape_modifier:
+                raise RuntimeError("Origin K04 point marker shape modifier is not native")
         return {
             "column_designations": observed_designations,
             "color_map_range": color_range,
+            "color_modifier_dataset": color_dataset,
             "official_creation_plot_id": expected_plot_id,
             "native_plot_id": observed_plot_id,
             "size_modifier": size_modifier,
+            "shape_modifier": shape_modifier,
         }
+
+    def _apply_point_marker_map(
+        self,
+        bubble: K04BubbleData,
+        action: SetPointMarkerMap,
+        data: EngineDataView,
+    ) -> None:
+        marker_data = point_marker_shapes(data, action)
+        shape_column = len(self._column_values(bubble))
+        self.sheet.cols = shape_column + 1
+        self.sheet.from_list(
+            shape_column,
+            [_SYMBOL_CODES[shape] for shape in marker_data.shapes],
+            lname=f"{marker_data.field_name} / marker shape",
+            axis="Y",
+        )
+        graph_name = str(self.graph.name)
+        book_name = str(self.book.name)
+        sheet_name = str(self.sheet.name)
+        if any(
+            not name.replace("_", "").isalnum()
+            for name in (graph_name, book_name, sheet_name)
+        ):
+            raise RuntimeError("Origin K04 native names are unsafe for marker shape binding")
+        column_letter = chr(ord("A") + shape_column)
+        self.graph.activate()
+        command = (
+            f"range __K04SHAPEPLOT=[{graph_name}]Layer1!1; "
+            f"range __K04SHAPECODES=[{book_name}]{sheet_name}!col({column_letter}); "
+            "set __K04SHAPEPLOT -ksn __K04SHAPECODES;"
+        )
+        if not self.op.lt_exec(command):
+            raise RuntimeError("Origin rejected the K04 point marker shape mapping")
+        self.layer.rescale()
 
     @staticmethod
     def _theme_child(parent: Any, name: str) -> Any:

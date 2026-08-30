@@ -12,16 +12,26 @@ from plotagent.contracts.workflows import (
     ConvertUnit,
     DeclareUnit,
     DeriveColumn,
+    DraftAddReferenceLine,
     DraftFieldBinding,
+    DraftPointMarkerMapEntry,
     DraftSetAxis,
+    DraftSetCanvas,
+    DraftSetChartParameter,
+    DraftSetObservationOverlay,
+    DraftSetPointMarkerMap,
     DraftSetSeriesStyle,
     DraftSetTitle,
     ExcludeRows,
+    ExtractMappingFields,
+    MappingFieldOutput,
+    MappingPresenceOutput,
     RenameField,
     ReshapeLongToWide,
     ReshapeWideToLong,
     SchemaComparison,
     SelectFields,
+    SourceFieldBindingEvidence,
     TaskDraft,
     TaskDraftItem,
     WorkflowBudget,
@@ -30,7 +40,17 @@ from plotagent.contracts.workflows import (
     WorkflowOutputField,
     WorkflowSource,
 )
-from plotagent.engine import EngineCatalog, SetSeriesStyle
+from plotagent.engine import (
+    AddReferenceLine,
+    EngineCatalog,
+    EngineDataRef,
+    FieldBinding,
+    SetCanvas,
+    SetChartParameter,
+    SetObservationOverlay,
+    SetPointMarkerMap,
+    SetSeriesStyle,
+)
 from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.workflows import DataInspectionService, DraftCompiler
 from plotagent.workflows.executor import TaskPlanExecutor
@@ -267,6 +287,201 @@ def test_compiler_accepts_x38_numeric_axis_bounds() -> None:
     assert isinstance(action, DraftSetAxis)
     assert action.target_alias == "x_axis"
     assert (action.minimum, action.maximum) == (30, 90)
+
+
+def test_canvas_request_compiles_and_executes_as_a_public_page_action() -> None:
+    context = _context()
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(
+                    update={"visual_actions": (DraftSetCanvas(aspect_ratio=2.4),)}
+                ),
+            )
+        }
+    )
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    compiled = plan.items[0].model_copy(
+        update={
+            "task_kind": "edit",
+            "plot_id": "plot:existing",
+            "target_plot_id": "plot:existing",
+            "target_plot_version": 3,
+            "sources": (),
+            "resolved_fields": (),
+            "data_operations": (),
+            "bindings": (),
+            "binding_evidence": (),
+        }
+    )
+    executed: list[object] = []
+
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (_ for _ in ()).throw(AssertionError("not used")),
+        execute_action=lambda action, revision: (executed.append(action) or revision + 1),
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 10)
+
+    assert (revision, plot_version) == (11, 4)
+    assert len(executed) == 1
+    assert isinstance(executed[0], SetCanvas)
+    assert executed[0].target == "plot:existing"
+    assert executed[0].aspect_ratio == 2.4
+
+
+def test_reference_line_compiles_to_addressable_axis_data_action() -> None:
+    context = _context()
+    draft = _draft(context).model_copy(
+        update={
+            "items": (
+                _draft(context).items[0].model_copy(
+                    update={
+                        "visual_actions": (
+                            DraftAddReferenceLine(
+                                target_alias="y_axis",
+                                reference_line_alias="mean",
+                                value=42.5,
+                                label="Mean",
+                                line_color="#B42318",
+                                line_width_pt=1.5,
+                                line_style="dash",
+                            ),
+                        )
+                    }
+                ),
+            )
+        }
+    )
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    compiled = plan.items[0].model_copy(
+        update={
+            "task_kind": "edit",
+            "plot_id": "plot:existing",
+            "target_plot_id": "plot:existing",
+            "target_plot_version": 3,
+            "sources": (),
+            "resolved_fields": (),
+            "data_operations": (),
+            "bindings": (),
+            "binding_evidence": (),
+        }
+    )
+    executed: list[object] = []
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (_ for _ in ()).throw(AssertionError("not used")),
+        execute_action=lambda action, revision: (executed.append(action) or revision + 1),
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 10)
+
+    assert (revision, plot_version) == (11, 4)
+    assert len(executed) == 1
+    assert isinstance(executed[0], AddReferenceLine)
+    assert executed[0].target == "axis:existing.y"
+    assert executed[0].reference_line_id == "reference_line:existing.mean"
+    assert executed[0].value == 42.5
+
+
+def test_x40_identity_label_visibility_compiles_and_executes_without_unbinding_label() -> None:
+    context = _context().model_copy(
+        update={
+            "selected_profile_ids": ("X40",),
+            "fields": (
+                WorkflowField(
+                    field_alias="data_1_subject",
+                    source_alias="data_1",
+                    field_id="field:subject",
+                    name="Mouse",
+                    logical_type="categorical",
+                ),
+                WorkflowField(
+                    field_alias="data_1_before",
+                    source_alias="data_1",
+                    field_id="field:before",
+                    name="Before",
+                    logical_type="numeric",
+                ),
+                WorkflowField(
+                    field_alias="data_1_after",
+                    source_alias="data_1",
+                    field_id="field:after",
+                    name="After",
+                    logical_type="numeric",
+                ),
+            ),
+        }
+    )
+    item = _draft(context).items[0].model_copy(
+        update={
+            "profile_id": "X40",
+            "bindings": (
+                DraftFieldBinding(
+                    role="label",
+                    source_alias="data_1",
+                    field_alias="data_1_subject",
+                ),
+                DraftFieldBinding(
+                    role="series_1",
+                    source_alias="data_1",
+                    field_alias="data_1_before",
+                ),
+                DraftFieldBinding(
+                    role="series_2",
+                    source_alias="data_1",
+                    field_alias="data_1_after",
+                ),
+            ),
+            "visual_actions": (
+                DraftSetChartParameter(
+                    parameter="identity_labels_visible",
+                    value=False,
+                ),
+            ),
+        }
+    )
+    draft = _draft(context).model_copy(update={"items": (item,)})
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    compiled = plan.items[0].model_copy(
+        update={
+            "task_kind": "edit",
+            "plot_id": "plot:x40-existing",
+            "target_plot_id": "plot:x40-existing",
+            "target_plot_version": 3,
+            "sources": (),
+            "resolved_fields": (),
+            "data_operations": (),
+            "bindings": (),
+            "binding_evidence": (),
+        }
+    )
+    executed: list[object] = []
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (_ for _ in ()).throw(AssertionError("not used")),
+        execute_action=lambda action, revision: (executed.append(action) or revision + 1),
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 20)
+
+    assert (revision, plot_version) == (21, 4)
+    assert compiled.bindings == ()
+    assert len(executed) == 1
+    assert isinstance(executed[0], SetChartParameter)
+    assert executed[0].target == "plot:x40-existing"
+    assert executed[0].parameter == "identity_labels_visible"
+    assert executed[0].value is False
 
 
 def test_all_series_scope_is_typed_and_expands_against_runtime_readback() -> None:
@@ -1060,6 +1275,314 @@ def test_compiler_supports_ordered_agent_tool_chains_and_rejects_future_fields()
     validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(invalid, context)
     assert not validation.valid
     assert validation.error_code == "FIELD_ALIAS_INVALID"
+
+
+def test_compiler_resolves_every_declared_mapping_output_with_exact_lineage() -> None:
+    base = _context()
+    context = base.model_copy(
+        update={
+            "fields": (
+                *base.fields,
+                WorkflowField(
+                    field_alias="sigma",
+                    source_alias="data_1",
+                    field_id="field:sigma",
+                    name="sigma",
+                    logical_type="text",
+                ),
+            )
+        }
+    )
+    operation = ExtractMappingFields(
+        source_alias="data_1",
+        field_alias="sigma",
+        outputs=(
+            MappingFieldOutput(
+                key="value",
+                output_field_alias="sigma_value",
+                output_name="sigma value",
+                target_type="numeric",
+            ),
+            MappingFieldOutput(
+                key="confidence_level",
+                output_field_alias="sigma_confidence",
+                output_name="sigma confidence",
+                target_type="categorical",
+                required=False,
+                presence_output=MappingPresenceOutput(
+                    output_field_alias="sigma_confidence_present",
+                    output_name="sigma confidence present",
+                ),
+            ),
+        ),
+    )
+    item = _draft(context).items[0].model_copy(
+        update={
+            "data_operations": (operation,),
+            "bindings": (
+                DraftFieldBinding(
+                    role="x", source_alias="data_1", field_alias="data_1_time"
+                ),
+                DraftFieldBinding(role="y", source_alias="data_1", field_alias="sigma_value"),
+            ),
+        }
+    )
+
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(
+        _draft(context).model_copy(update={"items": (item,)}),
+        context,
+    )
+
+    resolved = {field.field_alias: field for field in plan.items[0].resolved_fields}
+    assert resolved["sigma_value"].logical_type == "numeric"
+    assert resolved["sigma_confidence"].logical_type == "categorical"
+    assert resolved["sigma_confidence_present"].logical_type == "boolean"
+    assert resolved["sigma_value"].field_id.startswith("field:workflow_")
+    assert plan.items[0].binding_evidence == (
+        SourceFieldBindingEvidence(
+            role="x",
+            source_alias="data_1",
+            field_id="field:data_1_time",
+        ),
+        SourceFieldBindingEvidence(
+            role="y",
+            source_alias="data_1",
+            field_id="field:sigma",
+        ),
+    )
+
+
+def test_k04_point_marker_map_compiles_presence_field_and_executes_exact_entries() -> None:
+    base = _context()
+    context = base.model_copy(
+        update={
+            "fields": (
+                *base.fields,
+                WorkflowField(
+                    field_alias="sigma",
+                    source_alias="data_1",
+                    field_id="field:sigma",
+                    name="sigma",
+                    logical_type="text",
+                ),
+            )
+        }
+    )
+    operation = ExtractMappingFields(
+        source_alias="data_1",
+        field_alias="sigma",
+        outputs=(
+            MappingFieldOutput(
+                key="confidence_level",
+                output_field_alias="sigma_confidence",
+                output_name="sigma confidence",
+                target_type="categorical",
+                required=False,
+                presence_output=MappingPresenceOutput(
+                    output_field_alias="sigma_confidence_present",
+                    output_name="sigma confidence present",
+                ),
+            ),
+        ),
+    )
+    item = TaskDraftItem(
+        task_kind="create",
+        item_id="item:k04-marker-map.1",
+        plot_alias="plot_1",
+        profile_id="K04",
+        source_aliases=("data_1",),
+        data_operations=(operation,),
+        bindings=(
+            DraftFieldBinding(role="x", source_alias="data_1", field_alias="data_1_time"),
+            DraftFieldBinding(
+                role="y", source_alias="data_1", field_alias="data_1_response"
+            ),
+        ),
+        visual_actions=(
+            DraftSetPointMarkerMap(
+                target_alias="series_1",
+                field_alias="sigma_confidence_present",
+                entries=(
+                    DraftPointMarkerMapEntry(value=True, marker_shape="circle"),
+                    DraftPointMarkerMapEntry(value=False, marker_shape="triangle_down"),
+                ),
+            ),
+        ),
+    )
+    draft = _draft(context).model_copy(update={"items": (item,)})
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(draft, context)
+    compiled = plan.items[0]
+    presence = next(
+        field
+        for field in compiled.resolved_fields
+        if field.field_alias == "sigma_confidence_present"
+    )
+    executed: list[object] = []
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (
+            EngineDataRef(
+                kind="prepared",
+                dataset_id="prepared:k04-marker-map",
+                version=1,
+                content_hash="f" * 64,
+            ),
+            tuple(
+                FieldBinding(role=binding.role, field_id=binding.field_id)
+                for binding in compiled.bindings
+            ),
+        ),
+        execute_action=lambda action, revision: (executed.append(action) or revision + 1),
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 4)
+
+    assert (revision, plot_version) == (6, 2)
+    marker_action = next(
+        action for action in executed if isinstance(action, SetPointMarkerMap)
+    )
+    assert marker_action.field_id == presence.field_id
+    assert tuple((entry.value, entry.marker_shape) for entry in marker_action.entries) == (
+        (True, "circle"),
+        (False, "triangle_down"),
+    )
+
+
+def test_k13_observation_overlay_compiles_without_a_second_data_binding() -> None:
+    context = _context()
+    item = TaskDraftItem(
+        task_kind="create",
+        item_id="item:k13-observations.1",
+        plot_alias="plot_1",
+        profile_id="K13",
+        source_aliases=("data_1",),
+        bindings=(
+            DraftFieldBinding(
+                role="value",
+                source_alias="data_1",
+                field_alias="data_1_response",
+            ),
+        ),
+        visual_actions=(
+            DraftSetObservationOverlay(
+                target_alias="observations",
+                jitter_fraction=0.2,
+                marker_shape="triangle_down",
+            ),
+        ),
+    )
+    plan = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).compile(
+        _draft(context).model_copy(update={"items": (item,)}),
+        context,
+    )
+    compiled = plan.items[0]
+    executed: list[object] = []
+    executor = TaskPlanExecutor(
+        repository=None,
+        catalog=EngineCatalog(ENGINE_PROFILES),
+        prepare_data=lambda _item: (
+            EngineDataRef(
+                kind="prepared",
+                dataset_id="prepared:k13-observations",
+                version=1,
+                content_hash="f" * 64,
+            ),
+            tuple(
+                FieldBinding(role=binding.role, field_id=binding.field_id)
+                for binding in compiled.bindings
+            ),
+        ),
+        execute_action=lambda action, revision: (executed.append(action) or revision + 1),
+        validate_prepared_data=lambda _item, _data, _bindings: None,
+        validate_edit_data=lambda _item: None,
+    )
+
+    revision, plot_version = executor.execute_compiled_item(compiled, 4)
+
+    assert (revision, plot_version) == (6, 2)
+    overlay = next(
+        action for action in executed if isinstance(action, SetObservationOverlay)
+    )
+    assert overlay.target == "observation_overlay:workflow.test.1.raw"
+    assert overlay.jitter_fraction == 0.2
+    assert not hasattr(overlay, "field_id")
+
+    rejected = item.model_copy(
+        update={
+            "profile_id": "K14",
+            "item_id": "item:k14-observations.1",
+        }
+    )
+    validation = DraftCompiler(EngineCatalog(ENGINE_PROFILES)).validate(
+        _draft(context).model_copy(update={"items": (rejected,)}),
+        context,
+    )
+    assert validation.error_code == "ACTION_NOT_ALLOWED"
+
+
+@pytest.mark.parametrize(
+    "outputs",
+    (
+        (
+            MappingFieldOutput(
+                key="value",
+                output_field_alias="sigma_value",
+                output_name="value one",
+                target_type="numeric",
+            ),
+            MappingFieldOutput(
+                key="value",
+                output_field_alias="sigma_other",
+                output_name="value two",
+                target_type="numeric",
+            ),
+        ),
+        (
+            MappingFieldOutput(
+                key="value",
+                output_field_alias="sigma_value",
+                output_name="value one",
+                target_type="numeric",
+            ),
+            MappingFieldOutput(
+                key="confidence_level",
+                output_field_alias="sigma_value",
+                output_name="value two",
+                target_type="categorical",
+            ),
+        ),
+        (
+            MappingFieldOutput(
+                key="value",
+                output_field_alias="sigma_value",
+                output_name="value",
+                target_type="numeric",
+                presence_output=MappingPresenceOutput(
+                    output_field_alias="sigma_confidence",
+                    output_name="value present",
+                ),
+            ),
+            MappingFieldOutput(
+                key="confidence_level",
+                output_field_alias="sigma_confidence",
+                output_name="confidence",
+                target_type="categorical",
+            ),
+        ),
+    ),
+)
+def test_mapping_extraction_contract_rejects_duplicate_keys_or_aliases(
+    outputs: tuple[MappingFieldOutput, ...],
+) -> None:
+    with pytest.raises(ValidationError):
+        ExtractMappingFields(
+            source_alias="data_1",
+            field_alias="sigma",
+            outputs=outputs,
+        )
 
 
 def test_unit_declaration_requires_current_semantic_evidence_and_preserves_type() -> None:

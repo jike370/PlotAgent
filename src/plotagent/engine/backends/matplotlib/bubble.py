@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
+from matplotlib.markers import MarkerStyle
 from numpy.typing import NDArray
 
 from plotagent.contracts.canonical import canonical_hash
@@ -25,9 +26,10 @@ from plotagent.engine.contracts import (
     PlotDocument,
     PlotEngineAction,
     SetChartParameter,
+    SetPointMarkerMap,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import K04BubbleData, k04_bubble
+from plotagent.engine.profile_data import K04BubbleData, k04_bubble, point_marker_shapes
 from plotagent.engine.repository import document_ref
 
 
@@ -78,6 +80,22 @@ class K04BubbleRenderer:
             marker=self._marker(state.symbol),
             label=bubble.y_field_name,
         )
+        marker_action = next(
+            (action for action in reversed(actions) if isinstance(action, SetPointMarkerMap)),
+            None,
+        )
+        marker_data = (
+            None if marker_action is None else point_marker_shapes(data, marker_action)
+        )
+        if marker_data is not None:
+            scatter.set_paths(
+                [
+                    MarkerStyle(self._marker(shape)).get_path().transformed(
+                        MarkerStyle(self._marker(shape)).get_transform()
+                    )
+                    for shape in marker_data.shapes
+                ]
+            )
         axis.set_title(state.title)
         axis.set_xlabel(state.x_axis.label)
         axis.set_ylabel(state.y_axis.label)
@@ -166,7 +184,16 @@ class K04BubbleRenderer:
             backend="matplotlib",
             objects=tuple(objects),
             data_hash=canonical_hash(data),
-            style_hash=canonical_hash(asdict(state)),
+            style_hash=canonical_hash(
+                {
+                    "state": asdict(state),
+                    "point_marker_map": (
+                        None
+                        if marker_action is None
+                        else marker_action.model_dump(mode="json")
+                    ),
+                }
+            ),
         )
 
     def _state(
@@ -188,6 +215,8 @@ class K04BubbleRenderer:
         )
         for index, action in enumerate(actions):
             if isinstance(action, (CreatePlot, BindFields)):
+                continue
+            if isinstance(action, SetPointMarkerMap):
                 continue
             if isinstance(action, SetChartParameter):
                 if index < last_binding:
@@ -227,7 +256,15 @@ class K04BubbleRenderer:
                 "square": "s",
                 "triangle": "^",
                 "triangle_up": "^",
+                "triangle_down": "v",
+                "triangle_left": "<",
+                "triangle_right": ">",
                 "diamond": "D",
+                "plus": "+",
+                "cross": "x",
+                "hexagon": "h",
+                "star": "*",
+                "pentagon": "p",
             }[symbol]
         except KeyError as error:
             raise ValueError(f"K04 does not support symbol {symbol}") from error

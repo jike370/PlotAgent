@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from plotagent.contracts.base import ContentTableRef
@@ -47,6 +47,7 @@ class ProjectImportService:
         delimiter: str | None = None,
         decimal_mark: str | None = None,
         header_row: int | None = None,
+        header_rows: Mapping[str, int] | None = None,
         sheet: str | None = None,
         expected_revision: int | None = None,
         idempotency_key: str | None = None,
@@ -64,6 +65,7 @@ class ProjectImportService:
                 delimiter=delimiter,
                 decimal_mark=decimal_mark,
                 header_row=header_row,
+                header_rows=header_rows,
                 sheet=sheet,
             )
             if not isinstance(outcome, Imported):

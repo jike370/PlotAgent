@@ -57,6 +57,10 @@ describe('desktop product IPC boundary', () => {
     expect(importOptionLabel('IMPORT_DELIMITER_AMBIGUOUS', '\t', '\t')).toBe('制表符（Tab）')
     expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'line:3')).toEqual({ header_row: 3 })
     expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'none')).toEqual({ header_row: 0 })
+    expect(importOptionPatch('IMPORT_HEADER_AMBIGUOUS', 'sheet:Lineage|line:2')).toEqual({
+      header_rows: { Lineage: 2 },
+    })
+    expect(importOptionLabel('IMPORT_HEADER_AMBIGUOUS', 'sheet:Lineage|line:2', '')).toBe('第 2 行作为表头')
     expect(importOptionPatch('IMPORT_REGION_AMBIGUOUS', 'A1:B3')).toBeUndefined()
   })
 

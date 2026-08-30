@@ -21,9 +21,14 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
+    SetObservationOverlay,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import DistributionData, distribution_groups
+from plotagent.engine.profile_data import (
+    DistributionData,
+    distribution_groups,
+    regular_observation_positions,
+)
 from plotagent.engine.repository import document_ref
 from plotagent.plot_calculations.kernels import scott_kde_geometry
 
@@ -48,12 +53,25 @@ class _SeriesState:
 
 
 @dataclass(frozen=True, slots=True)
+class _ObservationOverlayState:
+    visible: bool
+    jitter_fraction: float
+    marker_shape: str
+    marker_size_pt: float
+    marker_interior: str
+    marker_fill_color: str
+    marker_stroke_color: str
+    marker_opacity: float
+
+
+@dataclass(frozen=True, slots=True)
 class _DistributionState:
     title: str
     x_axis: _AxisState
     y_axis: _AxisState
     series: tuple[_SeriesState, ...]
     legend_visible: bool = False
+    observation_overlay: _ObservationOverlayState | None = None
 
 
 class _DistributionRenderer:
@@ -91,6 +109,7 @@ class _DistributionRenderer:
         plt.close(figure)
 
         token = document.plot_id.removeprefix("plot:")
+        extra_objects = self._extra_objects(document, distribution, state)
         objects = (
             EngineObjectRef(
                 semantic_id=document.plot_id,
@@ -119,6 +138,7 @@ class _DistributionRenderer:
                 )
                 for index, native_count in enumerate(artists, start=1)
             ),
+            *extra_objects,
             EngineObjectRef(
                 semantic_id=f"legend:{token}.main",
                 backend="matplotlib",
@@ -132,6 +152,28 @@ class _DistributionRenderer:
             objects=objects,
             data_hash=canonical_hash(data),
             style_hash=canonical_hash(asdict(state)),
+        )
+
+    def _extra_objects(
+        self,
+        document: PlotDocument,
+        distribution: DistributionData,
+        state: _DistributionState,
+    ) -> tuple[EngineObjectRef, ...]:
+        if state.observation_overlay is None:
+            return ()
+        token = document.plot_id.removeprefix("plot:")
+        point_count = sum(len(group.values) for group in distribution.groups)
+        return (
+            EngineObjectRef(
+                semantic_id=f"observation_overlay:{token}.raw",
+                backend="matplotlib",
+                object_kind="observation_overlay",
+                native_ref=(
+                    "axes:0.observation_overlay:"
+                    f"{len(distribution.groups)}:{point_count}"
+                ),
+            ),
         )
 
     def _draw(
@@ -178,6 +220,25 @@ class _DistributionRenderer:
         )
         for _index, action in enumerate(actions):
             if isinstance(action, (CreatePlot, BindFields)):
+                continue
+            if isinstance(action, SetObservationOverlay) and self.profile_id == "K13":
+                state = _DistributionState(
+                    title=state.title,
+                    x_axis=state.x_axis,
+                    y_axis=state.y_axis,
+                    series=state.series,
+                    legend_visible=state.legend_visible,
+                    observation_overlay=_ObservationOverlayState(
+                        visible=action.visible,
+                        jitter_fraction=action.jitter_fraction,
+                        marker_shape=action.marker_shape,
+                        marker_size_pt=action.marker_size_pt,
+                        marker_interior=action.marker_interior,
+                        marker_fill_color=action.marker_fill_color,
+                        marker_stroke_color=action.marker_stroke_color,
+                        marker_opacity=action.marker_opacity,
+                    ),
+                )
                 continue
             raise ValueError(f"{self.profile_id} renderer cannot apply {action.operation}")
         return state
@@ -234,6 +295,10 @@ class K13BoxRenderer(_DistributionRenderer):
             widths=0.55,
             patch_artist=True,
             whis=1.5,
+            showfliers=(
+                state.observation_overlay is None
+                or not state.observation_overlay.visible
+            ),
         )
         for group, style, box in zip(
             distribution.groups,
@@ -245,6 +310,37 @@ class K13BoxRenderer(_DistributionRenderer):
             box.set_edgecolor("#1A1A1A")
             box.set_linewidth(style.line_width_pt)
             box.set_label(group.label)
+        overlay = state.observation_overlay
+        if overlay is not None and overlay.visible:
+            markers = {
+                "circle": "o",
+                "square": "s",
+                "triangle_up": "^",
+                "triangle_down": "v",
+                "diamond": "D",
+            }
+            face_color: str = (
+                "none"
+                if overlay.marker_interior in {"open", "hollow"}
+                else overlay.marker_fill_color
+            )
+            for position, group in enumerate(distribution.groups, start=1):
+                x_values = regular_observation_positions(
+                    position,
+                    len(group.values),
+                    overlay.jitter_fraction,
+                )
+                axis.scatter(
+                    x_values,
+                    group.values,
+                    marker=markers[overlay.marker_shape],
+                    s=overlay.marker_size_pt**2,
+                    facecolors=face_color,
+                    edgecolors=overlay.marker_stroke_color,
+                    alpha=overlay.marker_opacity,
+                    linewidths=0.8,
+                    zorder=4,
+                )
         return tuple(len(group.values) for group in distribution.groups)
 
 

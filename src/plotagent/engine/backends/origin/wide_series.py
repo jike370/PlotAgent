@@ -12,6 +12,7 @@ from plotagent.engine.contracts import (
     EngineDataView,
     PlotDocument,
     PlotEngineAction,
+    SetChartParameter,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
 from plotagent.engine.profile_data import (
@@ -230,7 +231,10 @@ class WideSeriesOriginProject:
                 "source_layout": "worksheet_wide",
             },
         ):
-            self._write_wide(series)
+            self._write_wide(
+                series,
+                self._source_metadata_columns(document, data, series),
+            )
             self._remove_workbook_residue(book)
         command_template = (
             _X39_OFFICIAL_MENU_COMMAND if self.profile_id == "X39" else _X40_OFFICIAL_MENU_COMMAND
@@ -298,6 +302,18 @@ class WideSeriesOriginProject:
         document.plot_id.removeprefix("plot:")
         if isinstance(action, (CreatePlot, BindFields)):
             return
+        if (
+            self.profile_id == "X40"
+            and isinstance(action, SetChartParameter)
+            and action.parameter == "identity_labels_visible"
+        ):
+            if not isinstance(action.value, bool):
+                raise ValueError("identity_labels_visible must be boolean")
+            self._set_x40_identity_labels_visibility(
+                wide_series(document, data, profile_id="X40"),
+                action.value,
+            )
+            return
         raise ValueError(f"Origin {self.profile_id} binder cannot apply {action.operation}")
 
     def save(self, output_path: Path) -> None:
@@ -328,8 +344,10 @@ class WideSeriesOriginProject:
             snapshot["connector_groups"] = 1
             snapshot.update(self._assert_official_wide_structure(series))
             if self.profile_id == "X40":
-                self._verify_x40_identity_labels(series)
-                snapshot["identity_labels"] = series.row_count
+                labels_visible = self._x40_identity_labels_visible(actions)
+                self._verify_x40_identity_labels(series, visible=labels_visible)
+                snapshot["identity_labels"] = series.row_count if labels_visible else 0
+                snapshot["identity_labels_visible"] = labels_visible
         if self.profile_id == "X03":
             native_series_objects = tuple(
                 EngineObjectRef(
@@ -460,7 +478,11 @@ class WideSeriesOriginProject:
             "axes_exchanged_and_drop_to_follow_plot": "requires_live_theme_readback",
         }
 
-    def _write_wide(self, series: WideSeriesData) -> None:
+    def _write_wide(
+        self,
+        series: WideSeriesData,
+        metadata: tuple[tuple[object, ...], ...],
+    ) -> None:
         for index, (label, values) in enumerate(
             zip(series.column_labels, series.column_values, strict=True)
         ):
@@ -472,19 +494,21 @@ class WideSeriesOriginProject:
                 axis="Y",
             )
         next_column = len(series.column_values)
+        metadata_index = 0
         if series.row_labels is not None:
             self.sheet.from_list(
                 next_column,
-                list(series.row_labels),
+                list(metadata[metadata_index]),
                 lname="Subject",
                 comments="",
                 axis="L",
             )
             next_column += 1
+            metadata_index += 1
         if series.row_groups is not None:
             self.sheet.from_list(
                 next_column,
-                list(series.row_groups),
+                list(metadata[metadata_index]),
                 lname="Group",
                 comments="",
                 axis="N",
@@ -527,7 +551,40 @@ class WideSeriesOriginProject:
                 leader.name = f"X40L{row + 1:04d}"
                 leader.set_float("lineWidth", 0.6)
 
-    def _verify_x40_identity_labels(self, series: WideSeriesData) -> None:
+    def _set_x40_identity_labels_visibility(
+        self, series: WideSeriesData, visible: bool
+    ) -> None:
+        after_values = series.column_values[-1]
+        label_positions = x40_identity_label_positions(after_values)
+        for row, (after_value, label_y) in enumerate(
+            zip(after_values, label_positions, strict=True)
+        ):
+            label = self.layer.label(f"{_X40_SUBJECT_PREFIX}{row + 1:04d}")
+            if label is None:
+                raise RuntimeError(f"Origin X40 identity label is missing for row {row + 1}")
+            label.set_int("show", int(visible))
+            if abs(label_y - float(after_value)) > 1e-9:
+                leader = self.layer.label(f"X40L{row + 1:04d}")
+                if leader is None:
+                    raise RuntimeError(f"Origin X40 identity leader is missing for row {row + 1}")
+                leader.set_int("show", int(visible))
+
+    @staticmethod
+    def _x40_identity_labels_visible(actions: tuple[PlotEngineAction, ...]) -> bool:
+        visible = True
+        for action in actions:
+            if (
+                isinstance(action, SetChartParameter)
+                and action.parameter == "identity_labels_visible"
+            ):
+                if not isinstance(action.value, bool):
+                    raise ValueError("identity_labels_visible must be boolean")
+                visible = action.value
+        return visible
+
+    def _verify_x40_identity_labels(
+        self, series: WideSeriesData, *, visible: bool
+    ) -> None:
         after_values = series.column_values[-1]
         label_positions = x40_identity_label_positions(after_values)
         for row, (after_value, label_y) in enumerate(
@@ -536,7 +593,11 @@ class WideSeriesOriginProject:
             name = f"{_X40_SUBJECT_PREFIX}{row + 1:04d}"
             label = self.layer.label(name)
             expected_text = self._x40_identity_text(series, row)
-            if label is None or label.text != expected_text or not label.get_int("show"):
+            if (
+                label is None
+                or label.text != expected_text
+                or bool(label.get_int("show")) is not visible
+            ):
                 raise RuntimeError(f"Origin X40 identity label did not survive readback: {name}")
             if (
                 abs(float(label.get_float("x1")) - 2.08) > 0.01
@@ -545,13 +606,12 @@ class WideSeriesOriginProject:
                 raise RuntimeError(
                     f"Origin X40 identity label moved away from its After value: {name}"
                 )
-            if (
-                abs(label_y - float(after_value)) > 1e-9
-                and self.layer.label(f"X40L{row + 1:04d}") is None
-            ):
-                raise RuntimeError(
-                    f"Origin X40 identity leader did not survive readback: row {row + 1}"
-                )
+            if abs(label_y - float(after_value)) > 1e-9:
+                leader = self.layer.label(f"X40L{row + 1:04d}")
+                if leader is None or bool(leader.get_int("show")) is not visible:
+                    raise RuntimeError(
+                        f"Origin X40 identity leader did not survive readback: row {row + 1}"
+                    )
 
     def _assert_official_wide_structure(self, series: WideSeriesData) -> dict[str, object]:
         if self.profile_id not in {"X39", "X40"}:
@@ -655,12 +715,40 @@ class WideSeriesOriginProject:
             lollipop = x03_lollipop(document, data)
             return (lollipop.categories, *lollipop.columns.values)
         series = wide_series(document, data, profile_id=self.profile_id)
-        metadata: tuple[tuple[object, ...], ...] = ()
-        if series.row_labels is not None:
-            metadata += (series.row_labels,)
-        if series.row_groups is not None:
-            metadata += (series.row_groups,)
+        metadata = self._source_metadata_columns(document, data, series)
         return (*series.column_values, *metadata)
+
+    @staticmethod
+    def _source_metadata_columns(
+        document: PlotDocument,
+        data: EngineDataView,
+        series: WideSeriesData,
+    ) -> tuple[tuple[object, ...], ...]:
+        """Keep worksheet provenance separate from display-label formatting.
+
+        ``wide_series`` normalizes identity values to strings because graph labels
+        are text.  The authoritative Origin worksheet, however, must retain the
+        scalar values and types from the bound source columns.  Fresh-reopen
+        verification therefore uses the same raw columns that were written rather
+        than comparing Origin's numeric readback with formatted label strings.
+        """
+
+        bindings = {binding.role: binding.field_id for binding in document.bindings}
+        columns = {column.field.field_id: column.values for column in data.columns}
+        metadata: list[tuple[object, ...]] = []
+        for present, role in (
+            (series.row_labels is not None, "label"),
+            (series.row_groups is not None, "group"),
+        ):
+            if not present:
+                continue
+            field_id = bindings.get(role)
+            if field_id is None or field_id not in columns:
+                raise RuntimeError(
+                    f"Origin X40 metadata role {role!r} is not bound to source data"
+                )
+            metadata.append(tuple(columns[field_id]))
+        return tuple(metadata)
 
     @staticmethod
     def _assert_values(actual: list[object], expected: tuple[object, ...], name: str) -> None:

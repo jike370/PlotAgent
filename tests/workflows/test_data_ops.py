@@ -14,8 +14,11 @@ from plotagent.contracts.workflows import (
     DeclareUnit,
     DropEmptyFields,
     ExcludeRows,
+    ExtractMappingFields,
     FilterPredicate,
     FilterRows,
+    MappingFieldOutput,
+    MappingPresenceOutput,
     RenameField,
     ReshapeWideToLong,
     ResolvedFieldBinding,
@@ -1114,3 +1117,231 @@ def test_multiple_source_alignment_rejects_x_mismatch_without_silent_interpolati
 
     assert caught.value.code == "WORKFLOW_ALIGNMENT_X_MISMATCH"
     assert "未执行排序、插值或静默截断" in caught.value.message
+
+
+def _mapping_item(
+    outputs: tuple[MappingFieldOutput, ...],
+) -> CompiledTaskItem:
+    resolved_outputs = tuple(
+        field
+        for output in outputs
+        for field in (
+            ResolvedWorkflowField(
+                field_alias=output.output_field_alias,
+                source_alias="data_1",
+                field_id=f"field:workflow_{output.output_field_alias}",
+                name=output.output_name,
+                logical_type=output.target_type,
+            ),
+            *(
+                ()
+                if output.presence_output is None
+                else (
+                    ResolvedWorkflowField(
+                        field_alias=output.presence_output.output_field_alias,
+                        source_alias="data_1",
+                        field_id=(
+                            f"field:workflow_{output.presence_output.output_field_alias}"
+                        ),
+                        name=output.presence_output.output_name,
+                        logical_type="boolean",
+                    ),
+                )
+            ),
+        )
+    )
+    return CompiledTaskItem(
+        task_kind="create",
+        item_id="item:mapping.1",
+        plot_alias="plot_1",
+        plot_id="plot:mapping",
+        profile_id="K04",
+        sources=(
+            WorkflowSource(
+                source_alias="data_1",
+                source_dataset_id="source:mapping",
+                source_version=1,
+                content_hash="a" * 64,
+                display_name="source_data.xlsx > Fig. 4",
+                row_count=3,
+            ),
+        ),
+        resolved_fields=(
+            ResolvedWorkflowField(
+                field_alias="sigma",
+                source_alias="data_1",
+                field_id="field:sigma",
+                name="sigma",
+                logical_type="text",
+            ),
+            *resolved_outputs,
+        ),
+        data_operations=(
+            ExtractMappingFields(
+                source_alias="data_1",
+                field_alias="sigma",
+                outputs=outputs,
+            ),
+        ),
+        bindings=(
+            ResolvedFieldBinding(
+                role="color",
+                source_alias="data_1",
+                field_id=f"field:workflow_{outputs[0].output_field_alias}",
+            ),
+        ),
+        visual_actions=(),
+        idempotency_key="workflow.mapping.1",
+    )
+
+
+def _mapping_view(values: tuple[str | None, ...]) -> EngineDataView:
+    return EngineDataView(
+        data=EngineDataRef(
+            kind="source",
+            dataset_id="source:mapping",
+            version=1,
+            content_hash="a" * 64,
+        ),
+        row_ids=tuple(f"row:mapping.{index}" for index in range(1, len(values) + 1)),
+        columns=(
+            EngineColumn(
+                field=EngineField(field_id="field:sigma", name="sigma", logical_type="text"),
+                values=values,
+            ),
+        ),
+    )
+
+
+def test_extract_mapping_fields_preserves_k04_value_and_optional_confidence_lineage() -> None:
+    outputs = (
+        MappingFieldOutput(
+            key="value",
+            output_field_alias="sigma_value",
+            output_name="sigma value",
+            target_type="numeric",
+        ),
+        MappingFieldOutput(
+            key="confidence_level",
+            output_field_alias="sigma_confidence",
+            output_name="sigma confidence",
+            target_type="categorical",
+            required=False,
+            presence_output=MappingPresenceOutput(
+                output_field_alias="sigma_confidence_present",
+                output_name="sigma confidence present",
+            ),
+        ),
+    )
+    registrar = _Registrar()
+
+    prepare_task_data(
+        _mapping_item(outputs),
+        _Provider(
+            {
+                "source:mapping": _mapping_view(
+                    (
+                        "{'value': 0.008212832236281, 'confidence_level': '04_ref'}",
+                        "{'value': 2.4e-06}",
+                        None,
+                    )
+                )
+            }
+        ),
+        registrar,
+    )
+
+    assert registrar.registered is not None
+    columns = {column.field.name: column for column in registrar.registered.columns}
+    assert columns["sigma value"].values == (0.008212832236281, 2.4e-06, None)
+    assert columns["sigma confidence"].values == ("04_ref", None, None)
+    assert columns["sigma confidence present"].values == (True, False, None)
+    assert columns["sigma value"].field.logical_type == "numeric"
+    assert columns["sigma confidence"].field.logical_type == "categorical"
+    assert columns["sigma confidence present"].field.logical_type == "boolean"
+
+
+@pytest.mark.parametrize(
+    ("values", "outputs", "expected_code"),
+    (
+        (
+            ("{'value': 1.0, 'confidence_level': '04_ref'}",),
+            (
+                MappingFieldOutput(
+                    key="value",
+                    output_field_alias="sigma_value",
+                    output_name="sigma value",
+                    target_type="numeric",
+                ),
+            ),
+            "WORKFLOW_MAPPING_KEY_UNDECLARED",
+        ),
+        (
+            ("{'value': 1.0}",),
+            (
+                MappingFieldOutput(
+                    key="value",
+                    output_field_alias="sigma_value",
+                    output_name="sigma value",
+                    target_type="numeric",
+                ),
+                MappingFieldOutput(
+                    key="confidence_level",
+                    output_field_alias="sigma_confidence",
+                    output_name="sigma confidence",
+                    target_type="categorical",
+                ),
+            ),
+            "WORKFLOW_MAPPING_KEY_MISSING",
+        ),
+        (
+            ("{'value': '1.0'}",),
+            (
+                MappingFieldOutput(
+                    key="value",
+                    output_field_alias="sigma_value",
+                    output_name="sigma value",
+                    target_type="numeric",
+                ),
+            ),
+            "WORKFLOW_MAPPING_VALUE_TYPE_INVALID",
+        ),
+        (
+            ("{'value': 1.0, 'value': 2.0}",),
+            (
+                MappingFieldOutput(
+                    key="value",
+                    output_field_alias="sigma_value",
+                    output_name="sigma value",
+                    target_type="numeric",
+                ),
+            ),
+            "WORKFLOW_MAPPING_KEY_DUPLICATED",
+        ),
+        (
+            ("{'value': {'nested': 1.0}}",),
+            (
+                MappingFieldOutput(
+                    key="value",
+                    output_field_alias="sigma_value",
+                    output_name="sigma value",
+                    target_type="numeric",
+                ),
+            ),
+            "WORKFLOW_MAPPING_VALUE_TYPE_INVALID",
+        ),
+    ),
+)
+def test_extract_mapping_fields_rejects_ambiguous_or_lossy_inputs(
+    values: tuple[str | None, ...],
+    outputs: tuple[MappingFieldOutput, ...],
+    expected_code: str,
+) -> None:
+    with pytest.raises(WorkflowDataError) as caught:
+        prepare_task_data(
+            _mapping_item(outputs),
+            _Provider({"source:mapping": _mapping_view(values)}),
+            _Registrar(),
+        )
+
+    assert caught.value.code == expected_code
