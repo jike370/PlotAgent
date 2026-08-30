@@ -6,6 +6,8 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   {
     ignores: [
+      '.codex-tmp',
+      '.tmp',
       '.venv',
       '.pytest-tmp',
       '.pytest_cache',
@@ -15,6 +17,7 @@ export default tseslint.config(
       'node_modules',
       'out',
       'release',
+      'tmp',
     ],
   },
   js.configs.recommended,
