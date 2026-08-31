@@ -5,11 +5,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -20,7 +22,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -54,7 +57,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -62,7 +66,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -72,7 +77,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -89,7 +95,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -99,7 +106,8 @@
             "line_width_pt",
             "line_style",
             "line_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -114,7 +122,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -122,7 +131,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Line",
@@ -181,11 +191,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -196,7 +208,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -230,7 +243,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -238,7 +252,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -248,7 +263,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -265,7 +281,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -279,7 +296,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -294,7 +312,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -302,7 +321,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Line and symbol",
@@ -361,11 +381,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -376,7 +398,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -410,7 +433,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -418,7 +442,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -428,7 +453,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -445,7 +471,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -457,7 +484,8 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -472,7 +500,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -480,7 +509,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Scatter",
@@ -536,11 +566,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -551,7 +583,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -585,7 +618,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -593,7 +627,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -603,7 +638,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -620,7 +656,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -632,14 +669,16 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_point_marker_map",
           "parameters": [
             "field",
             "entries"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -654,7 +693,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_colormap",
@@ -671,14 +711,16 @@
             "colorbar_anchor",
             "colorbar_title",
             "colorbar_tick_format"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "color_scale_visible",
             "size_key_visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -686,7 +728,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Bubble and color-mapped scatter",
@@ -742,11 +785,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -757,7 +802,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -791,7 +837,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -799,7 +846,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -809,7 +857,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -826,7 +875,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -838,7 +888,8 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -853,7 +904,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_error_style",
@@ -862,7 +914,8 @@
             "bar_width_pt",
             "cap_size_pt",
             "bar_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -870,7 +923,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Point estimate and error bar",
@@ -941,11 +995,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -956,7 +1012,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -990,7 +1047,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -998,7 +1056,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1008,7 +1067,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1025,7 +1085,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -1035,7 +1096,8 @@
             "line_width_pt",
             "line_style",
             "line_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -1050,7 +1112,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_error_style",
@@ -1059,7 +1122,8 @@
             "band_fill_opacity",
             "band_stroke_color",
             "band_stroke_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -1067,7 +1131,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Error ribbon",
@@ -1130,11 +1195,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -1145,7 +1212,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -1179,7 +1247,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -1187,7 +1256,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1197,7 +1267,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1214,7 +1285,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -1225,7 +1297,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -1240,7 +1313,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -1255,7 +1329,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -1263,7 +1338,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Column",
@@ -1321,11 +1397,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -1336,7 +1414,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -1370,7 +1449,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -1378,7 +1458,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1388,7 +1469,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1405,13 +1487,15 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
           "parameters": [
             "fill_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -1426,7 +1510,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -1441,7 +1526,17 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
+        },
+        {
+          "operation": "set_chart_parameter",
+          "parameters": [
+            "bar_border_visible",
+            "within_group_gap_percent",
+            "between_group_gap_percent"
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -1449,7 +1544,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Grouped column",
@@ -1507,11 +1603,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -1522,7 +1620,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -1556,7 +1655,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -1564,7 +1664,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1574,7 +1675,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1591,7 +1693,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -1602,7 +1705,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -1617,7 +1721,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -1632,7 +1737,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -1640,7 +1746,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Stacked column",
@@ -1698,11 +1805,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -1713,7 +1822,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -1747,7 +1857,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -1755,7 +1866,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1765,7 +1877,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1782,7 +1895,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -1793,7 +1907,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -1808,7 +1923,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -1823,7 +1939,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -1831,7 +1948,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "100% stacked column",
@@ -1889,11 +2007,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -1904,7 +2024,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -1938,7 +2059,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -1946,7 +2068,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -1956,7 +2079,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -1973,7 +2097,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -1985,7 +2110,8 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2000,7 +2126,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2008,7 +2135,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Strip plot",
@@ -2060,11 +2188,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2075,7 +2205,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2109,7 +2240,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -2117,7 +2249,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -2127,7 +2260,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -2144,7 +2278,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -2160,7 +2295,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_observation_overlay",
@@ -2173,7 +2309,8 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2188,7 +2325,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2196,7 +2334,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Box plot",
@@ -2253,11 +2392,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2268,7 +2409,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2302,7 +2444,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -2310,7 +2453,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -2320,7 +2464,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -2337,7 +2482,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -2351,7 +2497,8 @@
             "line_stroke_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2366,7 +2513,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2374,7 +2522,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Violin plot",
@@ -2426,11 +2575,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2441,7 +2592,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2475,7 +2627,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -2483,7 +2636,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -2493,7 +2647,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -2510,7 +2665,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -2521,7 +2677,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2536,7 +2693,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2544,7 +2702,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Histogram",
@@ -2587,11 +2746,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2602,7 +2763,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2636,7 +2798,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -2644,7 +2807,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -2654,7 +2818,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -2671,7 +2836,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -2685,7 +2851,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2700,7 +2867,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2708,7 +2876,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Area",
@@ -2772,11 +2941,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2787,7 +2958,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2821,7 +2993,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -2829,7 +3002,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -2839,7 +3013,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -2856,7 +3031,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -2866,7 +3042,8 @@
             "line_width_pt",
             "line_style",
             "line_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -2881,7 +3058,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -2889,7 +3067,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Time series",
@@ -2950,11 +3129,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -2965,7 +3146,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -2997,7 +3179,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3005,13 +3188,15 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
           "parameters": [
             "visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_colormap",
@@ -3028,7 +3213,8 @@
             "colorbar_anchor",
             "colorbar_title",
             "colorbar_tick_format"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -3043,7 +3229,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3051,7 +3238,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Heatmap",
@@ -3103,11 +3291,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3118,7 +3308,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3150,7 +3341,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3158,13 +3350,15 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
           "parameters": [
             "visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_colormap",
@@ -3181,7 +3375,8 @@
             "colorbar_anchor",
             "colorbar_title",
             "colorbar_tick_format"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -3196,13 +3391,15 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "triangle"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3210,7 +3407,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Correlation matrix",
@@ -3262,11 +3460,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3277,7 +3477,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3310,7 +3511,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3318,7 +3520,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -3328,7 +3531,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -3345,13 +3549,15 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
           "parameters": [
             "visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_colormap",
@@ -3368,13 +3574,15 @@
             "colorbar_anchor",
             "colorbar_title",
             "colorbar_tick_format"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "levels"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3382,7 +3590,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Filled contour",
@@ -3428,11 +3637,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3443,7 +3654,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3477,7 +3689,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3485,7 +3698,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -3499,7 +3713,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3507,7 +3722,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Faceted plot",
@@ -3562,11 +3778,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3577,7 +3795,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3610,7 +3829,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3618,7 +3838,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -3628,7 +3849,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -3645,7 +3867,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -3659,7 +3882,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -3674,13 +3898,15 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "equal_axes"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3688,7 +3914,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Nyquist plot",
@@ -3748,11 +3975,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3763,7 +3992,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3795,7 +4025,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3803,13 +4034,15 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
           "parameters": [
             "visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_colormap",
@@ -3826,7 +4059,8 @@
             "colorbar_anchor",
             "colorbar_title",
             "colorbar_tick_format"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -3841,13 +4075,15 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "show_counts"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -3855,7 +4091,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Confusion matrix",
@@ -3908,11 +4145,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -3923,7 +4162,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -3957,7 +4197,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -3965,7 +4206,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -3975,7 +4217,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -3992,7 +4235,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4006,7 +4250,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4021,7 +4266,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4029,7 +4275,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Drop line",
@@ -4087,11 +4334,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -4102,7 +4351,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -4136,7 +4386,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -4144,7 +4395,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -4154,7 +4406,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -4171,7 +4424,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4185,7 +4439,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4200,7 +4455,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4208,7 +4464,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Lollipop",
@@ -4268,11 +4525,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -4283,7 +4542,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -4317,7 +4577,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -4325,7 +4586,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -4335,7 +4597,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -4352,7 +4615,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4364,7 +4628,8 @@
             "marker_fill_color",
             "marker_stroke_color",
             "marker_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4379,7 +4644,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4387,7 +4653,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Beeswarm",
@@ -4439,11 +4706,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -4454,7 +4723,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -4488,7 +4758,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -4496,7 +4767,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -4506,7 +4778,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -4523,7 +4796,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4534,7 +4808,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4549,7 +4824,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -4564,7 +4840,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4572,7 +4849,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Floating column",
@@ -4631,11 +4909,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -4646,7 +4926,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -4679,7 +4960,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -4687,7 +4969,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -4697,7 +4980,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -4714,7 +4998,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4725,7 +5010,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4740,7 +5026,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -4755,7 +5042,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4763,7 +5051,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Population pyramid",
@@ -4822,11 +5111,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -4837,7 +5128,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -4871,7 +5163,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -4879,7 +5172,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -4889,7 +5183,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -4906,7 +5201,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -4920,7 +5216,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -4935,7 +5232,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -4943,7 +5241,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Dual-Y line",
@@ -5007,11 +5306,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5022,7 +5323,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -5053,7 +5355,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -5061,7 +5364,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -5071,7 +5375,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -5088,7 +5393,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -5103,7 +5409,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -5118,7 +5425,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -5133,7 +5441,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -5141,7 +5450,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Pareto",
@@ -5201,11 +5511,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5216,7 +5528,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -5250,7 +5563,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -5258,7 +5572,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -5268,7 +5583,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -5285,7 +5601,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -5296,7 +5613,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -5311,7 +5629,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -5326,7 +5645,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -5334,7 +5654,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Dual-Y column",
@@ -5398,11 +5719,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5413,7 +5736,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -5447,7 +5771,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -5455,7 +5780,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -5465,7 +5791,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -5482,7 +5809,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -5501,7 +5829,8 @@
             "fill_stroke_color",
             "fill_stroke_width_pt",
             "fill_stroke_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -5516,7 +5845,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_data_labels",
@@ -5531,7 +5861,8 @@
             "font_size_pt",
             "font_weight",
             "font_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -5539,7 +5870,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Dual-Y column and line",
@@ -5603,11 +5935,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5618,7 +5952,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -5652,7 +5987,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -5660,7 +5996,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -5670,7 +6007,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -5687,7 +6025,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -5697,7 +6036,8 @@
             "line_width_pt",
             "line_style",
             "line_opacity"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -5712,7 +6052,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -5720,7 +6061,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Y-offset stacked line",
@@ -5773,11 +6115,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5788,7 +6132,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -5822,7 +6167,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -5830,7 +6176,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -5840,7 +6187,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -5857,7 +6205,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -5871,7 +6220,8 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_legend",
@@ -5886,7 +6236,8 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -5894,7 +6245,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Line series",
@@ -5952,11 +6304,13 @@
       "capabilities": [
         {
           "operation": "create_plot",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "bind_fields",
-          "parameters": []
+          "parameters": [],
+          "target_parameters": []
         },
         {
           "operation": "set_title",
@@ -5967,7 +6321,8 @@
             "font_weight",
             "italic",
             "color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_axis",
@@ -6001,7 +6356,8 @@
             "grid_color",
             "grid_line_width_pt",
             "grid_line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_canvas",
@@ -6009,7 +6365,8 @@
             "width_mm",
             "height_mm",
             "aspect_ratio"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_reference_line",
@@ -6019,7 +6376,8 @@
             "line_color",
             "line_width_pt",
             "line_style"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "add_callout",
@@ -6036,7 +6394,8 @@
             "font_weight",
             "italic",
             "text_color"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_series_style",
@@ -6050,6 +6409,31 @@
             "marker_interior",
             "marker_fill_color",
             "marker_stroke_color"
+          ],
+          "target_parameters": [
+            {
+              "object_key": "connector",
+              "object_key_prefix": null,
+              "object_kind": "series",
+              "parameters": [
+                "visible",
+                "line_stroke_color",
+                "line_width_pt",
+                "line_style"
+              ]
+            },
+            {
+              "object_key": null,
+              "object_key_prefix": "column",
+              "object_kind": "series",
+              "parameters": [
+                "marker_shape",
+                "marker_size_pt",
+                "marker_interior",
+                "marker_fill_color",
+                "marker_stroke_color"
+              ]
+            }
           ]
         },
         {
@@ -6065,13 +6449,15 @@
             "frame_visible",
             "frame_color",
             "frame_width_pt"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "set_chart_parameter",
           "parameters": [
             "identity_labels_visible"
-          ]
+          ],
+          "target_parameters": []
         },
         {
           "operation": "export_plot",
@@ -6079,7 +6465,8 @@
             "png",
             "svg",
             "opju"
-          ]
+          ],
+          "target_parameters": []
         }
       ],
       "display_name": "Before and after",

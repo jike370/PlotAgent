@@ -47,6 +47,7 @@ test-results/
 .impeccable/work/
 
 # Local investigation scratch space
+.codex-temp/
 .codex-tmp/
 .tmp/
 /tmp/

@@ -26,6 +26,10 @@ from plotagent.engine.contracts import (
     SetChartParameter,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    X40_BEFORE_AFTER_STYLE,
+    x40_auto_range_bounds,
+)
 from plotagent.engine.profile_data import (
     WideSeriesData,
     wide_series,
@@ -192,13 +196,14 @@ class X40BeforeAfterRenderer:
         state = _state(
             document,
             actions,
-            x_label="Series",
-            y_label="Value",
+            x_label="",
+            y_label=X40_BEFORE_AFTER_STYLE.y_axis_label,
             count=len(series.column_values),
             profile_id="X40",
         )
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         _draw_wide_series(axis, series, state)
+        axis.set_ylim(x40_auto_range_bounds(series.column_values))
         _finish(axis, figure, state, png_path, svg_path)
         return _readback(
             document,
@@ -315,8 +320,49 @@ def _state(
         title="",
         x_axis=_AxisState(x_label, scale="linear" if profile_id == "X03" else "categorical"),
         y_axis=_AxisState(y_label, scale="categorical" if profile_id == "X03" else "linear"),
-        series=tuple(_SeriesState(_column_color(profile_id, index)) for index in range(count)),
-        connector=None if profile_id == "X03" else _ConnectorState(),
+        series=tuple(
+            _SeriesState(
+                _column_color(profile_id, index),
+                symbol=(
+                    (
+                        X40_BEFORE_AFTER_STYLE.before_marker_shape,
+                        X40_BEFORE_AFTER_STYLE.after_marker_shape,
+                    )[index]
+                    if profile_id == "X40"
+                    else "circle"
+                ),
+                symbol_size_pt=(
+                    X40_BEFORE_AFTER_STYLE.marker_size_pt
+                    if profile_id == "X40"
+                    else 6.0
+                ),
+            )
+            for index in range(count)
+        ),
+        connector=(
+            None
+            if profile_id == "X03"
+            else _ConnectorState(
+                color=(
+                    X40_BEFORE_AFTER_STYLE.connector_color
+                    if profile_id == "X40"
+                    else "#202020"
+                ),
+                line_width_pt=(
+                    X40_BEFORE_AFTER_STYLE.connector_width_pt
+                    if profile_id == "X40"
+                    else 1.2
+                ),
+            )
+        ),
+        legend_visible=(
+            X40_BEFORE_AFTER_STYLE.legend_visible if profile_id == "X40" else True
+        ),
+        identity_labels_visible=(
+            X40_BEFORE_AFTER_STYLE.identity_labels_visible
+            if profile_id == "X40"
+            else True
+        ),
     )
     max(
         (index for index, action in enumerate(actions) if isinstance(action, BindFields)),
@@ -340,7 +386,10 @@ def _state(
 
 def _column_color(profile_id: str, zero_based_index: int) -> str:
     if profile_id == "X40":
-        return ("#F04444", "#2875D8")[zero_based_index]
+        return (
+            X40_BEFORE_AFTER_STYLE.before_color,
+            X40_BEFORE_AFTER_STYLE.after_color,
+        )[zero_based_index]
     return _PALETTE[zero_based_index % len(_PALETTE)]
 
 

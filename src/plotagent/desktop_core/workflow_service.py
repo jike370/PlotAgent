@@ -701,6 +701,20 @@ class DesktopWorkflowService:
                         or capability.operation
                         in {"add_annotation", "add_reference_line", "add_callout"}
                     ),
+                    "target_parameter_rules": tuple(
+                        {
+                            "operation": capability.operation,
+                            "object_kind": rule.object_kind,
+                            **(
+                                {"object_key": rule.object_key}
+                                if rule.object_key is not None
+                                else {"object_key_prefix": rule.object_key_prefix}
+                            ),
+                            "parameters": rule.parameters,
+                        }
+                        for capability in profile.capabilities
+                        for rule in capability.target_parameters
+                    ),
                 }
             )
         token = context.workflow_run_id.removeprefix("workflow:")

@@ -11,6 +11,9 @@ from re import compile as re_compile
 from typing import Any, Literal
 
 from plotagent.engine.backends.origin.native_visual_t1 import (
+    K07ErrorBandStyleState,
+    K14ViolinStyleState,
+    X40GroupStyleState,
     configure_k09_axis_labels,
     read_axis_line_show,
     read_axis_tick_font_size,
@@ -18,16 +21,28 @@ from plotagent.engine.backends.origin.native_visual_t1 import (
     read_color_scale_tick_format,
     read_color_scale_title,
     read_color_scale_title_show,
+    read_color_scale_typography,
     read_k09_axis_labels,
+    read_k07_error_band_style,
+    read_k14_violin_style,
+    read_k22_contour_lines,
     read_scale_arrow,
+    read_x09_group_fill_colors,
+    read_x40_group_style,
     remove_graph_object,
     set_axis_line_show,
     set_axis_tick_font_size,
     set_color_scale_anchor,
     set_color_scale_tick_format,
     set_color_scale_title,
+    set_color_scale_typography,
+    set_k07_error_band_fill_transparency,
+    set_k14_violin_style,
+    set_k22_contour_lines_visible,
     set_scale_arrow,
     set_scale_arrow_head,
+    set_x09_group_fill_color,
+    set_x40_group_style,
 )
 from plotagent.engine.backends.origin.readback import axis_scale_matches
 from plotagent.engine.contracts import (
@@ -38,6 +53,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetCanvas,
+    SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
@@ -45,10 +61,22 @@ from plotagent.engine.contracts import (
     SetSeriesStyle,
     SetTitle,
 )
-from plotagent.engine.product_style import PRODUCT_TYPOGRAPHY
-from plotagent.engine.visual_t1 import effective_visual_actions, resolve_canvas_inches
+from plotagent.engine.product_style import (
+    K14_VIOLIN_STYLE,
+    K22_FILLED_CONTOUR_STYLE,
+    PRODUCT_SERIES_PALETTE,
+    PRODUCT_TYPOGRAPHY,
+)
+from plotagent.engine.visual_t1 import (
+    K09_VISUAL_CHART_PARAMETERS,
+    effective_visual_actions,
+    product_default_visual_actions,
+    resolve_canvas_inches,
+    resolve_k09_grouped_column_style,
+)
 
 _LINE_STYLE = {"solid": 1, "dash": 2, "dot": 3, "dash_dot": 4, "none": 0}
+_K07_LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 0}
 _REFERENCE_LINE_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3}
 _BORDER_STYLE = {"solid": 0, "dash": 1, "dot": 2, "dash_dot": 3, "none": 0}
 _BAR_COLUMN_PIDS = {203, 207, 213}
@@ -153,7 +181,9 @@ def apply_origin_visual_actions(
     rebuilds plots or rewrites source data.
     """
 
-    effective_actions = effective_visual_actions(actions)
+    effective_actions = effective_visual_actions(
+        (*product_default_visual_actions(document), *actions)
+    )
     op.new()
     if not op.open(str(output), readonly=False, asksave=False):
         raise RuntimeError("Origin could not reopen the project for T1 visual edits")
@@ -166,7 +196,18 @@ def apply_origin_visual_actions(
         template_frame,
     )
     _apply_origin_product_typography(op, graph)
+    k14_product_style = (
+        _apply_k14_product_style(op, graph)
+        if document.profile_id == "K14"
+        else None
+    )
     k09_subset_fill_action_ids = _apply_k09_subset_fill_colors(
+        op,
+        graph,
+        document,
+        effective_actions,
+    )
+    x40_group_style_action_ids = _apply_x40_group_style(
         op,
         graph,
         document,
@@ -175,15 +216,31 @@ def apply_origin_visual_actions(
     reference_lines = tuple(
         action for action in effective_actions if isinstance(action, AddReferenceLine)
     )
-    callouts = tuple(
-        action for action in effective_actions if isinstance(action, AddCallout)
-    )
+    callouts = tuple(action for action in effective_actions if isinstance(action, AddCallout))
     for action in effective_actions:
         if isinstance(action, (AddReferenceLine, AddCallout)):
             continue
+        if (
+            isinstance(action, SetChartParameter)
+            and action.parameter in K09_VISUAL_CHART_PARAMETERS
+        ):
+            # The three values share one indexed DataPlot and are resolved as
+            # one final style by _configure_k09_presentation below.
+            continue
         if action.action_id in k09_subset_fill_action_ids:
             continue
+        if action.action_id in x40_group_style_action_ids:
+            continue
         _apply_action(op, graph, document, action)
+    k22_product_style = (
+        _apply_k22_product_style(op, graph)
+        if document.profile_id == "K22"
+        else None
+    )
+    k01_physical_axes = _apply_k01_physical_axis_sides(
+        graph,
+        document.profile_id,
+    )
     k09_presentation = (
         _configure_k09_presentation(op, graph, document, effective_actions)
         if document.profile_id == "K09"
@@ -193,22 +250,16 @@ def apply_origin_visual_actions(
         op,
         graph,
         reference_lines,
-        touched_actions=tuple(
-            action for action in actions if isinstance(action, AddReferenceLine)
-        ),
+        touched_actions=tuple(action for action in actions if isinstance(action, AddReferenceLine)),
     )
     _apply_callouts(
         op,
         graph,
         callouts,
         reference_lines=reference_lines,
-        touched_actions=tuple(
-            action for action in actions if isinstance(action, AddCallout)
-        ),
+        touched_actions=tuple(action for action in actions if isinstance(action, AddCallout)),
     )
-    applied_invariant = (
-        None if post_apply_invariant is None else post_apply_invariant(graph)
-    )
+    applied_invariant = None if post_apply_invariant is None else post_apply_invariant(graph)
     graph.activate()
     if not op.lt_exec("doc -uw;"):
         raise RuntimeError("Origin could not redraw after T1 visual edits")
@@ -226,14 +277,31 @@ def apply_origin_visual_actions(
         effective_actions,
         product_frame,
     )
-    snapshot["origin_product_opposite_axes"] = (
-        _verify_origin_product_opposite_axes(reopened, document.profile_id)
+    snapshot["origin_product_opposite_axes"] = _verify_origin_product_opposite_axes(
+        reopened, document.profile_id
     )
+    if k01_physical_axes is not None:
+        snapshot["k01_physical_axes"] = _verify_k01_physical_axis_sides(
+            reopened,
+            document.profile_id,
+        )
     snapshot["origin_product_typography"] = _verify_origin_product_typography(
         op,
         reopened,
         effective_actions,
     )
+    if k14_product_style is not None:
+        snapshot["k14_product_style"] = _verify_k14_product_style(
+            op,
+            reopened,
+            effective_actions,
+            k14_product_style,
+        )
+    if k22_product_style is not None:
+        snapshot["k22_product_style"] = _verify_k22_product_style(
+            op,
+            reopened,
+        )
     if k09_presentation is not None:
         snapshot["k09_presentation"] = _verify_k09_presentation(
             op,
@@ -262,6 +330,134 @@ def _layers(graph: Any) -> list[Any]:
     if not layers:
         raise RuntimeError("Origin T1 visual pass found no graph layer")
     return layers
+
+
+def _apply_k14_product_style(
+    op: Any,
+    graph: Any,
+) -> tuple[K14ViolinStyleState, ...]:
+    """Materialize K14 defaults on the native fields that paint the violin.
+
+    OriginPro 2024 PID 206 stores the visible body below the center line in
+    ``Patterns.Below`` and the visible outline on the root line node.  The
+    generic pattern options target ``Patterns.Above`` and can therefore read
+    back successfully without changing the rendered violin.
+    """
+
+    layer = _layers(graph)[0]
+    plot_count = _plot_count(op, graph, layer)
+    _activate_layer(op, graph, layer)
+    if plot_count > 1 and not op.lt_exec("layer -gu;"):
+        raise RuntimeError("Origin could not make K14 violin formatting independent")
+    expected: list[K14ViolinStyleState] = []
+    for plot_index in range(1, plot_count + 1):
+        fill_color = _color(
+            op,
+            K14_VIOLIN_STYLE.palette[
+                (plot_index - 1) % len(K14_VIOLIN_STYLE.palette)
+            ],
+        )
+        state = K14ViolinStyleState(
+            fill_color=fill_color,
+            fill_transparency=(1 - K14_VIOLIN_STYLE.fill_opacity) * 100,
+            fill_only=1,
+            follow_line_transparency=0,
+            outline_color=_color(op, K14_VIOLIN_STYLE.outline_color),
+            outline_width=K14_VIOLIN_STYLE.outline_width_pt,
+            outline_style=_BORDER_STYLE[K14_VIOLIN_STYLE.outline_style],
+        )
+        set_k14_violin_style(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            plot_index,
+            fill_color=state.fill_color,
+            fill_transparency=state.fill_transparency,
+            outline_color=state.outline_color,
+            outline_width=state.outline_width,
+            outline_style=state.outline_style,
+        )
+        expected.append(state)
+    legend = layer.label("legend")
+    if legend is not None:
+        legend.set_int("show", int(K14_VIOLIN_STYLE.legend_visible))
+    return tuple(expected)
+
+
+def _apply_k22_product_style(op: Any, graph: Any) -> dict[str, object]:
+    """Materialize K22 defaults on native properties with visible ownership.
+
+    The CONTOUR.otpu template owns interval boundary visibility and color-scale
+    typography outside the public SetColorMap fields.  Apply these product
+    defaults after public edits so Origin cannot reintroduce template lines or
+    the template's 22 pt scale title while rebuilding its color map.
+    """
+
+    layer = _layers(graph)[0]
+    set_k22_contour_lines_visible(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        1,
+        K22_FILLED_CONTOUR_STYLE.contour_lines_visible,
+    )
+    set_color_scale_typography(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        title_font_size_pt=K22_FILLED_CONTOUR_STYLE.colorbar_title_font_size_pt,
+        tick_font_size_pt=K22_FILLED_CONTOUR_STYLE.colorbar_tick_font_size_pt,
+    )
+    return {
+        "contour_lines_visible": K22_FILLED_CONTOUR_STYLE.contour_lines_visible,
+        "colorbar_title_font_size_pt": (
+            K22_FILLED_CONTOUR_STYLE.colorbar_title_font_size_pt
+        ),
+        "colorbar_tick_font_size_pt": K22_FILLED_CONTOUR_STYLE.colorbar_tick_font_size_pt,
+    }
+
+
+def _verify_k22_product_style(op: Any, graph: Any) -> dict[str, object]:
+    """Verify K22's visible contour and color-scale defaults after fresh reopen."""
+
+    layer = _layers(graph)[0]
+    layer_index = _layer_index(layer)
+    lines = read_k22_contour_lines(op, str(graph.name), layer_index, 1)
+    if lines.interval_count < 1:
+        raise RuntimeError("Origin K22 contour line readback has no intervals")
+    _require_equal("K22 visible contour interval lines", lines.visible_interval_count, 0)
+    _require_equal("K22 above-range contour line", lines.above_visible, 0)
+    typography = read_color_scale_typography(op, str(graph.name), layer_index)
+    _require_number(
+        "K22 color scale title font size",
+        typography.title_font_size_pt,
+        K22_FILLED_CONTOUR_STYLE.colorbar_title_font_size_pt,
+    )
+    _require_number(
+        "K22 color scale tick font size",
+        typography.tick_font_size_pt,
+        K22_FILLED_CONTOUR_STYLE.colorbar_tick_font_size_pt,
+    )
+    anchor = read_color_scale_anchor(op, str(graph.name), layer_index)
+    if anchor.arrangement == 1:
+        _require_number("K22 right color scale width", anchor.width, 300.0)
+    elif anchor.arrangement == 2:
+        _require_number("K22 bottom color scale height", anchor.height, 300.0)
+    else:
+        raise RuntimeError(
+            f"Origin K22 color scale has unsupported arrangement {anchor.arrangement}"
+        )
+    return {
+        "contour_interval_count": lines.interval_count,
+        "visible_contour_interval_count": lines.visible_interval_count,
+        "above_contour_visible": lines.above_visible,
+        "colorbar_title_font_size_pt": typography.title_font_size_pt,
+        "colorbar_tick_font_size_pt": typography.tick_font_size_pt,
+        "colorbar_arrangement": anchor.arrangement,
+        "colorbar_width": anchor.width,
+        "colorbar_height": anchor.height,
+        "fresh_reopen": True,
+    }
 
 
 def _layer_index(layer: Any) -> int:
@@ -297,6 +493,116 @@ def _layer_and_plot(graph: Any, target: str) -> tuple[Any, int]:
         index = min(_ordinal(key), len(layers))
         return layers[index - 1], 1
     return layers[0], _ordinal(key)
+
+
+_X40_COLUMN_STYLE_FIELDS = frozenset(
+    {
+        "marker_shape",
+        "marker_size_pt",
+        "marker_interior",
+        "marker_fill_color",
+        "marker_stroke_color",
+    }
+)
+_X40_CONNECTOR_STYLE_FIELDS = frozenset(
+    {"visible", "line_stroke_color", "line_width_pt", "line_style"}
+)
+
+
+def _requested_series_style_fields(action: SetSeriesStyle) -> frozenset[str]:
+    return frozenset(name for name in _K09_SERIES_STYLE_FIELDS if getattr(action, name) is not None)
+
+
+def _x40_style_action(action: PlotEngineAction) -> SetSeriesStyle | None:
+    if not isinstance(action, SetSeriesStyle):
+        return None
+    key = _target_key(action.target)
+    if key not in {"column_1", "column_2", "connector"}:
+        return None
+    requested = _requested_series_style_fields(action)
+    allowed = _X40_CONNECTOR_STYLE_FIELDS if key == "connector" else _X40_COLUMN_STYLE_FIELDS
+    unsupported = sorted(requested - allowed)
+    if unsupported:
+        raise ValueError(
+            "Origin X40 preserves its native dependent Before/After group; "
+            f"{key} does not support {', '.join(unsupported)}"
+        )
+    return action
+
+
+def _apply_x40_group_style(
+    op: Any,
+    graph: Any,
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+) -> frozenset[str]:
+    """Apply X40 member and connector styles without destroying its group."""
+
+    if document.profile_id != "X40":
+        return frozenset()
+    style_actions = tuple(
+        action for candidate in actions if (action := _x40_style_action(candidate)) is not None
+    )
+    if not style_actions:
+        return frozenset()
+
+    layer = _layers(graph)[0]
+    state = read_x40_group_style(op, str(graph.name), _layer_index(layer))
+    marker_shapes = list(state.marker_shapes)
+    marker_sizes = list(state.marker_sizes)
+    marker_interiors = list(state.marker_interiors)
+    marker_edge_colors = list(state.marker_edge_colors)
+    marker_fill_colors = list(state.marker_fill_colors)
+    connector_visible = state.connector_visible
+    connector_style = state.connector_style
+    connector_width = state.connector_width
+    connector_color = state.connector_color
+
+    for action in style_actions:
+        key = _target_key(action.target)
+        if key == "connector":
+            if action.visible is not None:
+                connector_visible = action.visible
+            if action.line_style is not None:
+                if action.line_style == "none":
+                    connector_visible = False
+                else:
+                    connector_style = _REFERENCE_LINE_STYLE[action.line_style]
+            if action.line_width_pt is not None:
+                connector_width = action.line_width_pt
+            if action.line_stroke_color is not None:
+                connector_color = _color(op, action.line_stroke_color)
+            continue
+
+        member = _ordinal(key) - 1
+        if action.marker_shape is not None:
+            marker_shapes[member] = _MARKER[action.marker_shape]
+        if action.marker_size_pt is not None:
+            marker_sizes[member] = action.marker_size_pt
+        if action.marker_interior is not None:
+            marker_interiors[member] = _INTERIOR[action.marker_interior]
+        if action.marker_stroke_color is not None:
+            marker_edge_colors[member] = _color(op, action.marker_stroke_color)
+        if action.marker_interior in {"open", "hollow"}:
+            marker_fill_colors[member] = _color(op, "#FFFFFF")
+        elif action.marker_fill_color is not None:
+            marker_fill_colors[member] = _color(op, action.marker_fill_color)
+
+    set_x40_group_style(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+        marker_shapes=(marker_shapes[0], marker_shapes[1]),
+        marker_sizes=(marker_sizes[0], marker_sizes[1]),
+        marker_interiors=(marker_interiors[0], marker_interiors[1]),
+        marker_edge_colors=(marker_edge_colors[0], marker_edge_colors[1]),
+        marker_fill_colors=(marker_fill_colors[0], marker_fill_colors[1]),
+        connector_visible=connector_visible,
+        connector_style=connector_style,
+        connector_width=connector_width,
+        connector_color=connector_color,
+    )
+    return frozenset(action.action_id for action in style_actions)
 
 
 _K09_SERIES_STYLE_FIELDS = (
@@ -373,9 +679,7 @@ def _read_k09_subset_fill_colors(
     if enabled:
         if not op.lt_exec(f"dataset {variable}; get {plot_ref} -cuf {variable};"):
             raise RuntimeError("Origin could not read the K09 subset fill-color list")
-        values = tuple(
-            int(op.lt_float(f"{variable}[{index}]")) for index in range(1, count + 1)
-        )
+        values = tuple(int(op.lt_float(f"{variable}[{index}]")) for index in range(1, count + 1))
     else:
         if not op.lt_exec(f"get {plot_ref} -pfbi __PAT1K09START;"):
             raise RuntimeError("Origin could not read the K09 fill increment start")
@@ -397,16 +701,12 @@ def _apply_k09_subset_fill_colors(
         for candidate in actions
         if (action := _k09_subset_fill_action(document, candidate)) is not None
     )
-    if not edits:
+    if document.profile_id != "K09":
         return frozenset()
     count = _k09_subset_count(graph)
     colors = list(
-        _read_k09_subset_fill_colors(
-            op,
-            graph,
-            count,
-            variable="__PAT1K09BASE",
-        )
+        _color(op, PRODUCT_SERIES_PALETTE[index % len(PRODUCT_SERIES_PALETTE)])
+        for index in range(count)
     )
     for action in edits:
         ordinal = _ordinal(_target_key(action.target))
@@ -525,15 +825,18 @@ def _configure_k09_presentation(
         for action in actions
     )
     x_from, x_to, x_step = (float(value) for value in layer.xlim)
-    if not explicit_x_bounds and isclose(x_from % 1, 0.5, abs_tol=1e-7) and isclose(
-        x_to % 1,
-        0.5,
-        abs_tol=1e-7,
+    if (
+        not explicit_x_bounds
+        and isclose(x_from % 1, 0.5, abs_tol=1e-7)
+        and isclose(
+            x_to % 1,
+            0.5,
+            abs_tol=1e-7,
+        )
     ):
         layer.set_xlim(x_from - 0.5, x_to + 0.5, x_step)
     category_tick_font = (
-        _k09_requested_x_tick_font_size(actions)
-        or PRODUCT_TYPOGRAPHY.tick_font_size_pt
+        _k09_requested_x_tick_font_size(actions) or PRODUCT_TYPOGRAPHY.tick_font_size_pt
     )
     set_axis_tick_font_size(
         op,
@@ -543,50 +846,58 @@ def _configure_k09_presentation(
         category_tick_font,
     )
 
-    fill_actions = tuple(
-        action
-        for action in actions
-        if isinstance(action, SetSeriesStyle)
-        and _k09_subset_fill_action(document, action) is not None
+    bar_style = resolve_k09_grouped_column_style(document, actions)
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    plot_ref = _bind_plot_range(op, plot_range)
+    border = f'color("{bar_style.border_color}")' if bar_style.bar_border_visible else "-4"
+    if not op.lt_exec(
+        f"set {plot_ref} -pbc {border}; "
+        f"set {plot_ref} -vg {bar_style.within_group_gap_percent:.12g};"
+    ):
+        raise RuntimeError("Origin rejected the K09 border or within-group gap")
+    _set_plot_property(
+        op,
+        graph,
+        layer,
+        1,
+        "subsetgap",
+        bar_style.between_group_gap_percent,
     )
-    legend_colors: tuple[str, ...] = ()
-    if fill_actions:
-        legend = layer.label("legend")
-        if legend is None:
-            raise RuntimeError("Origin K09 lost its legend before color materialization")
-        count = _k09_subset_count(graph)
-        title, labels = _k09_legend_parts(legend.text)
-        if len(labels) != count:
-            raise RuntimeError("Origin K09 legend label count differs from its subsets")
-        colors = _read_k09_subset_fill_colors(
-            op,
-            graph,
-            count,
-            variable="__PAT1K09LEGEND",
-        )
-        legend_colors = tuple(_k09_color_html(op, value) for value in colors)
-        entries = tuple(
-            "\\L(1, PatternFill:"
-            f"{color} BorderColor:{color} Width:40 Height:50)"
-            f"\\sc {label}"
-            for color, label in zip(legend_colors, labels, strict=True)
-        )
-        legend.text = (f"{title}\n" if title else "") + "\n".join(entries)
-        legend.set_int("link", 0)
-        columns = _k09_requested_legend_columns(actions)
-        if columns is not None:
-            layer.activate()
-            if columns == 1:
-                if not op.lt_exec("legend -av;"):
-                    raise RuntimeError("Origin could not arrange the K09 legend vertically")
-            elif columns == count:
-                if not op.lt_exec(f"label -al {columns};"):
-                    raise RuntimeError("Origin could not arrange the K09 legend into one row")
-            else:
-                raise ValueError(
-                    "Origin K09 indexed-subset legend currently supports either one "
-                    f"column or one row of {count} columns"
-                )
+
+    legend = layer.label("legend")
+    if legend is None:
+        raise RuntimeError("Origin K09 lost its legend before color materialization")
+    count = _k09_subset_count(graph)
+    title, labels = _k09_legend_parts(legend.text)
+    if len(labels) != count:
+        raise RuntimeError("Origin K09 legend label count differs from its subsets")
+    colors = _read_k09_subset_fill_colors(
+        op,
+        graph,
+        count,
+        variable="__PAT1K09LEGEND",
+    )
+    legend_colors = tuple(_k09_color_html(op, value) for value in colors)
+    entries = tuple(
+        f"\\L(1, PatternFill:{color} BorderColor:{color} Width:40 Height:50)\\sc {label}"
+        for color, label in zip(legend_colors, labels, strict=True)
+    )
+    legend.text = (f"{title}\n" if title else "") + "\n".join(entries)
+    legend.set_int("link", 0)
+    columns = _k09_requested_legend_columns(actions)
+    if columns is not None:
+        layer.activate()
+        if columns == 1:
+            if not op.lt_exec("legend -av;"):
+                raise RuntimeError("Origin could not arrange the K09 legend vertically")
+        elif columns == count:
+            if not op.lt_exec(f"label -al {columns};"):
+                raise RuntimeError("Origin could not arrange the K09 legend into one row")
+        else:
+            raise ValueError(
+                "Origin K09 indexed-subset legend currently supports either one "
+                f"column or one row of {count} columns"
+            )
 
     tick_font = read_axis_tick_font_size(
         op,
@@ -595,6 +906,12 @@ def _configure_k09_presentation(
         _axis_native_code("x"),
     )
     return {
+        "bar_border_visible": bar_style.bar_border_visible,
+        "bar_border_color": (
+            _color(op, bar_style.border_color) if bar_style.bar_border_visible else -4
+        ),
+        "within_group_gap_percent": bar_style.within_group_gap_percent,
+        "between_group_gap_percent": bar_style.between_group_gap_percent,
         "legend_fill_colors": list(legend_colors),
         "tick_font_pt": tick_font,
         "xlim": [float(value) for value in layer.xlim],
@@ -645,7 +962,30 @@ def _verify_k09_presentation(
         )
         if observed_colors != expected_colors:
             raise RuntimeError("Origin K09 legend colors differ from the plotted subsets")
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    border_color = int(_get_plot_option(op, plot_range, "-pbc"))
+    within_gap = float(_get_plot_option(op, plot_range, "-vg"))
+    between_gap = float(_get_plot_property(op, graph, layer, 1, "subsetgap"))
+    _require_equal(
+        "K09 bar border color",
+        border_color,
+        int(expected["bar_border_color"]),
+    )
+    _require_number(
+        "K09 within-group gap",
+        within_gap,
+        float(expected["within_group_gap_percent"]),
+    )
+    _require_number(
+        "K09 between-group gap",
+        between_gap,
+        float(expected["between_group_gap_percent"]),
+    )
     return {
+        "bar_border_visible": border_color != -4,
+        "bar_border_color": border_color,
+        "within_group_gap_percent": within_gap,
+        "between_group_gap_percent": between_gap,
         "category_axis_xlim": list(observed_xlim),
         "category_tick_font_pt": tick_font,
         "legend_fill_colors": list(observed_colors),
@@ -685,9 +1025,7 @@ def _get_plot_option(op: Any, plot_range: str, option: str) -> float:
 
 
 def _get_plot_option_str(op: Any, plot_range: str, option: str) -> str:
-    if not op.lt_exec(
-        f"range __PAT1P={plot_range}; get __PAT1P {option} __PAT1TEXT$;"
-    ):
+    if not op.lt_exec(f"range __PAT1P={plot_range}; get __PAT1P {option} __PAT1TEXT$;"):
         raise RuntimeError(f"Origin could not read back plot option {option}")
     return str(op.get_lt_str("__PAT1TEXT"))
 
@@ -716,20 +1054,25 @@ def _get_plot_property(
     return float(op.lt_float(f"layer.plot{plot_index}.{property_path}"))
 
 
-def _error_plot(op: Any, graph: Any, target: str) -> tuple[Any, int]:
+def _error_plots(op: Any, graph: Any, target: str) -> tuple[Any, tuple[int, ...]]:
     layer, _ = _layer_and_plot(graph, target)
-    ordinal = _ordinal(_target_key(target))
+    key = _target_key(target)
+    ordinal = _ordinal(key)
     error_plots: list[int] = []
     for plot_index in range(1, _plot_count(op, graph, layer) + 1):
         plot_range = _plot_range(graph, layer, plot_index)
         if int(_get_plot_option(op, plot_range, "-pt")) in {231, 233}:
             error_plots.append(plot_index)
+    if key == "primary":
+        if not error_plots:
+            raise ValueError("Origin target primary has no native error plots")
+        return layer, tuple(error_plots)
     if ordinal > len(error_plots):
         raise ValueError(
             f"Origin target error series {ordinal} is outside the native error plot count "
             f"{len(error_plots)}"
         )
-    return layer, error_plots[ordinal - 1]
+    return layer, (error_plots[ordinal - 1],)
 
 
 def _plot_range(graph: Any, layer: Any, plot_index: int) -> str:
@@ -854,8 +1197,7 @@ def _set_graph_page_size(graph: Any, width: float, height: float) -> None:
         if resolution_x <= 0 or resolution_y <= 0:
             raise RuntimeError("Origin graph-page printer resolution is invalid")
         command = (
-            f"page.width={round(width * resolution_x)}; "
-            f"page.height={round(height * resolution_y)};"
+            f"page.width={round(width * resolution_x)}; page.height={round(height * resolution_y)};"
         )
         if not execute(command):
             raise RuntimeError("Origin could not set the native graph-page dimensions")
@@ -890,13 +1232,13 @@ def _apply_action(op: Any, graph: Any, document: PlotDocument, action: PlotEngin
     elif isinstance(action, SetAxis):
         _apply_axis(op, graph, action)
     elif isinstance(action, SetSeriesStyle):
-        _apply_series(op, graph, action)
+        _apply_series(op, graph, action, profile_id=document.profile_id)
     elif isinstance(action, SetLegend):
         _apply_legend(op, graph, action, profile_id=document.profile_id)
     elif isinstance(action, SetColorMap):
-        _apply_colormap(op, graph, action)
+        _apply_colormap(op, graph, action, profile_id=document.profile_id)
     elif isinstance(action, SetErrorStyle):
-        _apply_error(op, graph, action)
+        _apply_error(op, graph, action, profile_id=document.profile_id)
     elif isinstance(action, SetDataLabels):
         _apply_data_labels(op, graph, action)
     elif isinstance(action, AddAnnotation):
@@ -934,6 +1276,18 @@ def _axis_native_code(target: str) -> int:
     raise ValueError(f"unknown Origin axis target {target}")
 
 
+def _axis_visual_prefix(axis_name: Literal["x", "y"], target: str) -> str:
+    """Return the LabTalk prefix for the requested physical axis side.
+
+    Origin stores a layer's Y scale once, but side-specific visual properties
+    live under ``y`` (left) and ``y2`` (right).  Using ``y`` on the second
+    layer can therefore pass a scale-level readback while editing the hidden
+    left-side formatting instead of the visible right axis.
+    """
+
+    return f"{axis_name}2" if _target_key(target) == "y_right" else axis_name
+
+
 def _capture_origin_template_frame(
     op: Any,
     graph: Any,
@@ -967,9 +1321,7 @@ def _apply_origin_product_frame(
         return expected
     layers = _layers(graph)
     if len(layers) != 1:
-        raise RuntimeError(
-            "Origin boxed product frame requires exactly one native graph layer"
-        )
+        raise RuntimeError("Origin boxed product frame requires exactly one native graph layer")
     for (layer_index, axis_code), visible in template_frame.items():
         if not visible:
             set_axis_line_show(op, graph.name, layer_index, axis_code, True)
@@ -983,6 +1335,12 @@ def _apply_origin_product_frame(
     layer.set_int("y2.ticks", 0)
     layer.set_int("x.showLabels", layer.get_int("x.showLabels") & ~2)
     layer.set_int("y.showLabels", layer.get_int("y.showLabels") & ~2)
+    layer.set_int("x2.showlabel", 0)
+    layer.set_int("y2.showlabel", 0)
+    for label_name in ("xt", "yr"):
+        label = layer.label(label_name)
+        if label is not None:
+            label.set_int("show", 0)
     return expected
 
 
@@ -1050,13 +1408,13 @@ def _verify_origin_product_typography(
         elif isinstance(action, SetAxis):
             layer, axis_name = _axis_target(graph, action.target)
             if action.tick_font_size_pt is not None:
-                tick_expected[
-                    (_layer_index(layer), _axis_native_code(action.target))
-                ] = action.tick_font_size_pt
+                tick_expected[(_layer_index(layer), _axis_native_code(action.target))] = (
+                    action.tick_font_size_pt
+                )
             if action.title_font_size_pt is not None:
-                label_expected[
-                    (_layer_index(layer), _axis_label_name(graph, layer, axis_name))
-                ] = action.title_font_size_pt
+                label_expected[(_layer_index(layer), _axis_label_name(graph, layer, axis_name))] = (
+                    action.title_font_size_pt
+                )
         elif isinstance(action, SetLegend) and action.font_size_pt is not None:
             legend_expected[_layer_index(_layers(graph)[0])] = action.font_size_pt
 
@@ -1069,9 +1427,9 @@ def _verify_origin_product_typography(
             axis_code,
         )
         _require_number("product tick font", observed, expected, tolerance=0.01)
-        snapshot[
-            f"layer:{layer_index}.{_ORIGIN_FRAME_AXIS_NAMES[axis_code]}.tick_font_pt"
-        ] = observed
+        snapshot[f"layer:{layer_index}.{_ORIGIN_FRAME_AXIS_NAMES[axis_code]}.tick_font_pt"] = (
+            observed
+        )
     for (layer_index, name), expected in label_expected.items():
         label = _layers(graph)[layer_index - 1].label(name)
         if label is None:
@@ -1104,22 +1462,111 @@ def _verify_origin_product_opposite_axes(
         return {}
     layers = _layers(graph)
     if len(layers) != 1:
-        raise RuntimeError(
-            "Origin boxed product frame requires exactly one native graph layer"
-        )
+        raise RuntimeError("Origin boxed product frame requires exactly one native graph layer")
     layer = layers[0]
     snapshot: dict[str, int | bool] = {}
-    for side, axis_name in (("top", "x"), ("right", "y")):
+    for side, axis_name, title_name in (("top", "x", "xt"), ("right", "y", "yr")):
         ticks = int(layer.get_int(f"{axis_name}2.ticks"))
         labels = bool(layer.get_int(f"{axis_name}.showLabels") & 2)
-        if ticks != 0 or labels:
+        direct_labels = bool(layer.get_int(f"{axis_name}2.showlabel"))
+        title = layer.label(title_name)
+        title_visible = False if title is None else bool(title.get_int("show"))
+        if ticks != 0 or labels or direct_labels or title_visible:
             raise RuntimeError(
                 "Origin boxed product frame opposite axis is not clean: "
-                f"side={side}, ticks={ticks}, labels={int(labels)}"
+                f"side={side}, ticks={ticks}, labels={int(labels)}, "
+                f"direct_labels={int(direct_labels)}, title={int(title_visible)}"
             )
         snapshot[f"{side}.ticks"] = ticks
         snapshot[f"{side}.labels"] = labels
+        snapshot[f"{side}.direct_labels"] = direct_labels
+        snapshot[f"{side}.title"] = title_visible
     return snapshot
+
+
+def _k01_physical_axis_expectation(layer: Any) -> dict[str, float | int]:
+    """Resolve physical left/bottom anchors from the final native scales.
+
+    Origin's default first-axis position follows the perpendicular scale's
+    ``From`` endpoint.  Reversing that perpendicular scale moves the same
+    semantic axis to the opposite physical side while ``showLabels`` and the
+    title objects still report it as the first/left/bottom axis.  K01 promises
+    Matplotlib-style physical left and bottom axes, so it must persist explicit
+    data-coordinate anchors after every scale edit.
+    """
+
+    x_limits = tuple(float(value) for value in layer.axis("x").limits)
+    y_limits = tuple(float(value) for value in layer.axis("y").limits)
+    if len(x_limits) < 2 or len(y_limits) < 2:
+        raise RuntimeError("Origin K01 axis limits are unavailable")
+    x_reverse = int(bool(layer.get_int("x.reverse")))
+    y_reverse = int(bool(layer.get_int("y.reverse")))
+    return {
+        "x_reverse": x_reverse,
+        "y_reverse": y_reverse,
+        "y_position": x_limits[1] if x_reverse else x_limits[0],
+        "x_position": y_limits[1] if y_reverse else y_limits[0],
+    }
+
+
+def _apply_k01_physical_axis_sides(
+    graph: Any,
+    profile_id: str,
+) -> dict[str, float | int] | None:
+    """Keep K01 primary axes on the physical left and bottom after reversal."""
+
+    if profile_id != "K01":
+        return None
+    layers = _layers(graph)
+    if len(layers) != 1:
+        raise RuntimeError("Origin K01 physical-axis contract requires one layer")
+    layer = layers[0]
+    expected = _k01_physical_axis_expectation(layer)
+    layer.set_int("y.postype", 2)
+    layer.set_float("y.position", float(expected["y_position"]))
+    layer.set_int("x.postype", 2)
+    layer.set_float("x.position", float(expected["x_position"]))
+    return expected
+
+
+def _verify_k01_physical_axis_sides(
+    graph: Any,
+    profile_id: str,
+) -> dict[str, float | int]:
+    """Fresh-read the native anchors that determine K01's visible axis sides."""
+
+    if profile_id != "K01":
+        return {}
+    layers = _layers(graph)
+    if len(layers) != 1:
+        raise RuntimeError("Origin K01 physical-axis contract requires one layer")
+    layer = layers[0]
+    expected = _k01_physical_axis_expectation(layer)
+    observed = {
+        "x_reverse": int(bool(layer.get_int("x.reverse"))),
+        "y_reverse": int(bool(layer.get_int("y.reverse"))),
+        "x_postype": int(layer.get_int("x.postype")),
+        "y_postype": int(layer.get_int("y.postype")),
+        "x_position": float(layer.get_float("x.position")),
+        "y_position": float(layer.get_float("y.position")),
+    }
+    if observed["x_postype"] != 2 or observed["y_postype"] != 2:
+        raise RuntimeError(
+            "Origin K01 primary axes are not anchored by data coordinate after reopen"
+        )
+    _require_number(
+        "K01 physical bottom axis",
+        float(observed["x_position"]),
+        float(expected["x_position"]),
+        tolerance=1e-9,
+    )
+    _require_number(
+        "K01 physical left axis",
+        float(observed["y_position"]),
+        float(expected["y_position"]),
+        tolerance=1e-9,
+    )
+    return observed
 
 
 def _origin_frame_expectations(
@@ -1139,9 +1586,7 @@ def _origin_frame_expectations(
         if not isinstance(action, SetAxis) or action.axis_line_visible is None:
             continue
         layer, _axis_name = _axis_target(graph, action.target)
-        expected[(_layer_index(layer), _axis_native_code(action.target))] = (
-            action.axis_line_visible
-        )
+        expected[(_layer_index(layer), _axis_native_code(action.target))] = action.axis_line_visible
     return expected
 
 
@@ -1157,9 +1602,7 @@ def _verify_origin_product_frame(
     for (layer_index, axis_code), expected in _origin_frame_expectations(
         graph, actions, product_frame
     ).items():
-        observed = bool(
-            read_axis_line_show(op, graph.name, layer_index, axis_code)
-        )
+        observed = bool(read_axis_line_show(op, graph.name, layer_index, axis_code))
         side = _ORIGIN_FRAME_AXIS_NAMES[axis_code]
         if observed != expected:
             raise RuntimeError(
@@ -1186,9 +1629,7 @@ def _updated_tick_bits(current: int, action: SetAxis) -> int:
     major = current & 3
     minor = current & 12
     direction = (
-        None
-        if action.tick_direction is None
-        else _TICK_DIRECTION_BITS[action.tick_direction]
+        None if action.tick_direction is None else _TICK_DIRECTION_BITS[action.tick_direction]
     )
     if action.major_ticks_visible is False:
         major = 0
@@ -1213,6 +1654,7 @@ def _fixed_axis_bounds_mode_is_valid(observed_mode: int) -> bool:
 
 def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
     layer, axis_name = _axis_target(graph, action.target)
+    visual_prefix = _axis_visual_prefix(axis_name, action.target)
     side_bit = _axis_side_bit(action.target)
     axis = layer.axis(axis_name)
     if action.scale in {"linear", "log10"}:
@@ -1270,20 +1712,20 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
     if action.tick_format is not None:
         formats = {"auto": 0, "decimal": 1, "scientific": 2, "percent": 1, "date": 4, "time": 3}
         if action.tick_format in {"date", "time"}:
-            layer.set_int(f"{axis_name}.label.type", formats[action.tick_format])
-            layer.set_str(f"{axis_name}.label.suf", "")
+            layer.set_int(f"{visual_prefix}.label.type", formats[action.tick_format])
+            layer.set_str(f"{visual_prefix}.label.suf", "")
         else:
-            layer.set_int(f"{axis_name}.label.type", 0)
-            layer.set_int(f"{axis_name}.label.numFormat", formats[action.tick_format])
+            layer.set_int(f"{visual_prefix}.label.type", 0)
+            layer.set_int(f"{visual_prefix}.label.numFormat", formats[action.tick_format])
             layer.set_str(
-                f"{axis_name}.label.suf",
+                f"{visual_prefix}.label.suf",
                 "%" if action.tick_format == "percent" else "",
             )
     if action.tick_rotation_deg is not None:
-        layer.set_float(f"{axis_name}.label.rotate", action.tick_rotation_deg)
+        layer.set_float(f"{visual_prefix}.label.rotate", action.tick_rotation_deg)
     tick_font = _font(op, action.tick_font_family)
     if tick_font is not None:
-        layer.set_int(f"{axis_name}.label.font", tick_font)
+        layer.set_int(f"{visual_prefix}.label.font", tick_font)
     if action.tick_font_size_pt is not None:
         set_axis_tick_font_size(
             op,
@@ -1293,7 +1735,7 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
             action.tick_font_size_pt,
         )
     if action.tick_color is not None:
-        layer.set_int(f"{axis_name}.label.color", _color(op, action.tick_color))
+        layer.set_int(f"{visual_prefix}.label.color", _color(op, action.tick_color))
     if action.tick_labels_visible is not None:
         current = layer.get_int(f"{axis_name}.showLabels")
         layer.set_int(
@@ -1323,9 +1765,9 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
         else:
             title.set_int("show", int(action.axis_title_visible))
     if action.axis_line_color is not None:
-        layer.set_int(f"{axis_name}.color", _color(op, action.axis_line_color))
+        layer.set_int(f"{visual_prefix}.color", _color(op, action.axis_line_color))
     if action.axis_line_width_pt is not None:
-        layer.set_float(f"{axis_name}.thickness", action.axis_line_width_pt)
+        layer.set_float(f"{visual_prefix}.thickness", action.axis_line_width_pt)
     if action.major_grid_visible is not None or action.minor_grid_visible is not None:
         current = layer.get_int(f"{axis_name}.grid.show")
         major = (
@@ -1344,8 +1786,156 @@ def _apply_axis(op: Any, graph: Any, action: SetAxis) -> None:
             layer.set_int(f"{axis_name}.grid.{prefix}Type", _LINE_STYLE[action.grid_line_style])
 
 
-def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
+def _series_style_member_indices(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    action: SetSeriesStyle,
+    *,
+    profile_id: str | None,
+) -> tuple[int, ...]:
+    """Map one public series to every native member that paints it."""
+
+    count = _plot_count(op, graph, layer)
+    if profile_id == "X09" and _target_key(action.target) == "primary":
+        # FLOATCOL stores each boundary as a plot. Plot 1 is the invisible
+        # start baseline; plots 2..N paint the visible adjacent intervals.
+        if count < 2:
+            raise RuntimeError("Origin X09 primary has no visible interval plot")
+        return tuple(range(2, count + 1))
+    return (plot_index,)
+
+
+def _read_x09_primary_fill_colors(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_count: int,
+) -> tuple[int, ...]:
+    colors = read_x09_group_fill_colors(
+        op,
+        str(graph.name),
+        _layer_index(layer),
+    )
+    if len(colors) != plot_count:
+        raise RuntimeError("Origin X09 group count differs from its native plot count")
+    return colors
+
+
+def _apply_x09_primary_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    action: SetSeriesStyle,
+) -> None:
+    """Apply one public X09 series edit through FLOATCOL's native group owner."""
+
+    plot_count = _plot_count(op, graph, layer)
+    if plot_count < 2:
+        raise RuntimeError("Origin X09 primary has no visible interval plot")
+    if action.visible is not None:
+        for plot_index in range(2, plot_count + 1):
+            _set_plot_property(
+                op,
+                graph,
+                layer,
+                plot_index,
+                "show",
+                int(action.visible),
+            )
+
+    leader_range = _checked_plot_range(op, graph, layer, 1)
+    leader_ref = _bind_plot_range(op, leader_range)
+    commands: list[str] = []
+    if action.fill_color is not None:
+        set_x09_group_fill_color(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            _color(op, action.fill_color),
+        )
+    if action.fill_stroke_color is not None:
+        commands.append(f'set {leader_ref} -pbc color("{action.fill_stroke_color}")')
+    if action.fill_stroke_width_pt is not None:
+        commands.append(f"set {leader_ref} -pbw {action.fill_stroke_width_pt:.12g}")
+    if action.fill_stroke_style is not None:
+        commands.append(f"set {leader_ref} -pbs {_BORDER_STYLE[action.fill_stroke_style]}")
+    if action.fill_opacity is not None:
+        commands.append(f"set {leader_ref} -paap 1")
+    _execute_plot_commands(op, commands, operation="X09 primary series style")
+    if action.fill_opacity is not None:
+        _set_plot_property(
+            op,
+            graph,
+            layer,
+            1,
+            "transparency",
+            (1 - action.fill_opacity) * 100,
+        )
+
+
+def _apply_k07_primary_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    action: SetSeriesStyle,
+) -> None:
+    """Materialize K07's public center line on its native PID 201 plot."""
+
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    plot_ref = _bind_plot_range(op, plot_range)
+    commands: list[str] = []
+    if action.visible is not None:
+        _set_plot_property(op, graph, layer, 1, "show", int(action.visible))
+    line_requested = any(
+        value is not None
+        for value in (
+            action.line_stroke_color,
+            action.line_width_pt,
+            action.line_style,
+            action.line_opacity,
+        )
+    )
+    if line_requested:
+        connection = 0 if action.line_style == "none" else 1
+        commands.extend((f"set {plot_ref} -l {connection}", f"set {plot_ref} -z 0"))
+    if action.line_stroke_color is not None:
+        commands.append(f'set {plot_ref} -cl color("{action.line_stroke_color}")')
+    if action.line_width_pt is not None:
+        commands.append(f"set {plot_ref} -wp {action.line_width_pt:.12g}")
+    if action.line_style is not None:
+        commands.append(f"set {plot_ref} -d {_K07_LINE_STYLE[action.line_style]}")
+    _execute_plot_commands(op, commands, operation="K07 center line style")
+    if action.line_opacity is not None:
+        _set_plot_property(
+            op,
+            graph,
+            layer,
+            1,
+            "transparency",
+            (1 - action.line_opacity) * 100,
+        )
+
+
+def _apply_series(
+    op: Any,
+    graph: Any,
+    action: SetSeriesStyle,
+    *,
+    profile_id: str | None = None,
+) -> None:
     layer, plot_index = _layer_and_plot(graph, action.target)
+    key = _target_key(action.target)
+    if profile_id == "K14":
+        _apply_k14_violin_series(op, graph, layer, plot_index, action)
+        return
+    if profile_id == "K07" and key == "primary":
+        _apply_k07_primary_series(op, graph, layer, action)
+        return
+    if profile_id == "X09" and key == "primary":
+        _apply_x09_primary_series(op, graph, layer, action)
+        return
     # Origin's official templates commonly group multiple plots so the first
     # plot owns an incrementing style list.  A direct ``set plotN`` command can
     # then read back the requested value while the grouped renderer still
@@ -1354,15 +1944,27 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
     # layer's presentation group before applying a public series edit.  This
     # preserves the native plots and source bindings while making the visible
     # result agree with the per-series contract.
-    if _plot_count(op, graph, layer) > 1:
+    plot_count = _plot_count(op, graph, layer)
+    if plot_count > 1:
         _activate_layer(op, graph, layer)
         if not op.lt_exec("layer -gu;"):
             raise RuntimeError("Origin could not make series formatting independent")
-    key = _target_key(action.target)
+    member_indices = _series_style_member_indices(
+        op,
+        graph,
+        layer,
+        plot_index,
+        action,
+        profile_id=profile_id,
+    )
     visibility_indices = (
-        range(1, _plot_count(op, graph, layer) + 1)
-        if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
-        else (plot_index,)
+        member_indices
+        if profile_id == "X09" and key == "primary"
+        else (
+            range(1, plot_count + 1)
+            if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
+            else (plot_index,)
+        )
     )
     if action.visible is not None:
         for visibility_index in visibility_indices:
@@ -1374,6 +1976,111 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
                 "show",
                 int(action.visible),
             )
+    for member_index in member_indices:
+        _apply_series_member(op, graph, layer, member_index, action)
+
+
+def _k14_plot_indices(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    target: str,
+) -> tuple[int, ...]:
+    if _target_key(target) == "primary":
+        return tuple(range(1, _plot_count(op, graph, layer) + 1))
+    return (plot_index,)
+
+
+def _updated_k14_style(
+    op: Any,
+    current: K14ViolinStyleState,
+    action: SetSeriesStyle,
+) -> K14ViolinStyleState:
+    fill_color = (
+        current.fill_color if action.fill_color is None else _color(op, action.fill_color)
+    )
+    fill_transparency = (
+        current.fill_transparency
+        if action.fill_opacity is None
+        else (1 - action.fill_opacity) * 100
+    )
+    outline_color = current.outline_color
+    outline_width = current.outline_width
+    outline_style = current.outline_style
+    # Matplotlib applies the public line family first and the fill-stroke
+    # family second on a violin PolyCollection.  K14 exposes both historical
+    # aliases for the same visible outline, so preserve that precedence.
+    if action.line_stroke_color is not None:
+        outline_color = _color(op, action.line_stroke_color)
+    if action.line_width_pt is not None:
+        outline_width = action.line_width_pt
+    if action.line_style is not None:
+        outline_style = _BORDER_STYLE[action.line_style]
+    if action.fill_stroke_color is not None:
+        outline_color = _color(op, action.fill_stroke_color)
+    if action.fill_stroke_width_pt is not None:
+        outline_width = action.fill_stroke_width_pt
+    if action.fill_stroke_style is not None:
+        outline_style = _BORDER_STYLE[action.fill_stroke_style]
+    return K14ViolinStyleState(
+        fill_color=fill_color,
+        fill_transparency=fill_transparency,
+        fill_only=1,
+        follow_line_transparency=0,
+        outline_color=outline_color,
+        outline_width=outline_width,
+        outline_style=outline_style,
+    )
+
+
+def _apply_k14_violin_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    action: SetSeriesStyle,
+) -> None:
+    """Edit the visible native K14 body instead of the inert Above branch."""
+
+    indices = _k14_plot_indices(op, graph, layer, plot_index, action.target)
+    for member_index in indices:
+        if action.visible is not None:
+            _set_plot_property(
+                op,
+                graph,
+                layer,
+                member_index,
+                "show",
+                int(action.visible),
+            )
+        current = read_k14_violin_style(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            member_index,
+        )
+        expected = _updated_k14_style(op, current, action)
+        set_k14_violin_style(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            member_index,
+            fill_color=expected.fill_color,
+            fill_transparency=expected.fill_transparency,
+            outline_color=expected.outline_color,
+            outline_width=expected.outline_width,
+            outline_style=expected.outline_style,
+        )
+
+
+def _apply_series_member(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    action: SetSeriesStyle,
+) -> None:
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
     plot_ref = _bind_plot_range(op, plot_range)
     line_symbol_color_cascade = (
@@ -1405,7 +2112,9 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
         else (
             action.marker_fill_color
             if action.marker_fill_color is not None
-            else action.line_stroke_color if line_symbol_color_cascade else None
+            else action.line_stroke_color
+            if line_symbol_color_cascade
+            else None
         )
     )
     if effective_marker_fill is not None:
@@ -1413,7 +2122,9 @@ def _apply_series(op: Any, graph: Any, action: SetSeriesStyle) -> None:
     effective_marker_stroke = (
         action.marker_stroke_color
         if action.marker_stroke_color is not None
-        else action.line_stroke_color if line_symbol_color_cascade else None
+        else action.line_stroke_color
+        if line_symbol_color_cascade
+        else None
     )
     if effective_marker_stroke is not None:
         commands.append(f'set {plot_ref} -cse color("{effective_marker_stroke}")')
@@ -1613,8 +2324,8 @@ def _origin_legend_anchor(
         "inside_bottom_left",
         "inside_bottom_right",
     }:
-        layer_left, layer_top, layer_width, layer_height = (
-            _origin_layer_rect_printer_dots(graph, layer)
+        layer_left, layer_top, layer_width, layer_height = _origin_layer_rect_printer_dots(
+            graph, layer
         )
         if layer_width <= 0 or layer_height <= 0:
             raise RuntimeError("Origin legend target layer has invalid dimensions")
@@ -1633,8 +2344,8 @@ def _origin_legend_anchor(
             "inside_bottom_right": (0, right, bottom),
         }[anchor]
     if anchor in {"right", "bottom"}:
-        layer_left, layer_top, layer_width, layer_height = (
-            _origin_layer_rect_printer_dots(graph, layer)
+        layer_left, layer_top, layer_width, layer_height = _origin_layer_rect_printer_dots(
+            graph, layer
         )
         legend_width = float(legend.get_float("width"))
         legend_height = float(legend.get_float("height"))
@@ -1652,7 +2363,32 @@ def _origin_legend_anchor(
     return 0, 0.0, 0.0
 
 
-def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
+def _origin_colormap_flip(
+    profile_id: str | None,
+    palette: str | None,
+    reverse: bool,
+) -> int:
+    """Map the public low-to-high direction to Origin's native palette order.
+
+    K22 is independently verified against its visible regular-grid contour.
+    Origin 2024 stores the sequential palette direction used by that plot in
+    the opposite order from Matplotlib's public palette names.  Keep this
+    adjudication profile-scoped instead of assuming every color-plot family
+    shares the same native convention.
+    """
+
+    if profile_id == "K22" or palette == "blue_white_red":
+        return int(not reverse)
+    return int(reverse)
+
+
+def _apply_colormap(
+    op: Any,
+    graph: Any,
+    action: SetColorMap,
+    *,
+    profile_id: str | None = None,
+) -> None:
     layer, _plot_index = _layer_and_plot(graph, action.target)
     _activate_layer(op, graph, layer)
     commands: list[str] = []
@@ -1664,11 +2400,10 @@ def _apply_colormap(op: Any, graph: Any, action: SetColorMap) -> None:
                 "layer.cmap.stretchpal=1",
             )
         )
-    reverse = action.reverse
-    if action.palette == "blue_white_red":
-        reverse = not bool(reverse)
-    if reverse is not None:
-        commands.append(f"layer.cmap.flippal={int(reverse)}")
+    if action.reverse is not None:
+        commands.append(
+            f"layer.cmap.flippal={_origin_colormap_flip(profile_id, action.palette, action.reverse)}"
+        )
     if action.minimum is not None and action.maximum is not None:
         commands.extend(
             (
@@ -1782,43 +2517,60 @@ def _centered_levels(
     return (*lower, midpoint, *upper)
 
 
-def _apply_error(op: Any, graph: Any, action: SetErrorStyle) -> None:
-    layer, plot_index = _error_plot(op, graph, action.target)
-    plot_range = _checked_plot_range(op, graph, layer, plot_index)
-    plot_ref = _bind_plot_range(op, plot_range)
-    commands: list[str] = []
-    if action.bar_color is not None:
-        commands.append(f'set {plot_ref} -c color("{action.bar_color}")')
-    if action.bar_width_pt is not None:
-        commands.append(f"set {plot_ref} -erw {action.bar_width_pt:.12g}")
-    if action.cap_size_pt is not None:
-        commands.append(f"set {plot_ref} -erwc {action.cap_size_pt:.12g}")
-    if action.band_fill_color is not None:
-        commands.append(f'set {plot_ref} -pfb color("{action.band_fill_color}")')
-    if action.band_fill_opacity is not None:
-        commands.append(f"set {plot_ref} -paaf 1")
-    if action.band_stroke_color is not None:
-        commands.append(f'set {plot_ref} -pbc color("{action.band_stroke_color}")')
-    if action.band_stroke_width_pt is not None:
-        commands.append(f"set {plot_ref} -pbw {action.band_stroke_width_pt:.12g}")
-    _execute_plot_commands(op, commands, operation="error style")
-    if action.bar_opacity is not None:
-        _set_plot_property(
+def _apply_error(
+    op: Any,
+    graph: Any,
+    action: SetErrorStyle,
+    *,
+    profile_id: str | None = None,
+) -> None:
+    layer, plot_indices = _error_plots(op, graph, action.target)
+    k07_native_band = profile_id == "K07" and _target_key(action.target) == "primary"
+    for plot_index in plot_indices:
+        plot_range = _checked_plot_range(op, graph, layer, plot_index)
+        plot_ref = _bind_plot_range(op, plot_range)
+        commands: list[str] = []
+        if action.bar_color is not None:
+            commands.append(f'set {plot_ref} -c color("{action.bar_color}")')
+        if action.bar_width_pt is not None:
+            commands.append(f"set {plot_ref} -erw {action.bar_width_pt:.12g}")
+        if action.cap_size_pt is not None:
+            commands.append(f"set {plot_ref} -erwc {action.cap_size_pt:.12g}")
+        if action.band_fill_color is not None:
+            commands.append(f'set {plot_ref} -pfb color("{action.band_fill_color}")')
+        if action.band_fill_opacity is not None and not k07_native_band:
+            commands.append(f"set {plot_ref} -paaf 1")
+        if action.band_stroke_color is not None:
+            option = "-c" if k07_native_band else "-pbc"
+            commands.append(f'set {plot_ref} {option} color("{action.band_stroke_color}")')
+        if action.band_stroke_width_pt is not None:
+            option = "-wp" if k07_native_band else "-pbw"
+            commands.append(f"set {plot_ref} {option} {action.band_stroke_width_pt:.12g}")
+        _execute_plot_commands(op, commands, operation="error style")
+        if action.bar_opacity is not None:
+            _set_plot_property(
+                op,
+                graph,
+                layer,
+                plot_index,
+                "transparency",
+                (1 - action.bar_opacity) * 100,
+            )
+        if action.band_fill_opacity is not None and not k07_native_band:
+            _set_plot_property(
+                op,
+                graph,
+                layer,
+                plot_index,
+                "transparency",
+                (1 - action.band_fill_opacity) * 100,
+            )
+    if k07_native_band and action.band_fill_opacity is not None:
+        set_k07_error_band_fill_transparency(
             op,
-            graph,
-            layer,
-            plot_index,
-            "transparency",
-            (1 - action.bar_opacity) * 100,
-        )
-    if action.band_fill_opacity is not None:
-        _set_plot_property(
-            op,
-            graph,
-            layer,
-            plot_index,
-            "transparency",
-            (1 - action.band_fill_opacity) * 100,
+            str(graph.name),
+            _layer_index(layer),
+            fill_transparency=(1 - action.band_fill_opacity) * 100,
         )
 
 
@@ -2164,8 +2916,339 @@ def _k09_legend_column_count(text: str) -> int:
     return max(counts)
 
 
-def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, object]:
+def _verify_x09_primary_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    action: SetSeriesStyle,
+) -> dict[str, object]:
+    plot_count = _plot_count(op, graph, layer)
+    if plot_count < 2:
+        raise RuntimeError("Origin X09 primary has no visible interval plot")
+    observed: dict[str, object] = {
+        "native_group_leader": 1,
+        "visible_interval_plots": list(range(2, plot_count + 1)),
+    }
+    if action.visible is not None:
+        visibility = tuple(
+            int(_get_plot_property(op, graph, layer, index, "show"))
+            for index in range(2, plot_count + 1)
+        )
+        if any(value != int(action.visible) for value in visibility):
+            raise RuntimeError("Origin X09 primary visibility did not survive fresh reopen")
+        observed["visible"] = visibility
+    if action.fill_color is not None:
+        colors = _read_x09_primary_fill_colors(
+            op,
+            graph,
+            layer,
+            plot_count,
+        )
+        expected = _color(op, action.fill_color)
+        if any(value != expected for value in colors):
+            raise RuntimeError("Origin X09 interval fill colors differ after fresh reopen")
+        observed["fill_colors"] = list(colors)
+
+    group_action = action.model_copy(update={"visible": None, "fill_color": None})
+    group_properties = _verify_series_member(op, graph, layer, 1, group_action)
+    if group_properties:
+        observed["group_properties"] = group_properties
+    return observed
+
+
+def _verify_k07_primary_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    action: SetSeriesStyle,
+) -> dict[str, object]:
+    plot_range = _checked_plot_range(op, graph, layer, 1)
+    observed: dict[str, object] = {"native_center_plot": 1}
+    if action.visible is not None:
+        show = int(_get_plot_property(op, graph, layer, 1, "show"))
+        _require_equal("K07 center visibility", show, int(action.visible))
+        observed["visible"] = show
+    line_requested = any(
+        value is not None
+        for value in (
+            action.line_stroke_color,
+            action.line_width_pt,
+            action.line_style,
+            action.line_opacity,
+        )
+    )
+    if line_requested:
+        connection = int(_get_plot_option(op, plot_range, "-l"))
+        expected_connection = 0 if action.line_style == "none" else 1
+        _require_equal("K07 center line connection", connection, expected_connection)
+        marker_size = float(_get_plot_option(op, plot_range, "-z"))
+        _require_number("K07 hidden center marker", marker_size, 0.0)
+        observed.update({"line_connection": connection, "marker_size": marker_size})
+    if action.line_stroke_color is not None:
+        color = int(_get_plot_option(op, plot_range, "-cl"))
+        _require_equal("K07 center line color", color, _color(op, action.line_stroke_color))
+        observed["line_color"] = color
+    if action.line_width_pt is not None:
+        width = float(_get_plot_option(op, plot_range, "-wp"))
+        _require_number("K07 center line width", width, action.line_width_pt, tolerance=0.051)
+        observed["line_width"] = width
+    if action.line_style is not None:
+        style = int(_get_plot_option(op, plot_range, "-d"))
+        _require_equal("K07 center line style", style, _K07_LINE_STYLE[action.line_style])
+        observed["line_style"] = style
+    if action.line_opacity is not None:
+        opacity = 1 - _get_plot_property(op, graph, layer, 1, "transparency") / 100
+        _require_number("K07 center line opacity", opacity, action.line_opacity)
+        observed["line_opacity"] = opacity
+    return observed
+
+
+def _verify_series(
+    op: Any,
+    graph: Any,
+    action: SetSeriesStyle,
+    *,
+    profile_id: str | None = None,
+) -> dict[str, object]:
     layer, plot_index = _layer_and_plot(graph, action.target)
+    if profile_id == "K14":
+        return _verify_k14_violin_series(op, graph, layer, plot_index, action)
+    if profile_id == "K07" and _target_key(action.target) == "primary":
+        return _verify_k07_primary_series(op, graph, layer, action)
+    if profile_id == "X09" and _target_key(action.target) == "primary":
+        return _verify_x09_primary_series(op, graph, layer, action)
+    member_indices = _series_style_member_indices(
+        op,
+        graph,
+        layer,
+        plot_index,
+        action,
+        profile_id=profile_id,
+    )
+    observed_visibility: tuple[int, ...] | None = None
+    if action.visible is not None:
+        key = _target_key(action.target)
+        visibility_indices = (
+            member_indices
+            if profile_id == "X09" and key == "primary"
+            else (
+                range(1, _plot_count(op, graph, layer) + 1)
+                if key
+                in {
+                    "primary",
+                    "left",
+                    "right",
+                    "bars",
+                    "cumulative",
+                    "matrix",
+                    "connector",
+                }
+                else (plot_index,)
+            )
+        )
+        observed_visibility = tuple(
+            int(_get_plot_property(op, graph, layer, index, "show")) for index in visibility_indices
+        )
+        expected_visibility = int(action.visible)
+        if any(value != expected_visibility for value in observed_visibility):
+            raise RuntimeError("Origin series visibility did not survive T1 fresh reopen")
+
+    members = tuple(
+        _verify_series_member(op, graph, layer, member_index, action)
+        for member_index in member_indices
+    )
+    if len(members) == 1:
+        observed = dict(members[0])
+        if observed_visibility is not None:
+            observed["visible"] = observed_visibility
+        return observed
+    result: dict[str, object] = {
+        "native_plot_indices": list(member_indices),
+        "members": list(members),
+    }
+    if observed_visibility is not None:
+        result["visible"] = observed_visibility
+    return result
+
+
+def _k14_state_snapshot(state: K14ViolinStyleState) -> dict[str, int | float]:
+    return {
+        "fill_color": state.fill_color,
+        "fill_transparency": state.fill_transparency,
+        "fill_only": state.fill_only,
+        "follow_line_transparency": state.follow_line_transparency,
+        "outline_color": state.outline_color,
+        "outline_width": state.outline_width,
+        "outline_style": state.outline_style,
+    }
+
+
+def _require_k14_style(
+    observed: K14ViolinStyleState,
+    expected: K14ViolinStyleState,
+    *,
+    prefix: str,
+) -> None:
+    for name in (
+        "fill_color",
+        "fill_only",
+        "follow_line_transparency",
+        "outline_color",
+        "outline_style",
+    ):
+        _require_equal(
+            f"{prefix} {name}",
+            getattr(observed, name),
+            getattr(expected, name),
+        )
+    if abs(observed.fill_transparency - expected.fill_transparency) > 1.01:
+        raise RuntimeError(
+            f"Origin T1 fresh readback mismatch for {prefix} fill transparency: "
+            f"expected {expected.fill_transparency}, observed {observed.fill_transparency}"
+        )
+    _require_number(
+        f"{prefix} outline width",
+        observed.outline_width,
+        expected.outline_width,
+        tolerance=0.051,
+    )
+
+
+def _verify_k14_violin_series(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    action: SetSeriesStyle,
+) -> dict[str, object]:
+    members: list[dict[str, int | float]] = []
+    for member_index in _k14_plot_indices(
+        op,
+        graph,
+        layer,
+        plot_index,
+        action.target,
+    ):
+        observed = read_k14_violin_style(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            member_index,
+        )
+        if action.fill_color is not None:
+            _require_equal(
+                "K14 visible fill color",
+                observed.fill_color,
+                _color(op, action.fill_color),
+            )
+        if action.fill_opacity is not None:
+            expected_transparency = (1 - action.fill_opacity) * 100
+            if abs(observed.fill_transparency - expected_transparency) > 1.01:
+                raise RuntimeError(
+                    "Origin T1 fresh readback mismatch for K14 visible fill opacity: "
+                    f"expected transparency {expected_transparency}, "
+                    f"observed {observed.fill_transparency}"
+                )
+        requested_outline_color = action.fill_stroke_color or action.line_stroke_color
+        requested_outline_width = (
+            action.fill_stroke_width_pt
+            if action.fill_stroke_width_pt is not None
+            else action.line_width_pt
+        )
+        requested_outline_style = action.fill_stroke_style or action.line_style
+        if requested_outline_color is not None:
+            _require_equal(
+                "K14 visible outline color",
+                observed.outline_color,
+                _color(op, requested_outline_color),
+            )
+        if requested_outline_width is not None:
+            _require_number(
+                "K14 visible outline width",
+                observed.outline_width,
+                requested_outline_width,
+                tolerance=0.051,
+            )
+        if requested_outline_style is not None:
+            _require_equal(
+                "K14 visible outline style",
+                observed.outline_style,
+                _BORDER_STYLE[requested_outline_style],
+            )
+        _require_equal("K14 fill-only transparency", observed.fill_only, 1)
+        _require_equal("K14 line-transparency independence", observed.follow_line_transparency, 0)
+        member = _k14_state_snapshot(observed)
+        if action.visible is not None:
+            visible = int(_get_plot_property(op, graph, layer, member_index, "show"))
+            _require_equal("K14 series visibility", visible, int(action.visible))
+            member["visible"] = visible
+        members.append(member)
+    return {
+        "native_plot_indices": list(
+            _k14_plot_indices(op, graph, layer, plot_index, action.target)
+        ),
+        "members": members,
+    }
+
+
+def _verify_k14_product_style(
+    op: Any,
+    graph: Any,
+    actions: tuple[PlotEngineAction, ...],
+    defaults: tuple[K14ViolinStyleState, ...],
+) -> dict[str, object]:
+    """Verify final K14 visible styles, including defaults and user edits."""
+
+    layer = _layers(graph)[0]
+    expected = list(defaults)
+    for action in actions:
+        if not isinstance(action, SetSeriesStyle):
+            continue
+        _, plot_index = _layer_and_plot(graph, action.target)
+        for member_index in _k14_plot_indices(
+            op,
+            graph,
+            layer,
+            plot_index,
+            action.target,
+        ):
+            expected[member_index - 1] = _updated_k14_style(
+                op,
+                expected[member_index - 1],
+                action,
+            )
+    observed_rows: list[dict[str, int | float]] = []
+    for plot_index, expected_state in enumerate(expected, start=1):
+        observed = read_k14_violin_style(
+            op,
+            str(graph.name),
+            _layer_index(layer),
+            plot_index,
+        )
+        _require_k14_style(
+            observed,
+            expected_state,
+            prefix=f"K14 group {plot_index}",
+        )
+        observed_rows.append(_k14_state_snapshot(observed))
+    if not any(isinstance(action, SetLegend) for action in actions):
+        legend = layer.label("legend")
+        if legend is not None:
+            _require_equal(
+                "K14 product legend visibility",
+                int(legend.get_int("show")),
+                int(K14_VIOLIN_STYLE.legend_visible),
+            )
+    return {"groups": observed_rows, "fresh_reopen": True}
+
+
+def _verify_series_member(
+    op: Any,
+    graph: Any,
+    layer: Any,
+    plot_index: int,
+    action: SetSeriesStyle,
+) -> dict[str, object]:
     plot_range = _checked_plot_range(op, graph, layer, plot_index)
     line_symbol_color_cascade = (
         action.line_stroke_color is not None
@@ -2177,13 +3260,17 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         else (
             action.marker_fill_color
             if action.marker_fill_color is not None
-            else action.line_stroke_color if line_symbol_color_cascade else None
+            else action.line_stroke_color
+            if line_symbol_color_cascade
+            else None
         )
     )
     effective_marker_stroke = (
         action.marker_stroke_color
         if action.marker_stroke_color is not None
-        else action.line_stroke_color if line_symbol_color_cascade else None
+        else action.line_stroke_color
+        if line_symbol_color_cascade
+        else None
     )
     numeric_options: tuple[tuple[str, object, str, float], ...] = (
         (
@@ -2250,21 +3337,6 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         ),
     )
     observed: dict[str, object] = {}
-    if action.visible is not None:
-        key = _target_key(action.target)
-        visibility_indices = (
-            range(1, _plot_count(op, graph, layer) + 1)
-            if key in {"primary", "left", "right", "bars", "cumulative", "matrix", "connector"}
-            else (plot_index,)
-        )
-        visibility = tuple(
-            int(_get_plot_property(op, graph, layer, index, "show"))
-            for index in visibility_indices
-        )
-        expected_visibility = int(action.visible)
-        if any(value != expected_visibility for value in visibility):
-            raise RuntimeError("Origin series visibility did not survive T1 fresh reopen")
-        observed["visible"] = visibility
     for name, requested, option, expected in numeric_options:
         if requested is None:
             continue
@@ -2296,6 +3368,106 @@ def _verify_series(op: Any, graph: Any, action: SetSeriesStyle) -> dict[str, obj
         value = 1 - _get_plot_property(op, graph, layer, plot_index, "transparency") / 100
         _require_number("fill opacity", value, action.fill_opacity)
         observed["fill_opacity"] = value
+    return observed
+
+
+def _verify_x40_group_structure(
+    state: X40GroupStyleState,
+    actions: tuple[PlotEngineAction, ...],
+) -> dict[str, object]:
+    _require_equal("X40 native group member count", state.group_count, 2)
+    _require_equal("X40 native subgroup size", state.subgroup_size, 2)
+    _require_equal("X40 connector subgroup mode", state.connector_by_subgroup, 1)
+    expected_connector_visible = True
+    for candidate in actions:
+        action = _x40_style_action(candidate)
+        if action is None or _target_key(action.target) != "connector":
+            continue
+        if action.visible is not None:
+            expected_connector_visible = action.visible
+        if action.line_style == "none":
+            expected_connector_visible = False
+    _require_equal(
+        "X40 connector visibility",
+        state.connector_visible,
+        expected_connector_visible,
+    )
+    return {
+        "group_count": state.group_count,
+        "subgroup_size": state.subgroup_size,
+        "connector_by_subgroup": state.connector_by_subgroup,
+        "connector_visible": state.connector_visible,
+        "marker_shapes": list(state.marker_shapes),
+        "marker_sizes": list(state.marker_sizes),
+        "marker_interiors": list(state.marker_interiors),
+        "marker_edge_colors": list(state.marker_edge_colors),
+        "marker_fill_colors": list(state.marker_fill_colors),
+        "connector_style": state.connector_style,
+        "connector_width": state.connector_width,
+        "connector_color": state.connector_color,
+    }
+
+
+def _verify_x40_style_action(
+    op: Any,
+    action: SetSeriesStyle,
+    state: X40GroupStyleState,
+) -> dict[str, object]:
+    checked = _x40_style_action(action)
+    if checked is None:
+        raise ValueError(f"X40 style target is not part of the native group: {action.target}")
+    key = _target_key(action.target)
+    observed: dict[str, object] = {}
+    if key == "connector":
+        if action.visible is not None or action.line_style == "none":
+            expected_visible = False if action.line_style == "none" else bool(action.visible)
+            _require_equal("X40 connector visibility", state.connector_visible, expected_visible)
+            observed["visible"] = state.connector_visible
+        if action.line_style is not None and action.line_style != "none":
+            expected_style = _REFERENCE_LINE_STYLE[action.line_style]
+            _require_equal("X40 connector style", state.connector_style, expected_style)
+            observed["line_style"] = state.connector_style
+        if action.line_width_pt is not None:
+            _require_number("X40 connector width", state.connector_width, action.line_width_pt)
+            observed["line_width"] = state.connector_width
+        if action.line_stroke_color is not None:
+            expected_color = _color(op, action.line_stroke_color)
+            _require_equal("X40 connector color", state.connector_color, expected_color)
+            observed["line_color"] = state.connector_color
+        return observed
+
+    member = _ordinal(key) - 1
+    if action.marker_shape is not None:
+        expected_shape = _MARKER[action.marker_shape]
+        _require_equal("X40 marker shape", state.marker_shapes[member], expected_shape)
+        observed["marker_shape"] = state.marker_shapes[member]
+    if action.marker_size_pt is not None:
+        _require_number(
+            "X40 marker size",
+            state.marker_sizes[member],
+            action.marker_size_pt,
+            tolerance=0.01,
+        )
+        observed["marker_size"] = state.marker_sizes[member]
+    if action.marker_interior is not None:
+        expected_interior = _INTERIOR[action.marker_interior]
+        _require_equal(
+            "X40 marker interior",
+            state.marker_interiors[member],
+            expected_interior,
+        )
+        observed["marker_interior"] = state.marker_interiors[member]
+    if action.marker_stroke_color is not None:
+        expected_edge = _color(op, action.marker_stroke_color)
+        _require_equal("X40 marker edge color", state.marker_edge_colors[member], expected_edge)
+        observed["marker_stroke_color"] = state.marker_edge_colors[member]
+    effective_fill = (
+        "#FFFFFF" if action.marker_interior in {"open", "hollow"} else action.marker_fill_color
+    )
+    if effective_fill is not None:
+        expected_fill = _color(op, effective_fill)
+        _require_equal("X40 marker fill color", state.marker_fill_colors[member], expected_fill)
+        observed["marker_fill_color"] = state.marker_fill_colors[member]
     return observed
 
 
@@ -2350,6 +3522,29 @@ def _verify_actions(
     """Read back stable public properties for the fresh-reopen gate."""
 
     snapshot: dict[str, object] = {}
+    x40_group_state = (
+        read_x40_group_style(
+            op,
+            str(graph.name),
+            _layer_index(_layers(graph)[0]),
+        )
+        if document.profile_id == "X40"
+        else None
+    )
+    if x40_group_state is not None:
+        snapshot["x40_native_group"] = _verify_x40_group_structure(
+            x40_group_state,
+            actions,
+        )
+    k07_band_state: K07ErrorBandStyleState | None = (
+        read_k07_error_band_style(
+            op,
+            str(graph.name),
+            _layer_index(_layers(graph)[0]),
+        )
+        if document.profile_id == "K07"
+        else None
+    )
     reference_line_slots = {
         action.action_id: (layer, axis_name, index)
         for action, layer, axis_name, index in _reference_line_slots(
@@ -2399,6 +3594,7 @@ def _verify_actions(
             snapshot[action.action_id] = _verify_label_style(op, title, action)
         elif isinstance(action, SetAxis):
             layer, axis_name = _axis_target(graph, action.target)
+            visual_prefix = _axis_visual_prefix(axis_name, action.target)
             observed: dict[str, object] = {"reverse": layer.get_int(f"{axis_name}.reverse")}
             side_bit = _axis_side_bit(action.target)
             if action.scale is not None:
@@ -2543,31 +3739,31 @@ def _verify_actions(
                 (
                     "tick_rotation",
                     action.tick_rotation_deg,
-                    f"{axis_name}.label.rotate",
+                    f"{visual_prefix}.label.rotate",
                     action.tick_rotation_deg,
                 ),
                 (
                     "tick_font",
                     action.tick_font_family,
-                    f"{axis_name}.label.font",
+                    f"{visual_prefix}.label.font",
                     _font(op, action.tick_font_family),
                 ),
                 (
                     "tick_color",
                     action.tick_color,
-                    f"{axis_name}.label.color",
+                    f"{visual_prefix}.label.color",
                     _color(op, action.tick_color) if action.tick_color else None,
                 ),
                 (
                     "axis_color",
                     action.axis_line_color,
-                    f"{axis_name}.color",
+                    f"{visual_prefix}.color",
                     _color(op, action.axis_line_color) if action.axis_line_color else None,
                 ),
                 (
                     "axis_width",
                     action.axis_line_width_pt,
-                    f"{axis_name}.thickness",
+                    f"{visual_prefix}.thickness",
                     action.axis_line_width_pt,
                 ),
             )
@@ -2594,7 +3790,7 @@ def _verify_actions(
             if action.tick_format is not None:
                 if action.tick_format in {"date", "time"}:
                     expected_type = {"date": 4, "time": 3}[action.tick_format]
-                    tick_type = layer.get_int(f"{axis_name}.label.type")
+                    tick_type = layer.get_int(f"{visual_prefix}.label.type")
                     _require_equal("tick format type", tick_type, expected_type)
                     observed["tick_format_type"] = tick_type
                 else:
@@ -2604,9 +3800,9 @@ def _verify_actions(
                         "scientific": 2,
                         "percent": 1,
                     }[action.tick_format]
-                    tick_format = layer.get_int(f"{axis_name}.label.numFormat")
+                    tick_format = layer.get_int(f"{visual_prefix}.label.numFormat")
                     _require_equal("tick numeric format", tick_format, expected_format)
-                    suffix = layer.get_str(f"{axis_name}.label.suf")
+                    suffix = layer.get_str(f"{visual_prefix}.label.suf")
                     _require_equal(
                         "tick format suffix",
                         suffix,
@@ -2649,11 +3845,7 @@ def _verify_actions(
                         f"{prefix}_grid_style",
                         action.grid_line_style,
                         f"{axis_name}.grid.{prefix}Type",
-                        (
-                            _LINE_STYLE[action.grid_line_style]
-                            if action.grid_line_style
-                            else None
-                        ),
+                        (_LINE_STYLE[action.grid_line_style] if action.grid_line_style else None),
                         1e-7,
                     ),
                 ):
@@ -2669,11 +3861,59 @@ def _verify_actions(
             snapshot[action.action_id] = observed
         elif isinstance(action, SetSeriesStyle):
             k09_subset_action = _k09_subset_fill_action(document, action)
-            snapshot[action.action_id] = (
-                _verify_k09_subset_fill_color(op, graph, k09_subset_action)
-                if k09_subset_action is not None
-                else _verify_series(op, graph, action)
-            )
+            if x40_group_state is not None and _x40_style_action(action) is not None:
+                snapshot[action.action_id] = _verify_x40_style_action(
+                    op,
+                    action,
+                    x40_group_state,
+                )
+            else:
+                snapshot[action.action_id] = (
+                    _verify_k09_subset_fill_color(op, graph, k09_subset_action)
+                    if k09_subset_action is not None
+                    else _verify_series(
+                        op,
+                        graph,
+                        action,
+                        profile_id=document.profile_id,
+                    )
+                )
+        elif (
+            isinstance(action, SetChartParameter)
+            and action.parameter in K09_VISUAL_CHART_PARAMETERS
+        ):
+            if document.profile_id != "K09" or action.target != document.plot_id:
+                raise ValueError("K09 grouped-column parameters require the K09 plot target")
+            layer = _layers(graph)[0]
+            plot_range = _checked_plot_range(op, graph, layer, 1)
+            if action.parameter == "bar_border_visible":
+                observed_color = int(_get_plot_option(op, plot_range, "-pbc"))
+                expected_visible = bool(action.value)
+                _require_equal(
+                    "K09 bar border visibility",
+                    observed_color != -4,
+                    expected_visible,
+                )
+                snapshot[action.action_id] = {
+                    "bar_border_visible": observed_color != -4,
+                    "bar_border_color": observed_color,
+                }
+            elif action.parameter == "within_group_gap_percent":
+                observed_gap = float(_get_plot_option(op, plot_range, "-vg"))
+                _require_number(
+                    "K09 within-group gap",
+                    observed_gap,
+                    float(action.value),
+                )
+                snapshot[action.action_id] = {"within_group_gap_percent": observed_gap}
+            else:
+                observed_gap = float(_get_plot_property(op, graph, layer, 1, "subsetgap"))
+                _require_number(
+                    "K09 between-group gap",
+                    observed_gap,
+                    float(action.value),
+                )
+                snapshot[action.action_id] = {"between_group_gap_percent": observed_gap}
         elif isinstance(action, SetLegend):
             legend = _layers(graph)[0].label("legend")
             if action.visible is True and (legend is None or not legend.get_int("show")):
@@ -2745,9 +3985,7 @@ def _verify_actions(
                         "frame_visible",
                         action.frame_visible,
                         "background",
-                        int(action.frame_visible)
-                        if action.frame_visible is not None
-                        else None,
+                        int(action.frame_visible) if action.frame_visible is not None else None,
                         1e-7,
                     ),
                     (
@@ -2796,10 +4034,10 @@ def _verify_actions(
                     _PALETTE[action.palette].casefold(),
                 )
             if action.reverse is not None:
-                expected_reverse = int(
-                    not action.reverse
-                    if action.palette == "blue_white_red"
-                    else action.reverse
+                expected_reverse = _origin_colormap_flip(
+                    document.profile_id,
+                    action.palette,
+                    action.reverse,
                 )
                 _require_equal("colormap reverse", observed_reverse, expected_reverse)
             if action.minimum is not None and action.maximum is not None:
@@ -2884,6 +4122,12 @@ def _verify_actions(
                     "attach": anchor.attach,
                     "left": anchor.left,
                     "top": anchor.top,
+                    "width": anchor.width,
+                    "height": anchor.height,
+                    "layer_left": anchor.layer_left,
+                    "layer_top": anchor.layer_top,
+                    "layer_right": anchor.layer_right,
+                    "layer_bottom": anchor.layer_bottom,
                 }
             if action.colorbar_tick_format is not None:
                 if spectrum is None:
@@ -2895,7 +4139,7 @@ def _verify_actions(
                 )
                 expected_display = {
                     "auto": None,
-                    "decimal": 0,
+                    "decimal": 5,
                     "scientific": 4,
                     "percent": 5,
                 }[action.colorbar_tick_format]
@@ -2917,61 +4161,116 @@ def _verify_actions(
                         tick_format.custom_format,
                         "*3%",
                     )
+                if action.colorbar_tick_format == "decimal":
+                    _require_equal(
+                        "color scale decimal tick format",
+                        tick_format.custom_format,
+                        "*6",
+                    )
                 observed_colormap["colorbar_tick_format"] = tick_format._asdict()
             snapshot[action.action_id] = observed_colormap
         elif isinstance(action, SetErrorStyle):
-            layer, plot_index = _error_plot(op, graph, action.target)
-            plot_range = _checked_plot_range(op, graph, layer, plot_index)
-            observed = {}
-            for name, requested, option, expected_value in (
-                (
-                    "bar_color",
-                    action.bar_color,
-                    "-c",
-                    _color(op, action.bar_color) if action.bar_color else None,
-                ),
-                ("bar_width", action.bar_width_pt, "-erw", action.bar_width_pt),
-                ("cap_size", action.cap_size_pt, "-erwc", action.cap_size_pt),
-                (
-                    "band_fill_color",
-                    action.band_fill_color,
-                    "-pfb",
-                    _color(op, action.band_fill_color) if action.band_fill_color else None,
-                ),
-                (
-                    "band_stroke_color",
-                    action.band_stroke_color,
-                    "-pbc",
-                    _color(op, action.band_stroke_color) if action.band_stroke_color else None,
-                ),
-                (
-                    "band_stroke_width",
-                    action.band_stroke_width_pt,
-                    "-pbw",
-                    action.band_stroke_width_pt,
-                ),
-            ):
-                if requested is not None and expected_value is not None:
-                    value = _get_plot_option(op, plot_range, option)
-                    tolerance = 0.051 if name in {"bar_width", "band_stroke_width"} else 1e-7
-                    _require_number(
-                        name,
-                        value,
-                        float(expected_value),
-                        tolerance=tolerance,
+            layer, plot_indices = _error_plots(op, graph, action.target)
+            k07_native_band = (
+                document.profile_id == "K07" and _target_key(action.target) == "primary"
+            )
+            observed_plots: list[dict[str, object]] = []
+            for plot_index in plot_indices:
+                plot_range = _checked_plot_range(op, graph, layer, plot_index)
+                observed: dict[str, object] = {"plot_index": plot_index}
+                for name, requested, option, expected_value in (
+                    (
+                        "bar_color",
+                        action.bar_color,
+                        "-c",
+                        _color(op, action.bar_color) if action.bar_color else None,
+                    ),
+                    ("bar_width", action.bar_width_pt, "-erw", action.bar_width_pt),
+                    ("cap_size", action.cap_size_pt, "-erwc", action.cap_size_pt),
+                    (
+                        "band_fill_color",
+                        action.band_fill_color,
+                        "-pfb",
+                        _color(op, action.band_fill_color) if action.band_fill_color else None,
+                    ),
+                    (
+                        "band_stroke_color",
+                        action.band_stroke_color,
+                        "-pbc",
+                        _color(op, action.band_stroke_color) if action.band_stroke_color else None,
+                    ),
+                    (
+                        "band_stroke_width",
+                        action.band_stroke_width_pt,
+                        "-pbw",
+                        action.band_stroke_width_pt,
+                    ),
+                ):
+                    if k07_native_band and name in {
+                        "band_stroke_color",
+                        "band_stroke_width",
+                    }:
+                        continue
+                    if requested is not None and expected_value is not None:
+                        value = _get_plot_option(op, plot_range, option)
+                        tolerance = 0.051 if name in {"bar_width", "band_stroke_width"} else 1e-7
+                        _require_number(
+                            name,
+                            value,
+                            float(expected_value),
+                            tolerance=tolerance,
+                        )
+                        observed[name] = value
+                if action.bar_opacity is not None:
+                    value = 1 - (
+                        _get_plot_property(op, graph, layer, plot_index, "transparency") / 100
                     )
-                    observed[name] = value
-            if action.bar_opacity is not None:
-                value = 1 - _get_plot_property(op, graph, layer, plot_index, "transparency") / 100
-                _require_number("error opacity", value, action.bar_opacity)
-                observed["bar_opacity"] = value
-            if action.band_fill_opacity is not None:
-                fill_only = _get_plot_option(op, plot_range, "-paaf")
-                _require_number("error band fill-only transparency", fill_only, 1)
-                value = 1 - _get_plot_property(op, graph, layer, plot_index, "transparency") / 100
-                _require_number("error band opacity", value, action.band_fill_opacity)
-                observed["band_fill_opacity"] = value
-            snapshot[action.action_id] = observed
+                    _require_number("error opacity", value, action.bar_opacity)
+                    observed["bar_opacity"] = value
+                if action.band_fill_opacity is not None and not k07_native_band:
+                    fill_only = _get_plot_option(op, plot_range, "-paaf")
+                    _require_number("error band fill-only transparency", fill_only, 1)
+                    value = 1 - (
+                        _get_plot_property(op, graph, layer, plot_index, "transparency") / 100
+                    )
+                    _require_number("error band opacity", value, action.band_fill_opacity)
+                    observed["band_fill_opacity"] = value
+                observed_plots.append(observed)
+            observed_action: dict[str, object] = (
+                observed_plots[0] if len(observed_plots) == 1 else {"plots": observed_plots}
+            )
+            if k07_native_band:
+                if k07_band_state is None:
+                    raise RuntimeError("Origin K07 native error-band readback is missing")
+                native_observed: dict[str, object] = {
+                    "fill_transparencies": list(k07_band_state.fill_transparencies),
+                    "line_colors": list(k07_band_state.line_colors),
+                    "line_widths": list(k07_band_state.line_widths),
+                }
+                if action.band_fill_opacity is not None:
+                    expected_transparency = (1 - action.band_fill_opacity) * 100
+                    for value in k07_band_state.fill_transparencies:
+                        _require_number(
+                            "K07 native band fill transparency",
+                            value,
+                            expected_transparency,
+                            tolerance=0.051,
+                        )
+                    native_observed["band_fill_opacity"] = action.band_fill_opacity
+                if action.band_stroke_color is not None:
+                    expected_color = _color(op, action.band_stroke_color)
+                    for value in k07_band_state.line_colors:
+                        _require_equal("K07 native band line color", value, expected_color)
+                if action.band_stroke_width_pt is not None:
+                    for value in k07_band_state.line_widths:
+                        _require_number(
+                            "K07 native band line width",
+                            value,
+                            action.band_stroke_width_pt,
+                            tolerance=0.051,
+                        )
+                observed_action["native_error_band"] = native_observed
+            snapshot[action.action_id] = observed_action
         elif isinstance(action, SetDataLabels):
             layer, plot_index = _layer_and_plot(graph, action.target)
             plot_range = _checked_plot_range(op, graph, layer, plot_index)
@@ -3020,13 +4319,8 @@ def _verify_actions(
                     "scientific": "E3",
                     "percent": "*3",
                 }[action.value_format or "auto"]
-                suffix = (
-                    f"{action.suffix or ''}"
-                    f"{'%' if action.value_format == 'percent' else ''}"
-                )
-                expected_label_display = (
-                    f"{action.prefix or ''}$(Y,{format_code}){suffix}"
-                )
+                suffix = f"{action.suffix or ''}{'%' if action.value_format == 'percent' else ''}"
+                expected_label_display = f"{action.prefix or ''}$(Y,{format_code}){suffix}"
                 display = _get_plot_option_str(op, plot_range, "-qms")
                 _require_equal("data label display", display, expected_label_display)
                 observed["display"] = display
@@ -3062,12 +4356,8 @@ def _verify_actions(
                     and candidate[1] == axis_name
                 ),
             )
-            _require_equal(
-                "reference line visibility", layer.get_int(f"{prefix}.lineshow"), 1
-            )
-            _require_equal(
-                "reference line auto format", layer.get_int(f"{prefix}.lineauto"), 0
-            )
+            _require_equal("reference line visibility", layer.get_int(f"{prefix}.lineshow"), 1)
+            _require_equal("reference line auto format", layer.get_int(f"{prefix}.lineauto"), 0)
             _require_equal(
                 "reference line color", layer.get_int(f"{prefix}.linecolor"), expected_color
             )
@@ -3075,9 +4365,7 @@ def _verify_actions(
                 "reference line style", layer.get_int(f"{prefix}.linestyle"), expected_style
             )
             width = layer.get_float(f"{prefix}.linethickness")
-            _require_number(
-                "reference line width", width, expected_width, tolerance=0.051
-            )
+            _require_number("reference line width", width, expected_width, tolerance=0.051)
             reference_observed: dict[str, object] = {
                 "reference_line_id": action.reference_line_id,
                 "axis": axis_name,
@@ -3177,9 +4465,7 @@ def _verify_actions(
             expected_font = _font(op, action.font_family)
             if expected_font is not None:
                 _require_equal("callout font", label.get_int("font"), expected_font)
-            expected_font_size = (
-                action.font_size_pt or PRODUCT_TYPOGRAPHY.tick_font_size_pt
-            )
+            expected_font_size = action.font_size_pt or PRODUCT_TYPOGRAPHY.tick_font_size_pt
             _require_number(
                 "callout font size",
                 label.get_float("fsize"),

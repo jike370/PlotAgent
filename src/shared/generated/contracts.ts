@@ -942,6 +942,7 @@ export type EngineArtifact = {
 export type EngineCapability = {
   readonly operation: "create_plot" | "bind_fields" | "set_title" | "set_axis" | "set_series_style" | "set_point_marker_map" | "set_observation_overlay" | "set_legend" | "set_colormap" | "set_error_style" | "set_data_labels" | "set_canvas" | "set_chart_parameter" | "add_annotation" | "add_reference_line" | "add_callout" | "export_plot";
   readonly parameters?: ReadonlyArray<string>;
+  readonly target_parameters?: ReadonlyArray<EngineTargetParameterRule>;
 }
 
 export type EngineColumn = {
@@ -1006,6 +1007,13 @@ export type EngineRepeatableObjectTemplate = {
   readonly object_alias_prefix: string;
   readonly object_kind: "series" | "panel";
   readonly object_key_prefix: string;
+}
+
+export type EngineTargetParameterRule = {
+  readonly object_kind: "axis" | "series" | "legend" | "panel" | "observation_overlay";
+  readonly object_key?: string | null;
+  readonly object_key_prefix?: string | null;
+  readonly parameters: ReadonlyArray<string>;
 }
 
 export type ErrorDefinition = {

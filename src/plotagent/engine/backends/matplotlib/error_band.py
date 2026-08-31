@@ -22,7 +22,8 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import k07_error_band
+from plotagent.engine.product_style import k07_auto_range_bounds
+from plotagent.engine.profile_data import ErrorBandData, k07_error_band
 from plotagent.engine.repository import document_ref
 
 
@@ -59,7 +60,7 @@ class K07ErrorBandRenderer:
         svg_path: Path,
     ) -> EngineReadback:
         series = k07_error_band(document, data)
-        state = self._state(document, actions, series.x_field_name, series.center_field_name)
+        state = self._state(document, actions, series)
 
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         band = axis.fill_between(
@@ -166,14 +167,22 @@ class K07ErrorBandRenderer:
         self,
         document: PlotDocument,
         actions: tuple[PlotEngineAction, ...],
-        x_name: str,
-        center_name: str,
+        series: ErrorBandData,
     ) -> _K07State:
         document.plot_id.removeprefix("plot:")
+        x_bounds, y_bounds = k07_auto_range_bounds(
+            series.x_values,
+            series.lower_values,
+            series.upper_values,
+        )
         state = _K07State(
             title="",
-            x_axis=_AxisState(x_name),
-            y_axis=_AxisState(center_name),
+            x_axis=_AxisState(series.x_field_name, minimum=x_bounds[0], maximum=x_bounds[1]),
+            y_axis=_AxisState(
+                series.center_field_name,
+                minimum=y_bounds[0],
+                maximum=y_bounds[1],
+            ),
         )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):

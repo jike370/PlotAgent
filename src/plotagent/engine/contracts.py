@@ -812,6 +812,31 @@ class AppliedAction(StrictModel):
     applied_at: Annotated[str, StringConstraints(min_length=1, max_length=64, strict=True)]
 
 
+class EngineTargetParameterRule(StrictModel):
+    """Parameter subset owned by one fixed or repeatable semantic target."""
+
+    object_kind: Literal["axis", "series", "legend", "panel", "observation_overlay"]
+    object_key: Token | None = None
+    object_key_prefix: Token | None = None
+    parameters: Annotated[tuple[Token, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def exact_or_repeatable_target(self) -> EngineTargetParameterRule:
+        if (self.object_key is None) == (self.object_key_prefix is None):
+            raise ValueError("target parameter rule requires exactly one key or key prefix")
+        if len(self.parameters) != len(set(self.parameters)):
+            raise ValueError("target parameter rule parameters must be unique")
+        return self
+
+    def matches(self, object_kind: str, object_key: str) -> bool:
+        if object_kind != self.object_kind:
+            return False
+        if self.object_key is not None:
+            return object_key == self.object_key
+        prefix = self.object_key_prefix
+        return prefix is not None and object_key.startswith(prefix + "_")
+
+
 class EngineCapability(StrictModel):
     operation: Literal[
         "create_plot",
@@ -833,6 +858,28 @@ class EngineCapability(StrictModel):
         "export_plot",
     ]
     parameters: tuple[Token, ...] = ()
+    target_parameters: tuple[EngineTargetParameterRule, ...] = ()
+
+    @model_validator(mode="after")
+    def valid_target_parameter_scope(self) -> EngineCapability:
+        if not self.target_parameters:
+            return self
+        identities = tuple(
+            (rule.object_kind, rule.object_key, rule.object_key_prefix)
+            for rule in self.target_parameters
+        )
+        if len(identities) != len(set(identities)):
+            raise ValueError("engine target parameter rules must be unique")
+        scoped = {
+            parameter
+            for rule in self.target_parameters
+            for parameter in rule.parameters
+        }
+        if scoped != set(self.parameters):
+            raise ValueError(
+                "target parameter rules must cover exactly the capability parameters"
+            )
+        return self
 
 
 class EngineObjectTemplate(StrictModel):
@@ -921,4 +968,22 @@ class EngineProfile(StrictModel):
         operations = tuple(capability.operation for capability in self.capabilities)
         if len(operations) != len(set(operations)):
             raise ValueError("engine profile capabilities must be unique")
+        fixed_objects = {
+            (item.object_kind, item.object_key) for item in self.objects
+        }
+        repeatable_objects = {
+            (item.object_kind, item.object_key_prefix) for item in self.repeatable_objects
+        }
+        for capability in self.capabilities:
+            for rule in capability.target_parameters:
+                target = (
+                    (rule.object_kind, rule.object_key)
+                    if rule.object_key is not None
+                    else (rule.object_kind, rule.object_key_prefix)
+                )
+                known = fixed_objects if rule.object_key is not None else repeatable_objects
+                if target not in known:
+                    raise ValueError(
+                        "target parameter rule must refer to a profile semantic object"
+                    )
         return self

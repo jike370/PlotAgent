@@ -86,6 +86,9 @@ def test_k01_renders_and_replays_public_actions_without_legacy_resolver(tmp_path
             (backend,),
         )
         runtime.execute(_create())
+        assert "#1676d2" in (
+            tmp_path / "artifacts" / "line-demo" / "v1" / "preview.svg"
+        ).read_text(encoding="utf-8").lower()
         runtime.execute(
             SetTitle(
                 action_id="action:title",

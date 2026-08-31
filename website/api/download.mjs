@@ -2,10 +2,16 @@ import { randomUUID } from 'node:crypto';
 
 import { put } from '@vercel/blob';
 
-const CURRENT_RELEASE = 'windows-x64-0.1.1';
+const CURRENT_RELEASE = 'windows-x64-0.1.2';
 
 const RELEASES = Object.freeze({
   [CURRENT_RELEASE]: Object.freeze({
+    version: '0.1.2',
+    platform: 'windows-x64',
+    fileName: 'fig-agent-0.1.2-x64-setup.exe',
+    url: 'https://fig-agent-1439976580.cos.ap-hongkong.myqcloud.com/fig-agent-0.1.2-x64-setup.exe',
+  }),
+  'windows-x64-0.1.1': Object.freeze({
     version: '0.1.1',
     platform: 'windows-x64',
     fileName: 'fig-agent-0.1.1-x64-setup.exe',

@@ -666,6 +666,8 @@ function PlotObject({
 
 function ConversationComposer({
   plotReferences,
+  defaultPlot,
+  targetMode,
   selectedChart,
   multiChartTask,
   datasetCount,
@@ -680,8 +682,11 @@ function ConversationComposer({
   onOpenLibrary,
   onImportData,
   onToggleMapping,
+  onTargetModeChange,
 }: {
   plotReferences: { reference: PlotReference; plot: ProductPlot }[]
+  defaultPlot?: { reference: PlotReference; plot: ProductPlot }
+  targetMode: 'default' | 'create'
   selectedChart?: ChartType
   multiChartTask?: boolean
   datasetCount: number
@@ -696,6 +701,7 @@ function ConversationComposer({
   onOpenLibrary: () => void
   onImportData: () => void
   onToggleMapping: () => void
+  onTargetModeChange: (mode: 'default' | 'create') => void
 }): React.JSX.Element {
   const [value, setValue] = useState('')
   const [mentionOpen, setMentionOpen] = useState(false)
@@ -716,16 +722,18 @@ function ConversationComposer({
       setMentionError(`项目中不存在 ${missing.map((number) => `@图${number}`).join('、')}。`)
       return
     }
-    onSubmit(instruction, numbers.flatMap((number) => {
+    const explicitlySelected = numbers.flatMap((number) => {
       const selected = byNumber.get(number)
-      return selected === undefined ? [] : [{
-        plotId: selected.plotId,
-        plotVersion: selected.plotVersion,
-      }]
-    }))
+      return selected === undefined ? [] : [{ plotId: selected.plotId, plotVersion: selected.plotVersion }]
+    })
+    const defaultSelection = defaultPlot === undefined || targetMode === 'create'
+      ? []
+      : [{ plotId: defaultPlot.plot.plotId, plotVersion: defaultPlot.plot.plotVersion }]
+    onSubmit(instruction, explicitlySelected.length > 0 ? explicitlySelected : defaultSelection)
     setValue('')
     setMentionOpen(false)
     setMentionError(undefined)
+    onTargetModeChange('default')
   }
   const insertMention = (reference: PlotReference): void => {
     const textarea = textareaRef.current
@@ -735,6 +743,7 @@ function ConversationComposer({
     const after = trigger >= 0 ? value.slice(caret) : ''
     const next = `${before}@图${reference.number} ${after}`
     setValue(next)
+    onTargetModeChange('default')
     setMentionOpen(false)
     setMentionError(undefined)
     window.requestAnimationFrame(() => {
@@ -751,13 +760,29 @@ function ConversationComposer({
           <span className="target-chip"><Layers3 size={14} />{
             mentionedTargets.length > 0
               ? mentionedTargets.join('、')
-              : multiChartTask
-                ? '多图任务'
-              : selectedChart
-                ? `${selectedChart.id} · ${selectedChart.name}`
-                : '未选择图形'
+              : defaultPlot === undefined
+                ? multiChartTask
+                  ? '多图任务'
+                  : selectedChart
+                    ? `${selectedChart.id} · ${selectedChart.name}`
+                    : '未选择图形'
+                : targetMode === 'create'
+                  ? multiChartTask
+                    ? '新建多图任务'
+                    : selectedChart
+                      ? `新建图 · ${selectedChart.id} · ${selectedChart.name}`
+                      : '新建图 · 未选择图形'
+                : `默认编辑 @图${defaultPlot.reference.number} · v${defaultPlot.plot.plotVersion}`
           }</span>
-          {mentionedTargets.length === 0 && canInspectMapping && <button className="composer-context__action" type="button" onClick={onToggleMapping} disabled={busy || importing}>{mappingOpen ? '收起字段绑定' : '字段绑定'}</button>}
+          {mentionedTargets.length === 0 && defaultPlot !== undefined && <button className="composer-context__action" type="button" onClick={() => {
+            if (targetMode === 'create') {
+              onTargetModeChange('default')
+              return
+            }
+            onTargetModeChange('create')
+            onOpenLibrary()
+          }} disabled={busy || importing}>{targetMode === 'create' ? `编辑 @图${defaultPlot.reference.number}` : '新建图'}</button>}
+          {mentionedTargets.length === 0 && defaultPlot === undefined && canInspectMapping && <button className="composer-context__action" type="button" onClick={onToggleMapping} disabled={busy || importing}>{mappingOpen ? '收起字段绑定' : '字段绑定'}</button>}
         </div>
         <textarea ref={textareaRef} value={value} disabled={busy} onChange={(event) => {
           const next = event.target.value
@@ -768,7 +793,7 @@ function ConversationComposer({
         }} onKeyDown={(event) => {
           if (event.key === 'Escape' && mentionOpen) { event.preventDefault(); setMentionOpen(false); return }
           if (event.key === 'Enter' && !event.shiftKey && !mentionOpen) { event.preventDefault(); submit() }
-        }} placeholder={plotReferences.length > 0 ? '通过 @ 指定需编辑的对象' : '描述绘图要求'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
+        }} placeholder={defaultPlot !== undefined && targetMode === 'default' ? '描述修改要求；用 @ 指定其他图' : '描述新图要求'} aria-label="描述绘图要求" aria-describedby={mentionError ? 'composer-mention-error' : undefined} />
         {mentionOpen && <div className="plot-mention-menu" role="listbox" aria-label="选择作用图形">
           {plotReferences.map(({ reference, plot: candidate }) => {
             const chart = chartCatalog.find((item) => item.id === candidate.chartId)
@@ -779,7 +804,7 @@ function ConversationComposer({
         </div>}
         {mentionError && <p id="composer-mention-error" className="composer-mention-error" role="alert">{mentionError}</p>}
         <div className="composer-toolbar">
-          <button type="button" className={selectedChart || multiChartTask ? 'composer-tool is-selected' : 'composer-tool'} onClick={onOpenLibrary}><Library size={15} />{multiChartTask ? '多图任务' : selectedChart ? selectedChart.name : '选择图形'}</button>
+          <button type="button" className={targetMode === 'create' && (selectedChart || multiChartTask) ? 'composer-tool is-selected' : 'composer-tool'} onClick={() => { onTargetModeChange('create'); onOpenLibrary() }}><Library size={15} />{multiChartTask ? '多图任务' : selectedChart ? selectedChart.name : '选择图形'}</button>
           <button type="button" className="composer-tool" onClick={onImportData} disabled={importing}>
             {importing ? <LoaderCircle className="spin" size={15} /> : <FileUp size={15} />}
             {importing ? '正在导入' : `上传数据${datasetCount > 0 ? ` (${datasetCount})` : ''}`}
@@ -1128,6 +1153,7 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
   const { project, datasets, activeDataset, selectedChart, plot, exportRecord, notice, busyAction } = props
   const [manualMappingOpen, setManualMappingOpen] = useState(false)
   const [planRevisionOpen, setPlanRevisionOpen] = useState(false)
+  const [composerTargetMode, setComposerTargetMode] = useState<'default' | 'create'>('default')
   const [timeline, setTimeline] = useState<ConversationTimelineItem[]>(() => (
     project ? readConversationTimeline(window.localStorage, project.projectId) : []
   ))
@@ -1146,6 +1172,13 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
       return candidate ? [{ reference, plot: candidate }] : []
     })
   }, [plot, plotReferences, props.projectPlots])
+  const defaultComposerPlot = plot === undefined
+    ? undefined
+    : availablePlots.find((item) => item.plot.plotId === plot.plotId)
+  const openNewPlotLibrary = (): void => {
+    setComposerTargetMode('create')
+    props.onOpenLibrary()
+  }
   const latestPlotVersions = useMemo(() => {
     const latestById = new Map<string, number>()
     for (const candidate of [...props.projectPlots, ...(plot ? [plot] : [])]) {
@@ -1326,21 +1359,21 @@ export function ConversationWorkspace(props: ConversationWorkspaceProps): React.
               const motionClass = hydratedTimelineIds.has(item.id) ? undefined : 'motion-timeline-enter'
               if (item.type === 'text') return <ConversationTextMessage key={item.id} message={item} animate={item.role === 'agent' && motionClass !== undefined} />
               if (item.type === 'plan') return <AgentMessage className={motionClass} key={item.id}><WorkflowPlanObject plan={item.plan} datasets={datasets} selectedChart={selectedChart} plot={plot} busy={busyAction === 'agent-plan' && props.workflowPlan?.planId === item.plan.planId} onConfirm={props.onConfirmWorkflowPlan} onReject={props.onRejectWorkflowPlan} onEdit={() => setPlanRevisionOpen(true)} canUndo={props.canUndo} onUndo={props.onUndo} onRun={props.onRunWorkflowPlan} onResume={props.onResumeWorkflowPlan} onAcceptPartial={props.onAcceptPartialTask} /></AgentMessage>
-              if (item.type === 'plot') return <PlotObject className={motionClass} key={item.id} {...props} plot={item.plot} plotNumber={item.plotNumber} active={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} latest={latestPlotVersions.get(item.plot.plotId) === item.plot.plotVersion} />
+              if (item.type === 'plot') return <PlotObject className={motionClass} key={item.id} {...props} onOpenLibrary={openNewPlotLibrary} plot={item.plot} plotNumber={item.plotNumber} active={plot?.plotId === item.plot.plotId && plot.plotVersion === item.plot.plotVersion} latest={latestPlotVersions.get(item.plot.plotId) === item.plot.plotVersion} />
               return <ExportResult className={motionClass} key={item.id} record={item.record} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />
             })}
             {notice && notice.kind !== 'success' && <NoticeMessage notice={notice} />}
             <ActivityMessage key={`${busyAction ?? 'idle'}:${props.agentRuntimeStartedAt ?? 'pending'}`} busyAction={busyAction} agentRuntimeLabel={props.agentRuntimeLabel} agentRuntimeTaskId={props.agentRuntimeTaskId} agentRuntimeStartedAt={props.agentRuntimeStartedAt} tasks={props.taskEvents} onCancel={props.onCancelTask} />
             <div ref={scrollAnchorRef} className="conversation-turn-anchor" aria-hidden="true" />
             {planRevisionOpen && <AgentMessage><p>请在输入框说明要修改的字段绑定，例如“X 改为 Time”。我会基于当前计划生成修订版，再请你确认。</p></AgentMessage>}
-            {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={props.onConfirmMapping} onConfirmMultiSource={props.onConfirmMultiSourceMapping} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
+            {manualMappingOpen && selectedChart && activeDataset && !plot && <AgentMessage><p>我建议按以下方式绑定字段。先检查数据，再确认是否创建图形。</p><MappingObject key={`${selectedChart.id}:${activeDataset.datasetId}:${activeDataset.sourceVersion}`} chart={selectedChart} dataset={activeDataset} busy={busyAction === 'plot'} selectedDataCount={props.selectedWorkflowSourceIds.length} onConfirm={(mapping) => { setComposerTargetMode('default'); props.onConfirmMapping(mapping) }} onConfirmMultiSource={(mapping) => { setComposerTargetMode('default'); props.onConfirmMultiSourceMapping(mapping) }} onCancel={() => setManualMappingOpen(false)} /></AgentMessage>}
           </div>
         </div>
       )}
 
       {project && notice?.kind === 'success' && exportRecord && <ProductToast key={exportRecord.exportId} notice={notice} record={exportRecord} onOpen={props.onOpenExport} onReveal={props.onRevealExport} />}
 
-      {project && <ConversationComposer plotReferences={availablePlots} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={props.onOpenLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} />}
+      {project && <ConversationComposer plotReferences={availablePlots} defaultPlot={defaultComposerPlot} targetMode={composerTargetMode} selectedChart={selectedChart} multiChartTask={props.multiChartTask} datasetCount={datasets.length} configured={props.agentConfigured} busy={busyAction === 'agent'} importing={busyAction === 'import'} notice={notice} mappingOpen={manualMappingOpen} canInspectMapping={Boolean(selectedChart && !props.multiChartTask && activeDataset && !plot)} onSubmit={submitInstruction} onConfigure={props.onConfigureAgent} onOpenLibrary={openNewPlotLibrary} onImportData={props.onImportData} onToggleMapping={() => setManualMappingOpen((open) => !open)} onTargetModeChange={setComposerTargetMode} />}
       {!project && <div className="startup-footer"><span>{props.previewMode ? '界面预览使用内存示例，不写入本机' : '所有项目、数据与图表默认保存在这台电脑上'}</span><span>{props.previewMode ? `${PUBLIC_PRODUCT_NAME} · 开发预览` : `${PUBLIC_PRODUCT_NAME} 0.1.1 · 无需账号`}</span></div>}
     </main>
   )

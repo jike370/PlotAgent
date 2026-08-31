@@ -24,19 +24,11 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import K09_GROUPED_COLUMN_STYLE, PRODUCT_SERIES_PALETTE
 from plotagent.engine.profile_data import CategorySeriesGrid, category_series_grid
 from plotagent.engine.repository import document_ref
 
-_PALETTE = (
-    "#1676D2",
-    "#D97800",
-    "#299764",
-    "#C53D4D",
-    "#7656B5",
-    "#008A99",
-    "#A55A2A",
-    "#667085",
-)
+_PALETTE = PRODUCT_SERIES_PALETTE
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +53,13 @@ class _ColumnFamilyState:
     y_axis: _AxisState
     series: tuple[_SeriesState, ...]
     legend_visible: bool = True
+    bar_border_visible: bool = K09_GROUPED_COLUMN_STYLE.bar_border_visible
+    within_group_gap_percent: float = (
+        K09_GROUPED_COLUMN_STYLE.within_group_gap_percent
+    )
+    between_group_gap_percent: float = (
+        K09_GROUPED_COLUMN_STYLE.between_group_gap_percent
+    )
 
 
 class _ColumnFamilyRenderer:
@@ -154,9 +153,14 @@ class _ColumnFamilyRenderer:
         containers: list[BarContainer] = []
         count = len(grid.series_labels)
         if self.mode == "grouped":
-            group_width = 0.8
-            width = group_width / count
-            offsets = (np.arange(count, dtype=float) - (count - 1) / 2.0) * width
+            # Match Origin's native indexed-column spacing contract. SubsetGap
+            # reserves a fraction of the category step between groups; -vg is
+            # the gap between adjacent bars as a percentage of bar width.
+            slot_width = (1.0 - state.between_group_gap_percent / 100.0) / count
+            width = slot_width / (1.0 + state.within_group_gap_percent / 100.0)
+            offsets = (
+                np.arange(count, dtype=float) - (count - 1) / 2.0
+            ) * slot_width
             for index, (label, style) in enumerate(
                 zip(grid.series_labels, state.series, strict=True)
             ):
@@ -166,8 +170,14 @@ class _ColumnFamilyRenderer:
                         values[:, index],
                         width=width,
                         color=style.color,
-                        edgecolor="#1A1A1A",
-                        linewidth=style.edge_width_pt,
+                        edgecolor=(
+                            K09_GROUPED_COLUMN_STYLE.border_color
+                            if state.bar_border_visible
+                            else "none"
+                        ),
+                        linewidth=(
+                            style.edge_width_pt if state.bar_border_visible else 0.0
+                        ),
                         label=label,
                     )
                 )

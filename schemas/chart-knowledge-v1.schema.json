@@ -152,6 +152,14 @@
           },
           "title": "Parameters",
           "type": "array"
+        },
+        "target_parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EngineTargetParameterRule"
+          },
+          "title": "Target Parameters",
+          "type": "array"
         }
       },
       "required": [
@@ -318,6 +326,64 @@
         "object_key_prefix"
       ],
       "title": "EngineRepeatableObjectTemplate",
+      "type": "object"
+    },
+    "EngineTargetParameterRule": {
+      "additionalProperties": false,
+      "description": "Parameter subset owned by one fixed or repeatable semantic target.",
+      "properties": {
+        "object_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Key"
+        },
+        "object_key_prefix": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Key Prefix"
+        },
+        "object_kind": {
+          "enum": [
+            "axis",
+            "series",
+            "legend",
+            "panel",
+            "observation_overlay"
+          ],
+          "title": "Object Kind",
+          "type": "string"
+        },
+        "parameters": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Parameters",
+          "type": "array"
+        }
+      },
+      "required": [
+        "object_kind",
+        "parameters"
+      ],
+      "title": "EngineTargetParameterRule",
       "type": "object"
     }
   },

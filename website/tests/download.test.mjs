@@ -28,24 +28,24 @@ test('records a valid download before redirecting to COS', async () => {
   const response = responseDouble();
 
   await handler(
-    { method: 'GET', query: { release: 'windows-x64-0.1.1' } },
+    { method: 'GET', query: { release: 'windows-x64-0.1.2' } },
     response,
   );
 
   assert.equal(response.statusCode, 302);
   assert.equal(
     response.headers.get('location'),
-    'https://fig-agent-1439976580.cos.ap-hongkong.myqcloud.com/fig-agent-0.1.1-x64-setup.exe',
+    'https://fig-agent-1439976580.cos.ap-hongkong.myqcloud.com/fig-agent-0.1.2-x64-setup.exe',
   );
   assert.equal(writes.length, 1);
-  assert.equal(writes[0][0], 'downloads/2026-08-28/0.1.1/windows-x64/event-1.json');
+  assert.equal(writes[0][0], 'downloads/2026-08-28/0.1.2/windows-x64/event-1.json');
   assert.deepEqual(JSON.parse(writes[0][1]), {
     schemaVersion: '1.0',
     id: 'event-1',
     downloadedAt: '2026-08-28T13:00:00.000Z',
-    version: '0.1.1',
+    version: '0.1.2',
     platform: 'windows-x64',
-    fileName: 'fig-agent-0.1.1-x64-setup.exe',
+    fileName: 'fig-agent-0.1.2-x64-setup.exe',
   });
   assert.equal(writes[0][2].access, 'private');
 });
@@ -80,5 +80,5 @@ test('a storage failure never blocks the download', async () => {
   await handler({ method: 'GET', query: {} }, response);
 
   assert.equal(response.statusCode, 302);
-  assert.match(response.headers.get('location'), /fig-agent-0\.1\.1-x64-setup\.exe$/);
+  assert.match(response.headers.get('location'), /fig-agent-0\.1\.2-x64-setup\.exe$/);
 });

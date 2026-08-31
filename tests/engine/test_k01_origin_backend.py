@@ -213,8 +213,8 @@ class FakeAxis:
 
 
 class FakePlot:
-    def __init__(self) -> None:
-        self._color = (22, 118, 210)
+    def __init__(self, color: tuple[int, int, int] = (0, 0, 0)) -> None:
+        self._color = color
         self.floats = {"line.width": 1.5}
         self.ints = {"line.style": 0}
 
@@ -245,6 +245,10 @@ class FakeLayer:
         self.labels = {"xb": FakeLabel("X"), "yl": FakeLabel("Y")}
         self.axes = {"x": FakeAxis(), "y": FakeAxis()}
         self.plots: list[FakePlot] = []
+        self.floats: dict[str, float] = {
+            "x.rescaleMargin": 8.0,
+            "y.rescaleMargin": 8.0,
+        }
 
     def add_plot(self, sheet, *, coly, colx, type):
         plot = FakePlot()
@@ -256,6 +260,12 @@ class FakeLayer:
 
     def rescale(self) -> None:
         return None
+
+    def set_float(self, name: str, value: float) -> None:
+        self.floats[name] = value
+
+    def get_float(self, name: str) -> float:
+        return self.floats[name]
 
     def label(self, name: str):
         direct = self.labels.get(name)
@@ -361,7 +371,7 @@ class FakeOrigin:
             self.graph.layer.plots = [FakePlot()]
         elif "worksheet -p 203 Column" in command:
             self.pid = 203
-            self.graph.layer.plots = [FakePlot()]
+            self.graph.layer.plots = [FakePlot((22, 118, 210))]
         return True
 
     def lt_float(self, expression: str) -> float:
@@ -438,6 +448,8 @@ def test_k01_binder_applies_typed_actions_to_native_objects(
     assert readback.document.plot_version == 5
     assert op.graph.layer.axes["y"].scale == "linear"
     assert op.graph.layer.plots[0].color == (22, 118, 210)
+    assert op.graph.layer.floats["x.rescaleMargin"] == 5.0
+    assert op.graph.layer.floats["y.rescaleMargin"] == 5.0
     assert "legend" not in op.graph.layer.labels
 
 

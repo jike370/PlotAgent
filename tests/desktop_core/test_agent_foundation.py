@@ -31,6 +31,7 @@ from plotagent.contracts.workflows import (
     DeclareUnit,
     DraftAddCallout,
     DraftFieldBinding,
+    DraftSetChartParameter,
     DraftSetTitle,
     FilterPredicate,
     FilterRows,
@@ -1410,6 +1411,8 @@ def test_core_host_prepares_exact_source_tools_and_validates_intent(tmp_path: Pa
         assert "call compare_schemas only when those sequences differ" in system_prompt
         assert "represent palette identity and reverse as independent fields" in system_prompt
         assert "K21 request for a lower, upper, or full triangle" in system_prompt
+        assert "within_group_gap_percent for spacing between bars" in system_prompt
+        assert "which of those two gaps they mean" in system_prompt
         assert "into set_canvas with target_alias=plot" in system_prompt
         assert "set_canvas changes the page, not data values" in system_prompt
         assert "use is_finite to keep only finite observations" in system_prompt
@@ -1972,6 +1975,104 @@ def test_core_host_authorizes_an_existing_plot_edit_without_a_source(tmp_path: P
         assert plan.items[0].visual_actions[0].operation == "set_title"
 
 
+def test_k09_compound_edit_keeps_every_requested_chart_parameter_in_plan(
+    tmp_path: Path,
+) -> None:
+    with ProjectStore.create(tmp_path / "project", project_id="project:test") as project:
+        domain = ProjectDomainRepository(project)
+        ledger = TaskLedgerRepository(project)
+        envelope = TaskEnvelope(
+            task_id="task:k09-compound-edit",
+            task_version=1,
+            project_id="project:test",
+            project_revision=domain.revision,
+            original_instruction=(
+                "Remove the bar border and set the within-group gap to 40 percent."
+            ),
+            selected_plots=(
+                SelectedPlotRef(plot_id="plot:k09", plot_version=2, profile_id="K09"),
+            ),
+            budget=TaskBudgetLimits(),
+            created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
+        ledger.create_task(envelope)
+        directive = DurableTaskCoordinator(ledger).next_action(envelope.task_id)
+        activation_id = str(directive["activation"]["activation_id"])
+        ledger.mark_activation_running(activation_id)
+        host = DurableAgentCoreHost(
+            project,
+            domain,
+            ledger,
+            plot_lookup=lambda plot_id: PlotDocument(
+                plot_id=plot_id,
+                plot_version=2,
+                parent_version=1,
+                profile_id="K09",
+                data=EngineDataRef(
+                    kind="source",
+                    dataset_id="source:not-selected",
+                    version=1,
+                    content_hash="f" * 64,
+                ),
+                bindings=(FieldBinding(role="category", field_id="field:category"),),
+            ),
+        )
+        prepared = host.prepare(activation_id)
+        context = cast(dict[str, object], prepared["context"])
+        item = TaskDraftItem(
+            task_kind="edit",
+            item_id="item:k09-compound-edit.1",
+            plot_alias="plot_result",
+            profile_id="K09",
+            target_plot_alias="plot_1",
+            visual_actions=(
+                DraftSetChartParameter(parameter="bar_border_visible", value=False),
+                DraftSetChartParameter(parameter="within_group_gap_percent", value=40),
+            ),
+        )
+        intent = TaskIntent(
+            intent_id="intent:k09-compound-edit",
+            intent_version=1,
+            task_id=envelope.task_id,
+            task_version=1,
+            created_by_activation_id=activation_id,
+            summary="Remove the bar border and widen the within-group gap.",
+            items=(item,),
+            profile_selections=(),
+            context_hash=cast(str, context["content_hash"]),
+            content_hash="0" * 64,
+        )
+        intent = intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        validated = host.validate_yield(
+            activation_id,
+            cast(
+                JsonValue,
+                AgentIntentReady(
+                    activation_id=activation_id,
+                    task_id=envelope.task_id,
+                    task_version=1,
+                    intent=intent,
+                ).model_dump(mode="json"),
+            ),
+        )
+        host.accept_yield(validated)
+        plan = ledger.get_plan(envelope.task_id)
+        assert [
+            (action.parameter, action.value)
+            for action in plan.items[0].visual_actions
+            if action.operation == "set_chart_parameter"
+        ] == [
+            ("bar_border_visible", False),
+            ("within_group_gap_percent", 40),
+        ]
+
+
 def test_selected_plot_context_exposes_latest_addressable_reference_line(
     tmp_path: Path,
 ) -> None:
@@ -2147,7 +2248,8 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
             project_id="project:test",
             project_revision=domain.revision,
             original_instruction=(
-                "Exclude signal values greater than or equal to 2, sort time ascending, "
+                "For the selected K01 plot, exclude signal values greater than or equal to 2, "
+                "sort time ascending, "
                 "and set the title to Filtered."
             ),
             selected_sources=(
@@ -2202,6 +2304,64 @@ def test_current_plot_context_preserves_bindings_for_data_update(tmp_path: Path)
         assert "task_kind=update_data" in prompt
         assert "filter_rows keeps rows that match" in prompt
         assert "exclude values >= 100" in prompt
+        assert "explicit new-plot UI target sends no selected_plots" in prompt
+
+        wrong_mode_item = TaskDraftItem(
+            task_kind="create",
+            item_id="item:update-existing.wrong-mode",
+            plot_alias="plot_result",
+            profile_id="K01",
+            source_aliases=("data_1",),
+            bindings=(
+                DraftFieldBinding(
+                    role="x", source_alias="data_1", field_alias="data_1_field_1"
+                ),
+                DraftFieldBinding(
+                    role="y", source_alias="data_1", field_alias="data_1_field_2"
+                ),
+            ),
+        )
+        wrong_mode_intent = TaskIntent(
+            intent_id="intent:update-existing-wrong-mode",
+            intent_version=1,
+            task_id=task_envelope.task_id,
+            task_version=1,
+            created_by_activation_id=activation_id,
+            summary="Incorrectly create a new plot from an existing-plot target.",
+            items=(wrong_mode_item,),
+            profile_selections=(
+                ProfileSelectionDecision(
+                    decision_id="decision:update-existing-wrong-mode.profile",
+                    item_id=wrong_mode_item.item_id,
+                    profile_id="K01",
+                    basis="user_instruction",
+                        evidence_quote="K01",
+                ),
+            ),
+            context_hash=cast(str, context["content_hash"]),
+            content_hash="0" * 64,
+        )
+        wrong_mode_intent = wrong_mode_intent.model_copy(
+            update={
+                "content_hash": canonical_hash(
+                    wrong_mode_intent.model_dump(mode="json", exclude={"content_hash"})
+                )
+            }
+        )
+        with pytest.raises(AgentFoundationError) as target_mode_error:
+            host.validate_yield(
+                activation_id,
+                cast(
+                    JsonValue,
+                    AgentIntentReady(
+                        activation_id=activation_id,
+                        task_id=task_envelope.task_id,
+                        task_version=1,
+                        intent=wrong_mode_intent,
+                    ).model_dump(mode="json"),
+                ),
+            )
+        assert target_mode_error.value.code == "INTENT_TARGET_MODE_MISMATCH"
 
         item = TaskDraftItem(
             task_kind="update_data",

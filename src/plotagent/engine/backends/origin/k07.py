@@ -16,7 +16,8 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
-from plotagent.engine.profile_data import k07_error_band
+from plotagent.engine.product_style import k07_auto_range_bounds
+from plotagent.engine.profile_data import ErrorBandData, k07_error_band
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
@@ -58,7 +59,7 @@ class K07OriginProject:
             },
         ):
             template = resolve_official_template(install_dir, K07_ORIGIN_PROFILE)
-        k07_error_band(document, data)
+        band = k07_error_band(document, data)
         with origin_trace_step("origin_project_initialize"):
             self.op.new(asksave=False)
         token = document.plot_id.removeprefix("plot:").replace("-", "_")
@@ -123,6 +124,7 @@ class K07OriginProject:
                 if residue.name != book.name:
                     residue.destroy()
         self.layer.rescale()
+        self._apply_product_range(band)
         native = self._assert_native_structure()
         record_origin_trace("native_error_band_confirmed", "completed", details=native)
 
@@ -153,6 +155,7 @@ class K07OriginProject:
             k07_error_band(document, data)
             self._write_data(document, data)
             self.layer.rescale()
+            self._apply_product_range(k07_error_band(document, data))
             return
         raise ValueError(f"Origin K07 binder cannot apply {action.operation}")
 
@@ -172,6 +175,7 @@ class K07OriginProject:
         native = self._assert_native_structure()
         record_origin_trace("reopened_error_band_confirmed", "completed", details=native)
         band = k07_error_band(document, data)
+        self._assert_product_range(document, actions, band)
         expected_columns = (
             band.x_values,
             band.center_values,
@@ -264,6 +268,41 @@ class K07OriginProject:
                 axis=designation,
             )
 
+    def _apply_product_range(self, band: ErrorBandData) -> None:
+        x_bounds, y_bounds = k07_auto_range_bounds(
+            band.x_values,
+            band.lower_values,
+            band.upper_values,
+        )
+        self.layer.axis("x").limits = x_bounds
+        self.layer.axis("y").limits = y_bounds
+
+    def _assert_product_range(
+        self,
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        band: ErrorBandData,
+    ) -> None:
+        token = document.plot_id.removeprefix("plot:")
+        edited_targets = {
+            str(getattr(action, "target"))
+            for action in actions
+            if action.operation == "set_axis" and getattr(action, "target", None) is not None
+        }
+        x_bounds, y_bounds = k07_auto_range_bounds(
+            band.x_values,
+            band.lower_values,
+            band.upper_values,
+        )
+        for axis_name, expected in (("x", x_bounds), ("y", y_bounds)):
+            if f"axis:{token}.{axis_name}" in edited_targets:
+                continue
+            actual = tuple(float(value) for value in self.layer.axis(axis_name).limits[:2])
+            if any(abs(left - right) > 1e-8 for left, right in zip(actual, expected, strict=True)):
+                raise RuntimeError(
+                    f"Origin K07 product {axis_name.upper()}-axis range changed after reopen"
+                )
+
     def _set_error_directions(self) -> None:
         source = self.sheet.lt_range(False)
         command = (
@@ -343,8 +382,10 @@ class K07OriginProject:
         designations = tuple(int(self.sheet.get_int(f"col{index}.type")) for index in range(1, 5))
         x_range = str(self.op.get_lt_str("__K07XS"))
         y_range = str(self.op.get_lt_str("__K07YS"))
-        if plot_count != 3 or plot_id != 201:
-            raise RuntimeError("Origin K07 must retain center/minus/plus with PID 201 center")
+        if plot_count != 3 or plot_id not in {201, 202}:
+            raise RuntimeError(
+                "Origin K07 must retain center/minus/plus with a scatter or line+symbol center"
+            )
         if designations != (4, 1, 3, 3):
             raise RuntimeError("Origin K07 worksheet must retain X/Y/YErr/YErr designations")
         if not x_range.split('"', 1)[0].endswith("!A") or not y_range.split('"', 1)[0].endswith(

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from matplotlib.colors import to_hex
 
 import plotagent.engine.backends.matplotlib.wide_series as matplotlib_module
 import plotagent.engine.backends.origin.wide_series as origin_module
@@ -33,6 +34,10 @@ from plotagent.engine.backends.origin import (
 from plotagent.engine.backends.origin.wide_series import (
     WideSeriesOriginProject,
     read_wide_series_native_snapshot,
+)
+from plotagent.engine.product_style import (
+    X40_BEFORE_AFTER_STYLE,
+    x40_auto_range_bounds,
 )
 from plotagent.engine.profile_data import (
     wide_series,
@@ -295,6 +300,38 @@ def test_x40_matplotlib_hides_identity_labels_without_dropping_source_identity(
     assert (tmp_path / "x40-hidden.svg").stat().st_size > 0
 
 
+def test_x40_matplotlib_zero_edit_uses_the_adjudicated_product_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, actions, view = _case("X40", row_count=4)
+    series = wide_series(document, view, profile_id="X40")
+    original_close = matplotlib_module.plt.close
+    monkeypatch.setattr(matplotlib_module.plt, "close", lambda _figure: None)
+
+    X40BeforeAfterRenderer().render(
+        document,
+        actions,
+        view,
+        tmp_path / "x40-default.png",
+        tmp_path / "x40-default.svg",
+    )
+    figure = matplotlib_module.plt.gcf()
+    axis = figure.axes[0]
+    colors = tuple(to_hex(collection.get_facecolors()[0]) for collection in axis.collections[1:])
+    original_close(figure)
+
+    assert axis.get_xlabel() == ""
+    assert axis.get_ylabel() == X40_BEFORE_AFTER_STYLE.y_axis_label
+    assert axis.get_legend() is None
+    assert tuple(text.get_text() for text in axis.texts) == ()
+    assert axis.get_ylim() == pytest.approx(x40_auto_range_bounds(series.column_values))
+    assert colors == (
+        X40_BEFORE_AFTER_STYLE.before_color.lower(),
+        X40_BEFORE_AFTER_STYLE.after_color.lower(),
+    )
+
+
 class _Plot:
     def __init__(self, plot_type: int = 206) -> None:
         self.values = {"show": 1, "type": plot_type}
@@ -351,6 +388,12 @@ class _Layer:
 
     def set_int(self, name: str, value: int) -> None:
         self.values[name] = value
+
+    def set_float(self, name: str, value: float) -> None:
+        self.values[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.values.get(name, 0.0))
 
     def set_str(self, name: str, value: str) -> None:
         self.values[name] = value
@@ -646,6 +689,11 @@ def test_x39_x40_origin_keep_official_wide_table_and_menu_group(
             "P04 · Treatment",
             "P05 · Treatment",
         )
+        assert all(label.get_int("show") == 0 for label in origin.graph.layer.labels)
+        series = wide_series(document, view, profile_id="X40")
+        minimum, maximum = x40_auto_range_bounds(series.column_values)
+        assert origin.graph.layer.get_float("y.from") == pytest.approx(minimum)
+        assert origin.graph.layer.get_float("y.to") == pytest.approx(maximum)
 
 
 def test_x40_origin_hides_identity_labels_but_preserves_metadata_and_readback(

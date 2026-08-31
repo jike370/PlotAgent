@@ -12,6 +12,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import colors as mcolors
 from matplotlib.axes import Axes
 
 from plotagent.contracts.canonical import canonical_hash
@@ -30,6 +31,7 @@ from plotagent.engine.profile_data import (
     regular_observation_positions,
 )
 from plotagent.engine.repository import document_ref
+from plotagent.engine.product_style import K14_VIOLIN_STYLE, k14_auto_range_bounds
 from plotagent.plot_calculations.kernels import scott_kde_geometry
 
 _PALETTE = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5", "#008A99")
@@ -348,6 +350,36 @@ class K14ViolinRenderer(_DistributionRenderer):
     profile_id = "K14"
     object_kind = "violin_series"
 
+    def _state(
+        self,
+        document: PlotDocument,
+        actions: tuple[PlotEngineAction, ...],
+        distribution: DistributionData,
+    ) -> _DistributionState:
+        state = super()._state(document, actions, distribution)
+        x_bounds, y_bounds = k14_auto_range_bounds(
+            tuple(value for group in distribution.groups for value in group.values),
+            len(distribution.groups),
+        )
+        return _DistributionState(
+            title=state.title,
+            x_axis=_AxisState(
+                state.x_axis.label,
+                scale=state.x_axis.scale,
+                minimum=x_bounds[0],
+                maximum=x_bounds[1],
+            ),
+            y_axis=_AxisState(
+                state.y_axis.label,
+                scale=state.y_axis.scale,
+                minimum=y_bounds[0],
+                maximum=y_bounds[1],
+            ),
+            series=state.series,
+            legend_visible=K14_VIOLIN_STYLE.legend_visible,
+            observation_overlay=state.observation_overlay,
+        )
+
     def _draw(
         self,
         axis: Axes,
@@ -374,7 +406,7 @@ class K14ViolinRenderer(_DistributionRenderer):
                 positions=[position],
                 widths=0.75,
                 showmeans=False,
-                showmedians=True,
+                showmedians=K14_VIOLIN_STYLE.median_visible,
                 showextrema=False,
                 points=256,
                 bw_method=shared_bandwidth / sample_sd,
@@ -383,10 +415,16 @@ class K14ViolinRenderer(_DistributionRenderer):
             if len(bodies) != 1:
                 raise RuntimeError("Matplotlib K14 must create one body per raw group")
             body = bodies[0]
-            body.set_facecolor(style.color)
-            body.set_edgecolor("#1A1A1A")
-            body.set_linewidth(style.line_width_pt)
-            body.set_alpha(0.75)
+            # ``Axes.violinplot`` installs a collection-level alpha of 0.3.
+            # Clear it before assigning the product RGBA; otherwise the
+            # requested 0.75 face opacity is multiplied by that hidden alpha.
+            body.set_alpha(None)
+            body.set_facecolor(
+                mcolors.to_rgba(style.color, alpha=K14_VIOLIN_STYLE.fill_opacity)
+            )
+            body.set_edgecolor(K14_VIOLIN_STYLE.outline_color)
+            body.set_linewidth(K14_VIOLIN_STYLE.outline_width_pt)
+            body.set_linestyle(K14_VIOLIN_STYLE.outline_style)
             body.set_label(group.label)
         return tuple(len(group.values) for group in distribution.groups)
 

@@ -14,6 +14,10 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    K01_AUTO_RANGE_MARGIN_PERCENT,
+    PRODUCT_SERIES_PALETTE,
+)
 from plotagent.engine.profile_data import K03ScatterData, grouped_xy
 from plotagent.engine.repository import document_ref
 
@@ -84,6 +88,7 @@ class K01OriginProject:
         if len(self.plots) != len(grouped.groups):
             raise RuntimeError("Origin Line menu must create one native line per data group")
         self.plot = self.plots[0]
+        self._apply_product_defaults()
         with origin_trace_step("template_residue_remove"):
             for residue in tuple(self.op.pages("w")):
                 if residue.name != book.name:
@@ -191,6 +196,12 @@ class K01OriginProject:
             style_hash=canonical_hash(cast(JsonValue, style_snapshot)),
         )
 
+    def _apply_product_defaults(self) -> None:
+        for index, plot in enumerate(self.plots):
+            plot.color = PRODUCT_SERIES_PALETTE[index % len(PRODUCT_SERIES_PALETTE)]
+        self.layer.set_float("x.rescaleMargin", K01_AUTO_RANGE_MARGIN_PERCENT)
+        self.layer.set_float("y.rescaleMargin", K01_AUTO_RANGE_MARGIN_PERCENT)
+
     def _write_data(self, grouped: K03ScatterData) -> None:
         for index, group in enumerate(grouped.groups):
             x_values = self._x_values(grouped, group.x_values)
@@ -288,12 +299,23 @@ class K01OriginProject:
                 '"', 1
             )[0].endswith(f"!{y_letter}"):
                 raise RuntimeError("Origin K01 Line lost a group/source binding")
+            expected_color = PRODUCT_SERIES_PALETTE[(index - 1) % len(PRODUCT_SERIES_PALETTE)]
+            expected_rgb = tuple(
+                int(expected_color[offset : offset + 2], 16) for offset in (1, 3, 5)
+            )
+            observed_rgb = tuple(int(component) for component in self.plots[index - 1].color)
+            if observed_rgb != expected_rgb:
+                raise RuntimeError(
+                    "Origin K01 product line color differs after reopen: "
+                    f"group={index}, expected={expected_rgb}, observed={observed_rgb}"
+                )
             plots.append(
                 {
                     "plot_index": index,
                     "plot_id": plot_id,
                     "x_range": x_range,
                     "y_range": y_range,
+                    "line_color_rgb": list(observed_rgb),
                 }
             )
         designations = tuple(
@@ -302,11 +324,24 @@ class K01OriginProject:
         )
         if designations != (4, 1) * plot_count:
             raise RuntimeError("Origin K01 worksheet must retain repeated X/Y designations")
+        margins = {
+            axis_name: float(self.layer.get_float(f"{axis_name}.rescaleMargin"))
+            for axis_name in ("x", "y")
+        }
+        if any(
+            abs(value - K01_AUTO_RANGE_MARGIN_PERCENT) > 1e-7
+            for value in margins.values()
+        ):
+            raise RuntimeError(
+                "Origin K01 product auto-range margin differs after reopen: "
+                f"expected={K01_AUTO_RANGE_MARGIN_PERCENT}, observed={margins}"
+            )
         return {
             "official_template": K01_ORIGIN_PROFILE.filename,
             "official_menu": "Plot > Basic 2D: Line",
             "plot_count": plot_count,
             "designation_codes": list(designations),
+            "auto_range_margin_percent": margins,
             "plots": plots,
         }
 

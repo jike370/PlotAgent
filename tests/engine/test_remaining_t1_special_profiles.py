@@ -251,6 +251,21 @@ def test_dual_y_category_role_treats_numeric_values_as_discrete_labels(
     assert dual.x_labels == ("0", "10", "20")
 
 
+@pytest.mark.parametrize("profile_id", ("X35", "X36"))
+def test_dual_y_category_role_canonicalizes_integral_float_labels(
+    profile_id: str,
+) -> None:
+    document, _actions, view = _dual_numeric_category_case(profile_id)
+    float_category = view.columns[0].model_copy(update={"values": (0.0, 10.0, 20.5)})
+    view = view.model_copy(update={"columns": (float_category, *view.columns[1:])})
+    normalizer = x35_series if profile_id == "X35" else x36_series
+
+    dual = normalizer(document, view)
+
+    assert dual.x_values == ("0", "10", "20.5")
+    assert dual.x_labels == ("0", "10", "20.5")
+
+
 def test_dual_y_profile_and_normalizer_agree_on_numeric_category_contract() -> None:
     for profile, normalizer in (
         (X35_DUAL_Y_COLUMN_PROFILE, x35_series),

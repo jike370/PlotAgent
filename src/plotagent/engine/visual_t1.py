@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from plotagent.contracts.canonical import canonical_hash
 from plotagent.engine.contracts import (
     AddAnnotation,
     AddCallout,
     AddReferenceLine,
     BindFields,
+    PlotDocument,
     PlotEngineAction,
     SetAxis,
     SetCanvas,
@@ -22,6 +25,14 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.ports import EngineReadback
+from plotagent.engine.product_style import (
+    K06_POINT_ERROR_STYLE,
+    K07_ERROR_RIBBON_STYLE,
+    K09_GROUPED_COLUMN_STYLE,
+    K22_FILLED_CONTOUR_STYLE,
+    X40_BEFORE_AFTER_STYLE,
+    K09GroupedColumnStyle,
+)
 
 VISUAL_ACTION_TYPES = (
     SetTitle,
@@ -37,6 +48,178 @@ VISUAL_ACTION_TYPES = (
     AddCallout,
 )
 DATA_DERIVED_VISUAL_TYPES = (SetSeriesStyle, SetColorMap, SetErrorStyle, SetDataLabels)
+K09_VISUAL_CHART_PARAMETERS = frozenset(
+    {
+        "bar_border_visible",
+        "within_group_gap_percent",
+        "between_group_gap_percent",
+    }
+)
+
+
+def product_default_visual_actions(
+    document: PlotDocument,
+) -> tuple[PlotEngineAction, ...]:
+    """Return renderer-neutral defaults that official templates must materialize.
+
+    These internal actions are prepended before user actions, so the normal
+    last-write-wins reducer preserves every explicit edit. They are not public
+    TaskPlan operations and do not expand a profile's capability surface.
+    """
+
+    token = document.plot_id.removeprefix("plot:")
+    if document.profile_id == "X40":
+        style = X40_BEFORE_AFTER_STYLE
+        return (
+            SetSeriesStyle(
+                action_id=f"action:product-default-{token}-before",
+                target=f"series:{token}.column_1",
+                expected_plot_version=document.plot_version,
+                marker_shape=style.before_marker_shape,
+                marker_size_pt=style.marker_size_pt,
+                marker_interior="solid",
+                marker_fill_color=style.before_color,
+                marker_stroke_color=style.before_color,
+            ),
+            SetSeriesStyle(
+                action_id=f"action:product-default-{token}-after",
+                target=f"series:{token}.column_2",
+                expected_plot_version=document.plot_version,
+                marker_shape=style.after_marker_shape,
+                marker_size_pt=style.marker_size_pt,
+                marker_interior="solid",
+                marker_fill_color=style.after_color,
+                marker_stroke_color=style.after_color,
+            ),
+            SetSeriesStyle(
+                action_id=f"action:product-default-{token}-connector",
+                target=f"series:{token}.connector",
+                expected_plot_version=document.plot_version,
+                visible=True,
+                line_stroke_color=style.connector_color,
+                line_width_pt=style.connector_width_pt,
+                line_style="solid",
+            ),
+            SetAxis(
+                action_id=f"action:product-default-{token}-x-axis",
+                target=f"axis:{token}.x",
+                expected_plot_version=document.plot_version,
+                axis_title_visible=style.x_axis_title_visible,
+            ),
+            SetAxis(
+                action_id=f"action:product-default-{token}-y-axis",
+                target=f"axis:{token}.y",
+                expected_plot_version=document.plot_version,
+                label=style.y_axis_label,
+            ),
+            SetLegend(
+                action_id=f"action:product-default-{token}-legend",
+                target=f"legend:{token}.main",
+                expected_plot_version=document.plot_version,
+                visible=style.legend_visible,
+            ),
+        )
+    if document.profile_id == "K07":
+        target = f"series:{token}.primary"
+        style = K07_ERROR_RIBBON_STYLE
+        return (
+            SetSeriesStyle(
+                action_id=f"action:product-default-{token}-series",
+                target=target,
+                expected_plot_version=document.plot_version,
+                line_stroke_color=style.color,
+                line_width_pt=style.line_width_pt,
+                line_style=style.line_style,
+            ),
+            SetErrorStyle(
+                action_id=f"action:product-default-{token}-band",
+                target=target,
+                expected_plot_version=document.plot_version,
+                band_fill_color=style.color,
+                band_fill_opacity=style.band_fill_opacity,
+                band_stroke_color=style.color,
+                band_stroke_width_pt=style.band_stroke_width_pt,
+            ),
+            SetLegend(
+                action_id=f"action:product-default-{token}-legend",
+                target=f"legend:{token}.main",
+                expected_plot_version=document.plot_version,
+                visible=style.legend_visible,
+            ),
+        )
+    if document.profile_id == "K22":
+        style = K22_FILLED_CONTOUR_STYLE
+        return (
+            SetColorMap(
+                action_id=f"action:product-default-{token}-colormap",
+                target=f"series:{token}.matrix",
+                expected_plot_version=document.plot_version,
+                palette=style.palette,
+                reverse=style.reverse,
+                colorbar_visible=style.colorbar_visible,
+                colorbar_anchor=style.colorbar_anchor,
+                colorbar_tick_format=style.colorbar_tick_format,
+            ),
+        )
+    if document.profile_id != "K06":
+        return ()
+    target = f"series:{token}.primary"
+    style = K06_POINT_ERROR_STYLE
+    return (
+        SetSeriesStyle(
+            action_id=f"action:product-default-{token}-series",
+            target=target,
+            expected_plot_version=document.plot_version,
+            marker_shape=style.marker_shape,
+            marker_size_pt=style.marker_size_pt,
+            marker_interior="solid",
+            marker_fill_color=style.color,
+            marker_stroke_color=style.color,
+        ),
+        SetErrorStyle(
+            action_id=f"action:product-default-{token}-errors",
+            target=target,
+            expected_plot_version=document.plot_version,
+            bar_color=style.color,
+            bar_width_pt=style.error_width_pt,
+            cap_size_pt=style.cap_size_pt,
+            bar_opacity=1.0,
+        ),
+        SetLegend(
+            action_id=f"action:product-default-{token}-legend",
+            target=f"legend:{token}.main",
+            expected_plot_version=document.plot_version,
+            visible=style.legend_visible,
+        ),
+    )
+
+
+def resolve_k09_grouped_column_style(
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+) -> K09GroupedColumnStyle:
+    """Resolve and validate K09's three public whole-plot style controls."""
+
+    style = K09_GROUPED_COLUMN_STYLE
+    for action in actions:
+        if not isinstance(action, SetChartParameter):
+            continue
+        if action.parameter not in K09_VISUAL_CHART_PARAMETERS:
+            continue
+        if document.profile_id != "K09" or action.target != document.plot_id:
+            raise ValueError("K09 grouped-column parameters require the K09 plot target")
+        if action.parameter == "bar_border_visible":
+            if not isinstance(action.value, bool):
+                raise ValueError("K09 bar_border_visible must be boolean")
+            style = replace(style, bar_border_visible=action.value)
+            continue
+        if isinstance(action.value, bool) or not isinstance(action.value, (int, float)):
+            raise ValueError(f"K09 {action.parameter} must be numeric")
+        value = float(action.value)
+        if not 0.0 <= value < 100.0:
+            raise ValueError(f"K09 {action.parameter} must be from 0 up to but not including 100")
+        style = replace(style, **{action.parameter: value})
+    return style
 
 
 def resolve_canvas_inches(
@@ -106,18 +289,14 @@ def split_visual_actions(
     visual: list[PlotEngineAction] = []
     for action in actions:
         if isinstance(action, BindFields):
-            structural = [
-                item for item in structural if not isinstance(item, SetPointMarkerMap)
-            ]
+            structural = [item for item in structural if not isinstance(item, SetPointMarkerMap)]
             structural.append(action)
             visual = [item for item in visual if not isinstance(item, DATA_DERIVED_VISUAL_TYPES)]
         elif isinstance(action, SetPointMarkerMap):
             structural = [
                 item
                 for item in structural
-                if not (
-                    isinstance(item, SetPointMarkerMap) and item.target == action.target
-                )
+                if not (isinstance(item, SetPointMarkerMap) and item.target == action.target)
             ]
             structural.append(action)
             normalized_visual: list[PlotEngineAction] = []
@@ -146,20 +325,23 @@ def split_visual_actions(
             structural = [
                 item
                 for item in structural
-                if not (
-                    isinstance(item, SetObservationOverlay)
-                    and item.target == action.target
-                )
+                if not (isinstance(item, SetObservationOverlay) and item.target == action.target)
             ]
             structural.append(action)
+        elif (
+            isinstance(action, SetChartParameter)
+            and action.parameter in K09_VISUAL_CHART_PARAMETERS
+        ):
+            # K09's official indexed-column binder creates one native DataPlot.
+            # Border and spacing are persistent presentation properties on that
+            # object, so both backends apply them in the shared visual pass.
+            visual.append(action)
         elif isinstance(action, VISUAL_ACTION_TYPES):
             if isinstance(action, SetSeriesStyle) and action.marker_shape is not None:
                 structural = [
                     item
                     for item in structural
-                    if not (
-                        isinstance(item, SetPointMarkerMap) and item.target == action.target
-                    )
+                    if not (isinstance(item, SetPointMarkerMap) and item.target == action.target)
                 ]
             visual.append(action)
         else:
@@ -189,9 +371,16 @@ def effective_visual_actions(
         SetColorMap,
         SetErrorStyle,
         SetDataLabels,
+        SetChartParameter,
     )
-    merged: dict[tuple[type[PlotEngineAction], str], PlotEngineAction] = {}
-    last_positions: dict[tuple[type[PlotEngineAction], str], int] = {}
+    merged: dict[tuple[object, ...], PlotEngineAction] = {}
+    last_positions: dict[tuple[object, ...], int] = {}
+
+    def state_key(action: PlotEngineAction) -> tuple[object, ...]:
+        if isinstance(action, SetChartParameter):
+            return type(action), action.target, action.parameter
+        return type(action), action.target
+
     last_canvas_position = max(
         (index for index, action in enumerate(actions) if isinstance(action, SetCanvas)),
         default=-1,
@@ -209,7 +398,7 @@ def effective_visual_actions(
     for index, action in enumerate(actions):
         if not isinstance(action, stateful):
             continue
-        key = (type(action), action.target)
+        key = state_key(action)
         previous = merged.get(key)
         update = action.model_dump(exclude_none=True)
         if isinstance(action, SetAxis):
@@ -222,11 +411,7 @@ def effective_visual_actions(
                 # A later fixed pair supersedes an earlier automatic reset even
                 # when callers use the backwards-compatible implicit fixed mode.
                 update["bounds_mode"] = "fixed"
-        merged[key] = (
-            action
-            if previous is None
-            else previous.model_copy(update=update)
-        )
+        merged[key] = action if previous is None else previous.model_copy(update=update)
         last_positions[key] = index
 
     result: list[PlotEngineAction] = []
@@ -246,7 +431,7 @@ def effective_visual_actions(
         if not isinstance(action, stateful):
             result.append(action)
             continue
-        key = (type(action), action.target)
+        key = state_key(action)
         if last_positions[key] == index:
             result.append(merged[key])
     return tuple(result)

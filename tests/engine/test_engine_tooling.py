@@ -5,7 +5,11 @@ import inspect
 import pytest
 
 from plotagent.engine import EngineActionCodec, EngineCatalog, EngineCommandError
-from plotagent.engine.profiles import K01_LINE_PROFILE, K03_SCATTER_PROFILE
+from plotagent.engine.profiles import (
+    K01_LINE_PROFILE,
+    K03_SCATTER_PROFILE,
+    X40_BEFORE_AFTER_PROFILE,
+)
 
 
 def _codec() -> EngineActionCodec:
@@ -138,5 +142,38 @@ def test_dynamic_profile_manifest_publishes_bounded_series_alias_pattern() -> No
             "object_kind": "series",
             "object_key_prefix": "group",
             "ordinal_minimum": 1,
+        },
+    )
+
+
+def test_profile_manifest_publishes_x40_target_parameter_boundaries() -> None:
+    codec = EngineActionCodec(EngineCatalog((X40_BEFORE_AFTER_PROFILE,)))
+    capability = next(
+        item
+        for item in codec.profile_manifest()[0]["capabilities"]
+        if item["operation"] == "set_series_style"
+    )
+
+    assert capability["target_parameters"] == (
+        {
+            "object_kind": "series",
+            "object_key": "connector",
+            "parameters": (
+                "visible",
+                "line_stroke_color",
+                "line_width_pt",
+                "line_style",
+            ),
+        },
+        {
+            "object_kind": "series",
+            "object_key_prefix": "column",
+            "parameters": (
+                "marker_shape",
+                "marker_size_pt",
+                "marker_interior",
+                "marker_fill_color",
+                "marker_stroke_color",
+            ),
         },
     )

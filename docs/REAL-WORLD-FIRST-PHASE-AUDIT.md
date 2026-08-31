@@ -5,13 +5,15 @@
 
 本文件只判断用户指定的第一阶段交付是否成立，不把后续真实产品验收、34 图全部论文复刻或外部用户效果提前记为完成。
 
+其中“真实问题开发约束”只审计“用真实论文任务决定新增能力边界”是否已经落入权威文档和案例记录，不把该约束追加为路线目标、里程碑、案例数量或新的完成条件。
+
 ## 1. 逐项结论
 
 | 第一阶段要求 | 权威证据 | 当前结论 | 不随本结论扩张的边界 |
 |---|---|---|---|
-| 路线与案例台账 | `docs/REAL-WORLD-RESEARCH-FIGURE-ROADMAP.md`；`docs/REAL-WORLD-CASE-LEDGER.md`；`C:\Users\pc\Desktop\实机演示` 下 34 个模板目录及 1 个独立 K08 Fig. 2F 案例目录 | **完成**。路线定义真实任务闭环、日更分级、能力准入和双后端门禁；台账逐案例记录资产、状态、缺口和下一检查 | 有目录不等于有合格案例；黄色/红色不能按模板数量冒充可录制库存 |
-| 真实问题契约基线 | 路线文档第 4.1 节的元素级归因门槛；台账 RW-001–RW-042；每条新增能力要求文献面板、原始数据、产品失败、`in_scope/out_of_scope` | **完成**。基线可以区分作者数据缺口、作者方法缺口、产品能力缺口、执行器缺陷、评估器假阴性、证据不足和混合问题，并把裁决固定为修 Bug / 新增候选 / 不纳入 / 待补证据 | 截图数字化和合成数据只可用于诊断/演示，不能补写作者证据；证据不足时不得默认归因产品；结构化 readback PASS 不能替代可见产物验收 |
-| X35/X36 数字类别契约修复及定向验证 | `tests/engine/test_remaining_t1_special_profiles.py` 覆盖 Profile—normalizer、Matplotlib 和 Origin 写入；`tests/engine/test_visual_t1.py` 覆盖双轴语义层；2026-08-30 重跑命令得到 `15 passed, 104 deselected` | **完成第一阶段口径**。`category` 角色可消费 numeric 值并按离散标签呈现，不要求用户先 `convert_type` 或破坏源列 | 项目 208 的真实 OPJU 轴色/系列色视觉对应仍是第二阶段门禁；定向测试不冒充该实机验收 |
+| 路线与案例台账 | `docs/REAL-WORLD-RESEARCH-FIGURE-ROADMAP.md`；`docs/REAL-WORLD-CASE-LEDGER.md`；`%USERPROFILE%\Desktop\实机演示` 下 34 个模板目录及 1 个独立 K08 Fig. 2F 案例目录 | **完成**。路线定义真实任务闭环、日更分级、能力准入和双后端门禁；台账逐案例记录资产、状态、缺口和下一检查 | 有目录不等于有合格案例；黄色/红色不能按模板数量冒充可录制库存 |
+| 真实问题开发约束（非目标补充） | 路线文档第 4.1 节的元素级归因门槛；台账 RW-001–RW-042；每条新增能力要求文献面板、原始数据、产品失败、`in_scope/out_of_scope` | **已纳入开发治理**。约束要求每个目标元素归入产品能力缺失、上下游契约错误、作者提供的数据不全、图形表达超出产品边界、操作或数据整理问题五类之一；作者方法缺失、执行器缺陷、评估器假阴性和多元素混合均作为具体证据或子原因落入这五类。裁决固定为修契约或 Bug / 新增候选 / 使用或补充受控数据工作流 / 不纳入 / 待补证据 | 本行不增加产品目标或完成度；截图数字化和合成数据只可用于诊断/演示，不能补写作者证据；证据不足时不得默认归因产品；结构化 readback PASS 不能替代可见产物验收 |
+| X35/X36 数字类别契约修复及定向验证 | `tests/engine/test_remaining_t1_special_profiles.py` 覆盖 Profile—normalizer、Matplotlib 和 Origin 写入；`tests/engine/test_visual_t1.py` 覆盖双轴语义层；2026-08-30 重跑命令得到 `15 passed, 104 deselected` | **完成第一阶段口径**。`category` 角色可消费 numeric 值并按离散标签呈现，不要求用户先 `convert_type` 或破坏源列 | 本阶段当时仍要求真实 OPJU 视觉验收；后续 X35/X36 已补实产物，并由 X36 进一步发现/修复 Origin `y_right` 写入隐藏 `y`、读回同一错误属性的假阳性。零编辑默认与版式仍不随显式动作通过而关闭 |
 | 首批日更案例分级 | 台账第一批分级；K02、K03 Fig. 2a、K08 Fig. 2F、K09 的产品主链和案例资产；K03/K08 当前资格证据分别位于 `build/real-world-k03-fig2a-agent-origin-fixed-20260830-r3/` 与 `build/real-world-k08-fig2f-product-requalify-20260830/` | **完成且已有 4 个绿色库存**：K02、K03 Fig. 2a、K08 Fig. 2F、K09。其余案例保持黄色/红色，不为日更删减目标元素 | “绿色”按具体论文面板而不是模板全局授予；例如 K08 Fig. 2F 通过不代表 K08 Fig. 1g/4b/4d 通过 |
 | 下一项公共能力设计 | K13 Nature Communications 2023 Fig. 3c；`set_observation_overlay` 合同、Agent/编译器/执行器和双后端实现；`build/real-world-k13-observation-overlay-20260830/` 与 `build/real-world-k13-observation-overlay-origin-20260830/` 均为 PASS | **超过“设计”要求，最小能力切片已实现并验证**。56/56 同源观察值、确定性横向位置、样式和 Origin fresh-reopen 已闭环 | 不包含第二数据集、beeswarm/violin、配对线、显著性字母、二级类别轴或预计算箱线统计；K13 整体仍为黄色 |
 
@@ -55,7 +57,7 @@ K03 Fig. 2a 的同一 `k03-agent-v7-fixed.opju` 得到两种不同可见结果�
 
 以下条目不是第一阶段“未完成”，而是第二阶段或持续产品目标：
 
-1. X35/X36 真实项目的 Origin 轴色、系列色、尺寸和 fresh-reopen 可见验收。
+1. X35/X36 的显式轴色、系列色、X36 尺寸和 fresh-reopen 可见验收已在后续第二阶段完成；零编辑 marker/轴色/范围/布局及 `set_canvas` 后的内容自动避让仍由逐模板视觉契约继续管理。
 2. X40 项目 210 重新导出后的真实 OPJU 身份列与标签可见性验收。
 3. K13 二级分组与显著性字母的独立归因；现有观察值叠加通过不能替代它们。
 4. K15 固定分箱仍缺少目标面板—数据—明确参数闭环，不立项、不从截图猜参数。

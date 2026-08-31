@@ -1500,7 +1500,16 @@ def _contiguous_series_roles(
 def _label(value: object, role: str) -> str:
     if value is None:
         raise ValueError(f"{role} categories cannot be missing")
-    label = str(value).strip()
+    if isinstance(value, float):
+        if not isfinite(value):
+            raise ValueError(f"{role} numeric categories must be finite")
+        # A numeric category is a discrete label, not a continuous coordinate.
+        # Normalize integral floats to the same stable text as their integer
+        # equivalents so JSON/Arrow coercion (``10`` -> ``10.0``) cannot change
+        # the category identity or fail an Origin fresh-reopen comparison.
+        label = format(value, ".15g")
+    else:
+        label = str(value).strip()
     if not label:
         raise ValueError(f"{role} categories cannot be empty")
     return label

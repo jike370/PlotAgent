@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="fig-agent 0.1.2 测试版更新说明，包括多子表 Excel 导入、画布尺寸、分类轴、双 Y 轴、图形复刻和 OPJU 导出改进。"
+    />
+    <meta name="theme-color" content="#17283e" />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://fig-agent.cn/updates/0.1.2/" />
+    <link rel="icon" href="/assets/fig-agent-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=20260831-2" />
+    <title>0.1.2 更新说明｜fig-agent</title>
+  </head>
+  <body class="subpage">
+    <a class="skip-link" href="#main">跳到主要内容</a>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="/" aria-label="返回 fig-agent 首页">
+          <img src="/assets/fig-agent-mark.svg" width="30" height="30" alt="" />
+          <span>fig-agent</span>
+        </a>
+        <a class="header-cta" href="/">返回官网</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="subpage-hero release-hero" aria-labelledby="release-title">
+        <a class="subpage-back" href="/updates/"><span aria-hidden="true">←</span> 更新总览</a>
+        <p class="subpage-status"><i aria-hidden="true"></i> fig-agent 0.1.2 测试版更新</p>
+        <h1 id="release-title">0.1.2 更新说明</h1>
+        <p>
+          这次更新优化了多子表 Excel 导入，补充了画布尺寸和分类轴能力，并改进双 Y 轴、配对图、散点图、气泡图、箱线图及部分 OPJU 导出流程。
+        </p>
+      </section>
+
+      <article class="subpage-content release-notes">
+        <ol class="release-note-list">
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">01</span>
+            <div class="release-note__body">
+              <h2>原始 Excel 可以直接导入更多真实论文数据</h2>
+              <p class="release-note__lead">
+                导入器现在可以识别论文附件中常见但不规则的工作表结构，减少导入前手动整理数据的工作。
+              </p>
+              <ul>
+                <li>支持空白列名，并按照原列位置自动补充字段名。</li>
+                <li>支持重复列名，导入后生成可以区分的字段名。</li>
+                <li>支持两行分组表头。</li>
+                <li>支持同一个 Sheet 中由空行分隔的多个数据表。</li>
+                <li>
+                  修复上传此类文件时只显示 <code>The Core request failed</code>、数据无法进入项目的问题。
+                </li>
+              </ul>
+
+              <p class="release-note__plain">
+                已使用一份包含 38 个 Sheet 的 Nature Communications 原始附件验证，成功导入为 39 个独立数据集。
+              </p>
+
+              <p class="release-note__boundary">
+                导入阶段仍然不会擅自合并不同 Sheet，也不会自动把宽表改成长表。这些操作需要在确认后单独执行。
+              </p>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">02</span>
+            <div class="release-note__body">
+              <h2>34 种图形都可以设置画布尺寸</h2>
+              <p class="release-note__lead">现在可以直接通过自然语言指定画布尺寸或宽高比。</p>
+              <ul>
+                <li>指定画布宽度和高度，例如“设置为 180 × 100 mm”。</li>
+                <li>指定画布宽高比，例如“把画布拉宽到 16:9”。</li>
+                <li>尺寸会同时应用到预览图和 Origin 图页。</li>
+              </ul>
+              <p class="release-note__boundary">
+                改变画布后，标题、图例和边距不会由系统自行猜测调整。需要继续明确提出对应的排版要求。
+              </p>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">03</span>
+            <div class="release-note__body">
+              <h2>数字可以直接作为分类轴标签</h2>
+              <p class="release-note__lead">
+                当字段被绑定为分类轴时，0、10、20、30、50 这类数字会作为离散标签使用。
+              </p>
+              <p>
+                此前，这类数字可能被识别为连续数值，导致双 Y 轴柱状图和柱线图无法正确绘制。现在不再要求用户先修改原始数据或手动转换字段类型。
+              </p>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">04</span>
+            <div class="release-note__body">
+              <h2>双 Y 轴预览中的轴线颜色已修复</h2>
+              <ul>
+                <li>左侧轴线、标题和刻度由左轴设置控制。</li>
+                <li>右侧轴线、标题和刻度由右轴设置控制。</li>
+                <li>不再出现隐藏的黑色边框覆盖已设置颜色的问题。</li>
+                <li>预览中的系列颜色、轴标题颜色和刻度颜色使用同一套明确设置。</li>
+              </ul>
+              <p class="release-note__boundary">
+                双 Y 轴图在 Origin 中的左右轴写入关系也已修正，但部分真实 OPJU 的最终视觉对应仍会继续复核。
+              </p>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">05</span>
+            <div class="release-note__body">
+              <h2>配对图可以单独隐藏身份标签</h2>
+              <p class="release-note__lead">
+                对于前后对比图，可以提出“隐藏 Mouse 标签”或“隐藏受试者编号”。
+              </p>
+              <ul>
+                <li>图上的身份文字会被隐藏。</li>
+                <li>原始身份字段和数据绑定仍然保留。</li>
+                <li>导出 Origin 时，不会为了隐藏文字而删除 worksheet 中的身份数据。</li>
+                <li>数字身份值继续以数字形式写入 Origin，避免重新打开 OPJU 后出现类型校验错误。</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">06</span>
+            <div class="release-note__body">
+              <h2>改进真实论文图形的复刻能力</h2>
+              <ul>
+                <li>Origin 散点图可以让各组统一使用圆形标记，同时区分实心与空心。</li>
+                <li>气泡图的同一个数据系列可以根据字段值使用圆形、三角形等不同标记，同时保留大小和颜色映射。</li>
+                <li>箱线图可以叠加计算箱体时使用的原始观测点。</li>
+                <li>分组柱状图在 Origin 中可以正确对应子组颜色、单层分类标签和图例色块。</li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="release-note">
+            <span class="release-note__index" aria-hidden="true">07</span>
+            <div class="release-note__body">
+              <h2>减少部分 OPJU 首次导出的等待时间</h2>
+            </div>
+          </li>
+        </ol>
+
+        <section class="release-compatibility" aria-labelledby="compatibility-title">
+          <p class="release-compatibility__label">兼容范围</p>
+          <h2 id="compatibility-title">Origin 和导出格式</h2>
+          <ul>
+            <li>明确验证版本：OriginPro 2024 SR1（10.1.0.178）。</li>
+            <li>OriginPro 2024 SR0 和标准版 Origin 2024 不会被软件拦截，但尚未完成同等级的完整验证。</li>
+            <li>其他 Origin 版本暂不作为正式支持范围。</li>
+            <li>PNG 和 SVG 导出不依赖 Origin。</li>
+          </ul>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <a class="brand brand--footer" href="/">
+          <img src="/assets/fig-agent-mark.svg" width="26" height="26" alt="" />
+          <span>fig-agent</span>
+        </a>
+      </div>
+      <div class="site-footer__links">
+        <a href="/download/">下载</a>
+        <a href="/feedback/">测试反馈</a>
+        <a href="/privacy/">隐私说明</a>
+      </div>
+      <p class="site-footer__copyright">© <span data-current-year>2026</span> fig-agent</p>
+    </footer>
+
+    <script defer src="/_vercel/insights/script.js"></script>
+    <script defer src="/main.js?v=20260825-2"></script>
+  </body>
+</html>

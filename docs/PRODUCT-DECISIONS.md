@@ -39,6 +39,7 @@
 ## E. Agent Native 绘图引擎
 
 - EngineCatalog/Profile、EngineDataView、PlotDocument 与公共 Engine Action 是引擎公开合同。
+- 真实论文任务只能按 [真实科研任务驱动的产品升级路线](./REAL-WORLD-RESEARCH-FIGURE-ROADMAP.md#41-用真实论文任务决定新增能力边界开发强制约束) 第 4.1 节的五类门禁推动产品改动。该门禁是开发约束，不是产品目标、里程碑、待办或完成条件的补充。新增绘图能力必须先在案例台账冻结论文、目标插图、数据完整性、失败层、跨模板复用性、范围裁决和双后端验收要求；数据不全、上下游契约错误、受控数据整理问题或超出产品边界的表达不得包装成新增绘图能力。
 - Matplotlib 和 Origin 是两个独立 backend；共享字段、对象和公共动作语义，不共享私有图元、最终几何或统一中间绘图语言。
 - Origin backend 必须从官方模板/菜单/X-Function 创建原生对象，保存 OPJU 后用新会话重开读回。
 - 任何其他 Agent 可以绕过 Pi，通过 MCP/SDK 直接使用同一 Workflow/Engine 合同；仍受本地权限、确认、版本与能力校验。默认外部接口不嵌套第二个 PlotAgent Agent：外部 Agent 保持理解、规划、追问和确认的决策权，PlotAgent 负责确定性数据/绘图工具、执行、版本、读回与交付。

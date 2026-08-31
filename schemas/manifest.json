@@ -6,7 +6,7 @@
     },
     {
       "path": "schemas/agent-context-v2.schema.json",
-      "sha256": "13e4b1a5fdc247f7dbf37a8c26d13f01edd2f0ceb2fd91e5915786f22e44ff4e"
+      "sha256": "e6b2ae5dcce4dfa3221fef798920fcfb9982a410768537d1fb863ae5543021d7"
     },
     {
       "path": "schemas/agent-tool-error-v2.schema.json",
@@ -30,7 +30,7 @@
     },
     {
       "path": "schemas/chart-knowledge-v1.schema.json",
-      "sha256": "53ffb34db83c809a99cc67771d77727e0d25ad1c423fc87b247c7ce4e1750b54"
+      "sha256": "1b294c75317d01b9388a0df4e05b8ebcd73e9fa730589be6326cc398f0287706"
     },
     {
       "path": "schemas/chart-profile-comparison-v1.schema.json",
@@ -42,7 +42,7 @@
     },
     {
       "path": "schemas/contracts-bundle.schema.json",
-      "sha256": "bf91e4c65cf4f2220e293235d0cd5b14aa98c3f64fa0d6832c7c8fcee3d6aa41"
+      "sha256": "bbfe0836a75f68f73d6bea95f418d390f9cd356df1a8ad65bc0b3df5c90638ec"
     },
     {
       "path": "schemas/data-view-handle-v2.schema.json",
@@ -74,11 +74,11 @@
     },
     {
       "path": "schemas/engine-profile-catalog.json",
-      "sha256": "8b01b6821e26c5022ec8be9317f834c36cabcf6286229e5c24ea3a23161bab21"
+      "sha256": "0f986a165350bcf24d805f0715619250453b3e5d467bf68952eb2b95dda658a4"
     },
     {
       "path": "schemas/engine-profile.schema.json",
-      "sha256": "d7ee6be22a9a627c18c7cf3fff5d04190722b97557dfb807467b56e88b3c51b1"
+      "sha256": "5fdd886ed3b0d90db4bd4616a7f8f89dd1fda899841b5d6b7771a40d6fff8d17"
     },
     {
       "path": "schemas/engine-readback.schema.json",
@@ -214,11 +214,11 @@
     },
     {
       "path": "src/shared/generated/contracts.ts",
-      "sha256": "86bc9b6075817df0ad8b425f2562c2407aa488aa2521fc70319b979993ae951e"
+      "sha256": "9505361fb266ad7f625ad4adfb89003bcff73730d63898639cd99aae0e1fa10d"
     },
     {
       "path": "src/shared/generated/engine-profile-catalog.json",
-      "sha256": "8b01b6821e26c5022ec8be9317f834c36cabcf6286229e5c24ea3a23161bab21"
+      "sha256": "0f986a165350bcf24d805f0715619250453b3e5d467bf68952eb2b95dda658a4"
     }
   ],
   "generator": "plotagent.contracts.codegen",

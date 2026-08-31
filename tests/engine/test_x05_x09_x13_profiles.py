@@ -30,6 +30,7 @@ from plotagent.engine.backends.matplotlib import (
     X09FloatingIntervalRenderer,
     X13PopulationPyramidRenderer,
 )
+from plotagent.engine.backends.matplotlib.visual_t1 import apply_visuals_before_save
 from plotagent.engine.backends.origin import (
     X05_ORIGIN_PROFILE,
     X09_ORIGIN_PROFILE,
@@ -38,6 +39,7 @@ from plotagent.engine.backends.origin import (
 from plotagent.engine.backends.origin.distribution import DistributionOriginProject
 from plotagent.engine.backends.origin.x09 import X09OriginProject
 from plotagent.engine.backends.origin.x13 import X13OriginProject
+from plotagent.engine.product_style import X09_FLOATING_COLUMN_STYLE, x09_auto_range_bounds
 from plotagent.engine.profile_data import (
     distribution_groups,
     x09_floating_intervals,
@@ -205,6 +207,12 @@ def test_x09_preserves_rows_and_ordered_boundaries_without_sorting() -> None:
     assert observed.start_values == (1.0, 2.0, 1.5)
     assert observed.middle_values == (0.5, 4.5, 2.5)
     assert observed.end_values == (3.0, 4.0, 3.5)
+
+
+def test_x09_product_defaults_cover_every_boundary_and_use_shared_palette() -> None:
+    assert X09_FLOATING_COLUMN_STYLE.interval_colors == ("#1676D2", "#D97800")
+    assert X09_FLOATING_COLUMN_STYLE.bar_width_fraction == 0.8
+    assert x09_auto_range_bounds(((1.0, 2.0), (5.0, 7.0))) == (0.7, 7.3)
 
 
 def test_x13_preserves_positive_magnitudes_and_rejects_negative_input() -> None:
@@ -661,6 +669,37 @@ def test_x09_matplotlib_selects_a_font_covering_visible_cjk(tmp_path: Path) -> N
         )
 
     assert not [warning for warning in caught if "Glyph" in str(warning.message)]
+
+
+def test_x09_matplotlib_primary_fill_styles_both_visible_intervals(tmp_path: Path) -> None:
+    document, actions, view = _x09_case()
+    style = SetSeriesStyle(
+        action_id="action:x09-compound-fill",
+        target="series:x09-native.primary",
+        expected_plot_version=document.plot_version,
+        fill_color="#4C9ED9",
+        fill_opacity=0.6,
+        fill_stroke_color="#7A1F5C",
+        fill_stroke_width_pt=1.8,
+        fill_stroke_style="dash",
+    )
+    structural, visual = split_visual_actions(actions)
+    svg_path = tmp_path / "x09-compound.svg"
+
+    with apply_visuals_before_save(document, (style, *visual)):
+        X09FloatingIntervalRenderer().render(
+            document,
+            structural,
+            view,
+            tmp_path / "x09-compound.png",
+            svg_path,
+        )
+
+    svg = svg_path.read_text(encoding="utf-8").lower()
+    # Three categories × two adjacent intervals must all implement the one
+    # public ``series.primary`` style action.
+    assert svg.count("#4c9ed9") >= 6
+    assert svg.count("#7a1f5c") >= 6
 
 
 def test_x13_origin_uses_both_official_template_layers(

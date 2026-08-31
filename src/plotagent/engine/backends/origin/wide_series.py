@@ -15,6 +15,10 @@ from plotagent.engine.contracts import (
     SetChartParameter,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    X40_BEFORE_AFTER_STYLE,
+    x40_auto_range_bounds,
+)
 from plotagent.engine.profile_data import (
     LollipopData,
     WideSeriesData,
@@ -261,14 +265,17 @@ class WideSeriesOriginProject:
             self.graph.lname = f"{self.profile_id} {template.stem} / {document.plot_id}"
             self.layer = self.graph[0]
             self.native_snapshot = self._assert_official_wide_structure(series)
-            if self.profile_id == "X40":
-                self._materialize_x40_identity_labels(series)
         record_origin_trace(
             "native_row_wise_group_confirmed",
             "completed",
             details=self.native_snapshot,
         )
         self.layer.rescale()
+        if self.profile_id == "X40":
+            minimum, maximum = x40_auto_range_bounds(series.column_values)
+            self.layer.set_float("y.from", minimum)
+            self.layer.set_float("y.to", maximum)
+            self._materialize_x40_identity_labels(series)
 
     def _remove_workbook_residue(self, authoritative_book: Any) -> None:
         for residue in tuple(self.op.pages("w")):
@@ -539,7 +546,7 @@ class WideSeriesOriginProject:
             if label is None:
                 raise RuntimeError(f"Origin could not create X40 identity label for row {row + 1}")
             label.name = f"{_X40_SUBJECT_PREFIX}{row + 1:04d}"
-            label.set_int("show", 1)
+            label.set_int("show", int(X40_BEFORE_AFTER_STYLE.identity_labels_visible))
             label.set_int("background", 0)
             label.set_float("fsize", 8.0)
             if abs(label_y - float(after_value)) > 1e-9:
@@ -550,6 +557,9 @@ class WideSeriesOriginProject:
                     )
                 leader.name = f"X40L{row + 1:04d}"
                 leader.set_float("lineWidth", 0.6)
+                leader.set_int(
+                    "show", int(X40_BEFORE_AFTER_STYLE.identity_labels_visible)
+                )
 
     def _set_x40_identity_labels_visibility(
         self, series: WideSeriesData, visible: bool
@@ -571,7 +581,7 @@ class WideSeriesOriginProject:
 
     @staticmethod
     def _x40_identity_labels_visible(actions: tuple[PlotEngineAction, ...]) -> bool:
-        visible = True
+        visible = X40_BEFORE_AFTER_STYLE.identity_labels_visible
         for action in actions:
             if (
                 isinstance(action, SetChartParameter)
@@ -604,7 +614,9 @@ class WideSeriesOriginProject:
                 or abs(float(label.get_float("y1")) - label_y) > 0.01
             ):
                 raise RuntimeError(
-                    f"Origin X40 identity label moved away from its After value: {name}"
+                    "Origin X40 identity label moved away from its After value: "
+                    f"{name}, expected=(2.08, {label_y}), "
+                    f"observed=({label.get_float('x1')}, {label.get_float('y1')})"
                 )
             if abs(label_y - float(after_value)) > 1e-9:
                 leader = self.layer.label(f"X40L{row + 1:04d}")

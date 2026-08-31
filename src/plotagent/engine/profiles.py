@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import EngineCapability, EngineProfile
+from .contracts import EngineCapability, EngineProfile, EngineTargetParameterRule
 
 _NUMERIC = ("numeric",)
 _CATEGORY = ("categorical", "text", "numeric", "boolean")
@@ -197,6 +197,7 @@ def _capabilities(
     reference_line: bool,
     point_marker_map: bool,
     observation_overlay: bool,
+    series_target_parameters: tuple[EngineTargetParameterRule, ...],
 ) -> tuple[EngineCapability, ...]:
     result = [
         EngineCapability(operation="create_plot"),
@@ -213,7 +214,13 @@ def _capabilities(
         # semantic reference line, so both capabilities share one safe scope.
         result.append(EngineCapability(operation="add_callout", parameters=_CALLOUT_T1))
     if series:
-        result.append(EngineCapability(operation="set_series_style", parameters=series))
+        result.append(
+            EngineCapability(
+                operation="set_series_style",
+                parameters=series,
+                target_parameters=series_target_parameters,
+            )
+        )
     if point_marker_map:
         result.append(
             EngineCapability(
@@ -255,6 +262,7 @@ def _profile(
     chart: tuple[str, ...] = (),
     point_marker_map: bool = False,
     observation_overlay: bool = False,
+    series_target_parameters: tuple[EngineTargetParameterRule, ...] = (),
 ) -> EngineProfile:
     profile_id = str(data["profile_id"])
     semantic_objects = (*data.get("objects", ()), *data.get("repeatable_objects", ()))
@@ -277,6 +285,7 @@ def _profile(
                 reference_line=profile_id not in _NO_NUMERIC_REFERENCE_AXIS,
                 point_marker_map=point_marker_map,
                 observation_overlay=observation_overlay,
+                series_target_parameters=series_target_parameters,
             ),
         }
     )
@@ -488,6 +497,11 @@ K09_GROUPED_COLUMN_PROFILE = _profile(
     series_visible=False,
     legend=True,
     labels=True,
+    chart=(
+        "bar_border_visible",
+        "within_group_gap_percent",
+        "between_group_gap_percent",
+    ),
 )
 
 K10_STACKED_COLUMN_PROFILE = _profile(
@@ -1190,6 +1204,29 @@ X40_BEFORE_AFTER_PROFILE = _profile(
         "marker_interior",
         "marker_fill_color",
         "marker_stroke_color",
+    ),
+    series_target_parameters=(
+        EngineTargetParameterRule(
+            object_kind="series",
+            object_key="connector",
+            parameters=(
+                "visible",
+                "line_stroke_color",
+                "line_width_pt",
+                "line_style",
+            ),
+        ),
+        EngineTargetParameterRule(
+            object_kind="series",
+            object_key_prefix="column",
+            parameters=(
+                "marker_shape",
+                "marker_size_pt",
+                "marker_interior",
+                "marker_fill_color",
+                "marker_stroke_color",
+            ),
+        ),
     ),
     legend=True,
     chart=("identity_labels_visible",),

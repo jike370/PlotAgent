@@ -4,6 +4,7 @@ import inspect
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
 import numpy as np
 import pytest
 
@@ -19,6 +20,7 @@ from plotagent.engine import (
     FieldBinding,
     PlotDocument,
     PlotEngineAction,
+    SetChartParameter,
     SetLegend,
     SetObservationOverlay,
     SetSeriesStyle,
@@ -33,6 +35,7 @@ from plotagent.engine.backends.matplotlib import (
     K14ViolinRenderer,
     MatplotlibBackend,
 )
+from plotagent.engine.backends.matplotlib.visual_t1 import apply_visual_actions
 from plotagent.engine.backends.origin import (
     K09_ORIGIN_PROFILE,
     K10_ORIGIN_PROFILE,
@@ -56,13 +59,22 @@ from plotagent.engine.backends.origin.native_distribution import (
     WHISKER_COEFF,
     WHISKER_RANGE,
 )
+from plotagent.engine.product_style import (
+    K09_GROUPED_COLUMN_STYLE,
+    K14_VIOLIN_STYLE,
+    k14_auto_range_bounds,
+)
 from plotagent.engine.profile_data import (
     category_series_grid,
     distribution_groups,
     k09_grouped_indexed_data,
     regular_observation_positions,
 )
-from plotagent.engine.visual_t1 import split_visual_actions
+from plotagent.engine.visual_t1 import (
+    effective_visual_actions,
+    resolve_k09_grouped_column_style,
+    split_visual_actions,
+)
 
 HASH = "9" * 64
 
@@ -233,6 +245,153 @@ def test_k09_grouped_columns_do_not_overlap_for_five_groups() -> None:
         left[1] <= right[0] + 1e-12
         for left, right in zip(first_category, first_category[1:], strict=False)
     )
+
+
+def test_k09_zero_edit_uses_origin_percentage_geometry_and_no_border() -> None:
+    document, actions, view = _case("K09", 3)
+    renderer = K09GroupedColumnRenderer()
+    grid = category_series_grid(document, view, profile_id="K09")
+    state = renderer._state(document, split_visual_actions(actions)[0], grid)
+    figure, axis = plt.subplots()
+    containers = renderer._draw(
+        axis,
+        np.arange(len(grid.category_labels), dtype=float),
+        np.asarray(grid.values),
+        grid,
+        state,
+    )
+
+    slot_width = (1.0 - K09_GROUPED_COLUMN_STYLE.between_group_gap_percent / 100.0) / 3
+    expected_width = slot_width / (
+        1.0 + K09_GROUPED_COLUMN_STYLE.within_group_gap_percent / 100.0
+    )
+    centers = tuple(
+        container.patches[0].get_x() + container.patches[0].get_width() / 2.0
+        for container in containers
+    )
+    assert centers == pytest.approx((-slot_width, 0.0, slot_width))
+    assert tuple(container.patches[0].get_width() for container in containers) == (
+        pytest.approx(expected_width),
+        pytest.approx(expected_width),
+        pytest.approx(expected_width),
+    )
+    assert all(container.patches[0].get_linewidth() == 0 for container in containers)
+    assert all(container.patches[0].get_edgecolor()[3] == 0 for container in containers)
+    plt.close(figure)
+
+
+def test_k09_explicit_border_and_gaps_update_visible_matplotlib_artists() -> None:
+    document, actions, view = _case("K09", 3)
+    renderer = K09GroupedColumnRenderer()
+    grid = category_series_grid(document, view, profile_id="K09")
+    state = renderer._state(document, split_visual_actions(actions)[0], grid)
+    figure, axis = plt.subplots()
+    containers = renderer._draw(
+        axis,
+        np.arange(len(grid.category_labels), dtype=float),
+        np.asarray(grid.values),
+        grid,
+        state,
+    )
+    edits = (
+        SetChartParameter(
+            action_id="action:k09-border",
+            target=document.plot_id,
+            expected_plot_version=document.plot_version,
+            parameter="bar_border_visible",
+            value=True,
+        ),
+        SetChartParameter(
+            action_id="action:k09-within-gap",
+            target=document.plot_id,
+            expected_plot_version=document.plot_version + 1,
+            parameter="within_group_gap_percent",
+            value=40,
+        ),
+        SetChartParameter(
+            action_id="action:k09-between-gap",
+            target=document.plot_id,
+            expected_plot_version=document.plot_version + 2,
+            parameter="between_group_gap_percent",
+            value=50,
+        ),
+    )
+    apply_visual_actions(figure, document, edits)
+
+    slot_width = 0.5 / 3
+    expected_width = slot_width / 1.4
+    centers = tuple(
+        container.patches[0].get_x() + container.patches[0].get_width() / 2.0
+        for container in containers
+    )
+    assert centers == pytest.approx((-slot_width, 0.0, slot_width))
+    assert all(
+        container.patches[0].get_width() == pytest.approx(expected_width)
+        for container in containers
+    )
+    assert all(
+        container.patches[0].get_linewidth()
+        == pytest.approx(K09_GROUPED_COLUMN_STYLE.border_width_pt)
+        for container in containers
+    )
+    assert all(container.patches[0].get_edgecolor()[3] == 1 for container in containers)
+    plt.close(figure)
+
+
+@pytest.mark.parametrize(
+    ("parameter", "value", "message"),
+    (
+        ("bar_border_visible", 1, "must be boolean"),
+        ("within_group_gap_percent", True, "must be numeric"),
+        ("within_group_gap_percent", -1, "from 0"),
+        ("between_group_gap_percent", 100, "not including 100"),
+    ),
+)
+def test_k09_chart_parameters_reject_ambiguous_or_degenerate_values(
+    parameter: str,
+    value: object,
+    message: str,
+) -> None:
+    document, _, _view = _case("K09", 3)
+    action = SetChartParameter(
+        action_id=f"action:k09-invalid-{parameter}",
+        target=document.plot_id,
+        expected_plot_version=document.plot_version,
+        parameter=parameter,
+        value=value,  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(ValueError, match=message):
+        resolve_k09_grouped_column_style(document, (action,))
+
+
+def test_k09_chart_parameters_are_visual_and_supersede_per_parameter() -> None:
+    document, _, _view = _case("K09", 3)
+    edits = tuple(
+        SetChartParameter(
+            action_id=f"action:k09-{parameter}-{index}",
+            target=document.plot_id,
+            expected_plot_version=document.plot_version + index,
+            parameter=parameter,
+            value=value,
+        )
+        for index, (parameter, value) in enumerate(
+            (
+                ("within_group_gap_percent", 10),
+                ("between_group_gap_percent", 30),
+                ("within_group_gap_percent", 40),
+            )
+        )
+    )
+
+    structural, visual = split_visual_actions(edits)
+    effective = effective_visual_actions(visual)
+    style = resolve_k09_grouped_column_style(document, effective)
+
+    assert structural == ()
+    assert len(effective) == 2
+    assert style.within_group_gap_percent == 40
+    assert style.between_group_gap_percent == 30
 
 
 def test_k11_normalizes_each_category_to_exactly_one_hundred_percent() -> None:
@@ -899,9 +1058,21 @@ def test_k14_matplotlib_omits_extrema_edge_lines() -> None:
         if hasattr(collection, "get_segments")
         for segment in collection.get_segments()
     )
+    bodies = tuple(
+        collection
+        for collection in axis.collections
+        if hasattr(collection, "get_paths") and collection.get_paths()
+    )
     plt.close(figure)
-    assert segments
-    assert all(segment[0][1] == pytest.approx(segment[-1][1]) for segment in segments)
+    assert len(bodies) == 2
+    assert segments == ()
+    assert bodies[0].get_alpha() is None
+    assert tuple(bodies[0].get_facecolors()[0]) == pytest.approx(
+        mcolors.to_rgba(K14_VIOLIN_STYLE.palette[0], K14_VIOLIN_STYLE.fill_opacity)
+    )
+    assert tuple(bodies[1].get_facecolors()[0]) == pytest.approx(
+        mcolors.to_rgba(K14_VIOLIN_STYLE.palette[1], K14_VIOLIN_STYLE.fill_opacity)
+    )
 
 
 def test_k13_observation_overlay_is_deterministic_and_preserves_box_geometry() -> None:
@@ -1040,6 +1211,15 @@ def test_distribution_origin_uses_only_the_official_native_plot_type(
         assert native_values[(1, DIST_BANDWIDTH_FACTOR)] == pytest.approx(expected_bandwidth)
         assert native_values[(1, DIST_EXTEND)] == 0.0
         assert origin.group_edit_mode == 1
+        assert origin.graph.layer.labels["xb"].text == "Group"
+        assert origin.graph.layer.labels["yl"].text == distribution_groups(
+            document,
+            view,
+            profile_id="K14",
+        ).value_field_name
+        expected_x, expected_y = k14_auto_range_bounds(pooled, 3)
+        assert origin.graph.layer.axes["x"].limits[:2] == pytest.approx(expected_x)
+        assert origin.graph.layer.axes["y"].limits[:2] == pytest.approx(expected_y)
 
 
 def test_k13_origin_overlay_reuses_y_sources_and_persists_deterministic_x(

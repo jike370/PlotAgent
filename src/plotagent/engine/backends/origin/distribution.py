@@ -20,6 +20,7 @@ from plotagent.engine.profile_data import (
     distribution_groups,
     regular_observation_positions,
 )
+from plotagent.engine.product_style import k14_auto_range_bounds
 from plotagent.engine.repository import document_ref
 from plotagent.plot_calculations.kernels import scott_kde_geometry
 
@@ -188,6 +189,8 @@ class DistributionOriginProject:
             details=native,
         )
         self.layer.rescale()
+        if self.profile_id == "K14":
+            self._apply_k14_product_geometry(distribution)
 
     def _remove_workbook_residue(self, authoritative_book: Any) -> None:
         for residue in tuple(self.op.pages("w")):
@@ -260,6 +263,10 @@ class DistributionOriginProject:
             snapshot.update(self._assert_official_x05_structure(distribution))
         else:
             snapshot.update(self._assert_official_structure(distribution, overlay))
+        if self.profile_id == "K14":
+            snapshot["product_geometry"] = self._assert_k14_product_geometry(
+                distribution
+            )
         if overlay is not None:
             snapshot["observation_overlay"] = self._verify_observation_overlay(
                 distribution,
@@ -330,6 +337,57 @@ class DistributionOriginProject:
     def _write_data(self, distribution: DistributionData) -> None:
         for index, group in enumerate(distribution.groups):
             self.sheet.from_list(index, list(group.values), lname=group.label, axis="Y")
+
+    def _apply_k14_product_geometry(self, distribution: DistributionData) -> None:
+        x_label = self.layer.label("xb")
+        y_label = self.layer.label("yl")
+        if x_label is None or y_label is None:
+            raise RuntimeError("Origin K14 official template is missing an axis title object")
+        x_label.text = "Group"
+        y_label.text = distribution.value_field_name
+        x_label.set_int("show", 1)
+        y_label.set_int("show", 1)
+        x_bounds, y_bounds = k14_auto_range_bounds(
+            tuple(value for group in distribution.groups for value in group.values),
+            len(distribution.groups),
+        )
+        self.layer.axis("x").limits = x_bounds
+        self.layer.axis("y").limits = y_bounds
+
+    def _assert_k14_product_geometry(
+        self,
+        distribution: DistributionData,
+    ) -> dict[str, object]:
+        x_label = self.layer.label("xb")
+        y_label = self.layer.label("yl")
+        if x_label is None or y_label is None:
+            raise RuntimeError("Origin K14 lost an axis title after reopen")
+        if (
+            str(x_label.text) != "Group"
+            or str(y_label.text) != distribution.value_field_name
+            or int(x_label.get_int("show")) != 1
+            or int(y_label.get_int("show")) != 1
+        ):
+            raise RuntimeError("Origin K14 axis titles differ after reopen")
+        x_bounds, y_bounds = k14_auto_range_bounds(
+            tuple(value for group in distribution.groups for value in group.values),
+            len(distribution.groups),
+        )
+        observed: dict[str, list[float] | str] = {
+            "x_title": str(x_label.text),
+            "y_title": str(y_label.text),
+        }
+        for axis_name, expected in (("x", x_bounds), ("y", y_bounds)):
+            actual = tuple(float(value) for value in self.layer.axis(axis_name).limits[:2])
+            if any(
+                abs(left - right) > 1e-8
+                for left, right in zip(actual, expected, strict=True)
+            ):
+                raise RuntimeError(
+                    f"Origin K14 product {axis_name.upper()}-axis range changed after reopen"
+                )
+            observed[f"{axis_name}_limits"] = list(actual)
+        return observed
 
     def _apply_observation_overlay(
         self,
@@ -522,8 +580,17 @@ class DistributionOriginProject:
         native_settings: list[dict[str, int | float]] = []
         if self.profile_id == "K14":
             self.op.lt_exec(f"range __K14HEAD=[{graph_name}]1!1; get __K14HEAD -gm __K14GROUPMODE;")
-            if int(self.op.lt_float("__K14GROUPMODE")) != 1:
-                raise RuntimeError("Origin K14 must retain independent per-group formatting")
+            group_mode = int(self.op.lt_float("__K14GROUPMODE"))
+            # The binder's individual-edit mode reads back as 1.  The shared
+            # visual pass may subsequently dissolve the presentation group so
+            # each visible PID 206 owns its style; Origin then reads 0.  Both
+            # preserve independent groups, while native per-plot style
+            # readback provides the stronger final proof.
+            if group_mode not in {0, 1}:
+                raise RuntimeError(
+                    "Origin K14 lost independent per-group formatting: "
+                    f"group_mode={group_mode}"
+                )
         pooled_bandwidth = None
         if self.profile_id == "K14":
             pooled_values = tuple(value for group in distribution.groups for value in group.values)

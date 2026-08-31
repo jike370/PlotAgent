@@ -10,7 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from plotagent.engine import EngineCatalog, EngineCommandError, SetErrorStyle
+from plotagent.engine import (
+    EngineCatalog,
+    EngineCommandError,
+    SetChartParameter,
+    SetErrorStyle,
+    SetSeriesStyle,
+)
 from plotagent.engine.profiles import ENGINE_PROFILES
 
 
@@ -99,6 +105,29 @@ def test_k09_only_advertises_the_native_subset_style_it_can_reopen() -> None:
     assert _capabilities("K09")["set_series_style"] == {"fill_color"}
 
 
+def test_k09_advertises_only_the_real_task_backed_whole_plot_bar_controls() -> None:
+    assert _capabilities("K09")["set_chart_parameter"] == {
+        "bar_border_visible",
+        "within_group_gap_percent",
+        "between_group_gap_percent",
+    }
+
+
+def test_engine_authority_limits_k09_bar_controls_to_the_k09_plot() -> None:
+    catalog = EngineCatalog(ENGINE_PROFILES)
+    action = SetChartParameter(
+        action_id="action:k09-within-gap",
+        target="plot:k09",
+        expected_plot_version=1,
+        parameter="within_group_gap_percent",
+        value=25,
+    )
+
+    catalog.validate_action(catalog.get("K09"), action)
+    with pytest.raises(EngineCommandError, match="does not support set_chart_parameter"):
+        catalog.validate_action(catalog.get("K10"), action)
+
+
 def test_error_style_capabilities_match_each_native_error_shape() -> None:
     assert _capabilities("K06")["set_error_style"] == {
         "bar_color",
@@ -157,6 +186,50 @@ def test_engine_authority_enforces_the_error_shape_boundary() -> None:
                 target="series:k07.primary",
                 expected_plot_version=1,
                 cap_size_pt=5,
+            ),
+        )
+
+
+def test_x40_series_parameters_are_scoped_to_their_semantic_targets() -> None:
+    catalog = EngineCatalog(ENGINE_PROFILES)
+    profile = catalog.get("X40")
+
+    catalog.validate_action(
+        profile,
+        SetSeriesStyle(
+            action_id="action:x40-connector-line",
+            target="series:x40.connector",
+            expected_plot_version=1,
+            line_stroke_color="#000000",
+        ),
+    )
+    catalog.validate_action(
+        profile,
+        SetSeriesStyle(
+            action_id="action:x40-column-marker",
+            target="series:x40.column_1",
+            expected_plot_version=1,
+            marker_shape="square",
+        ),
+    )
+    with pytest.raises(EngineCommandError, match="marker_shape"):
+        catalog.validate_action(
+            profile,
+            SetSeriesStyle(
+                action_id="action:x40-invalid-connector-marker",
+                target="series:x40.connector",
+                expected_plot_version=1,
+                marker_shape="square",
+            ),
+        )
+    with pytest.raises(EngineCommandError, match="line_stroke_color"):
+        catalog.validate_action(
+            profile,
+            SetSeriesStyle(
+                action_id="action:x40-invalid-column-line",
+                target="series:x40.column_1",
+                expected_plot_version=1,
+                line_stroke_color="#000000",
             ),
         )
 

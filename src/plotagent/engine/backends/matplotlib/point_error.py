@@ -23,6 +23,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import K06_POINT_ERROR_STYLE
 from plotagent.engine.profile_data import k06_point_error
 from plotagent.engine.repository import document_ref
 
@@ -41,11 +42,11 @@ class _K06State:
     title: str
     x_axis: _AxisState
     y_axis: _AxisState
-    color: str = "#1676D2"
-    line_width_pt: float = 1.25
-    symbol: str = "circle"
-    symbol_size_pt: float = 5.0
-    legend_visible: bool = False
+    color: str = K06_POINT_ERROR_STYLE.color
+    line_width_pt: float = K06_POINT_ERROR_STYLE.error_width_pt
+    symbol: str = K06_POINT_ERROR_STYLE.marker_shape
+    symbol_size_pt: float = K06_POINT_ERROR_STYLE.marker_size_pt
+    legend_visible: bool = K06_POINT_ERROR_STYLE.legend_visible
     legend_anchor: str = "inside"
 
 
@@ -75,7 +76,7 @@ class K06PointErrorRenderer:
             ecolor=state.color,
             markersize=state.symbol_size_pt,
             elinewidth=state.line_width_pt,
-            capsize=4.0,
+            capsize=K06_POINT_ERROR_STYLE.cap_size_pt,
             capthick=state.line_width_pt,
             label=series.center_field_name,
         )

@@ -22,6 +22,10 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    K01_AUTO_RANGE_MARGIN_PERCENT,
+    PRODUCT_SERIES_PALETTE,
+)
 from plotagent.engine.profile_data import grouped_xy
 from plotagent.engine.repository import document_ref
 
@@ -71,13 +75,12 @@ class K01LineRenderer:
 
         figure, axis = plt.subplots(figsize=(6.4, 4.8), constrained_layout=True)
         marker = None if state.symbol == "none" else self._marker(state.symbol)
-        palette = ("#1676D2", "#D97800", "#299764", "#C53D4D", "#7656B5")
         lines = []
         for index, group in enumerate(grouped.groups):
             (line,) = axis.plot(
                 group.x_values,
                 group.y_values,
-                color=palette[index % len(palette)],
+                color=PRODUCT_SERIES_PALETTE[index % len(PRODUCT_SERIES_PALETTE)],
                 linewidth=state.line_width_pt,
                 linestyle=self._line_style(state.line_style),
                 marker=marker,
@@ -85,6 +88,8 @@ class K01LineRenderer:
                 label=group.label,
             )
             lines.append(line)
+        margin = K01_AUTO_RANGE_MARGIN_PERCENT / 100.0
+        axis.margins(x=margin, y=margin)
         axis.set_title(state.title)
         axis.set_xlabel(state.x_axis.label)
         axis.set_ylabel(state.y_axis.label)

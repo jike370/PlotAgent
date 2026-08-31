@@ -114,11 +114,37 @@ class EngineCatalog:
     def validate_action(cls, profile: EngineProfile, action: PlotEngineAction) -> None:
         capability = cls.require_operation(profile, action.operation)
         used = cls._used_parameters(action)
-        unsupported = used - set(capability.parameters)
+        allowed = set(capability.parameters)
+        if capability.target_parameters:
+            target = getattr(action, "target", None)
+            if not isinstance(target, str) or ":" not in target or "." not in target:
+                raise EngineCommandError(
+                    f"engine profile {profile.profile_id} requires a semantic target for "
+                    f"{action.operation}"
+                )
+            object_kind, _, identity = target.partition(":")
+            object_key = identity.rsplit(".", 1)[-1]
+            matching = tuple(
+                rule
+                for rule in capability.target_parameters
+                if rule.matches(object_kind, object_key)
+            )
+            if not matching:
+                raise EngineCommandError(
+                    f"engine profile {profile.profile_id} does not support "
+                    f"{action.operation} target: {target}"
+                )
+            allowed = {
+                parameter
+                for rule in matching
+                for parameter in rule.parameters
+            }
+        unsupported = used - allowed
         if unsupported:
             raise EngineCommandError(
                 f"engine profile {profile.profile_id} does not support "
-                f"{action.operation} parameters: {sorted(unsupported)}"
+                f"{action.operation} parameters for {getattr(action, 'target', 'profile')}: "
+                f"{sorted(unsupported)}"
             )
 
     @staticmethod

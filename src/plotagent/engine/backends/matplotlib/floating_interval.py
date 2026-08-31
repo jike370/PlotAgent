@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 import matplotlib
 
@@ -23,6 +23,11 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    PRODUCT_TYPOGRAPHY,
+    X09_FLOATING_COLUMN_STYLE,
+    x09_auto_range_bounds,
+)
 from plotagent.engine.profile_data import FloatingIntervalData, x09_floating_intervals
 from plotagent.engine.repository import document_ref
 
@@ -73,40 +78,53 @@ class X09FloatingIntervalRenderer:
                 intervals.middle_field_name or "",
             )
         )
-        with matplotlib.rc_context({"font.family": font_family}):
+        with matplotlib.rc_context(
+            {"font.family": font_family, **PRODUCT_TYPOGRAPHY.matplotlib_rc()}
+        ):
             figure, axis = plt.subplots(figsize=(6.4, 4.8), layout="constrained")
+            semantic_target = f"series:{document.plot_id.removeprefix('plot:')}.primary"
             if intervals.middle_values is None:
-                axis.bar(
-                    positions,
-                    np.subtract(intervals.end_values, intervals.start_values),
-                    bottom=intervals.start_values,
-                    width=0.72,
-                    color="#1676D2",
-                    edgecolor="#1A1A1A",
-                    linewidth=0.8,
-                    label=intervals.end_field_name,
+                interval_containers = (
+                    axis.bar(
+                        positions,
+                        np.subtract(intervals.end_values, intervals.start_values),
+                        bottom=intervals.start_values,
+                        width=X09_FLOATING_COLUMN_STYLE.bar_width_fraction,
+                        color=X09_FLOATING_COLUMN_STYLE.interval_colors[0],
+                        edgecolor=X09_FLOATING_COLUMN_STYLE.border_color,
+                        linewidth=X09_FLOATING_COLUMN_STYLE.border_width_pt,
+                        label=intervals.end_field_name,
+                    ),
                 )
             else:
-                axis.bar(
-                    positions,
-                    np.subtract(intervals.middle_values, intervals.start_values),
-                    bottom=intervals.start_values,
-                    width=0.72,
-                    color="#1676D2",
-                    edgecolor="#1A1A1A",
-                    linewidth=0.8,
-                    label=intervals.middle_field_name,
+                interval_containers = (
+                    axis.bar(
+                        positions,
+                        np.subtract(intervals.middle_values, intervals.start_values),
+                        bottom=intervals.start_values,
+                        width=X09_FLOATING_COLUMN_STYLE.bar_width_fraction,
+                        color=X09_FLOATING_COLUMN_STYLE.interval_colors[0],
+                        edgecolor=X09_FLOATING_COLUMN_STYLE.border_color,
+                        linewidth=X09_FLOATING_COLUMN_STYLE.border_width_pt,
+                        label=intervals.middle_field_name,
+                    ),
+                    axis.bar(
+                        positions,
+                        np.subtract(intervals.end_values, intervals.middle_values),
+                        bottom=intervals.middle_values,
+                        width=X09_FLOATING_COLUMN_STYLE.bar_width_fraction,
+                        color=X09_FLOATING_COLUMN_STYLE.interval_colors[1],
+                        edgecolor=X09_FLOATING_COLUMN_STYLE.border_color,
+                        linewidth=X09_FLOATING_COLUMN_STYLE.border_width_pt,
+                        label=intervals.end_field_name,
+                    ),
                 )
-                axis.bar(
-                    positions,
-                    np.subtract(intervals.end_values, intervals.middle_values),
-                    bottom=intervals.middle_values,
-                    width=0.72,
-                    color="#D97800",
-                    edgecolor="#1A1A1A",
-                    linewidth=0.8,
-                    label=intervals.end_field_name,
-                )
+            # ``series.primary`` is one public interval series even when an
+            # optional middle boundary materializes two native bar
+            # containers.  Tag every member so the shared visual adapter can
+            # apply one public action to the complete visible object.
+            for container in interval_containers:
+                cast(Any, container)._plotagent_semantic_target = semantic_target
             axis.set_xticks(positions, intervals.categories)
             axis.set_title(state.title)
             axis.set_xlabel(state.x_axis.label)
@@ -180,10 +198,19 @@ class X09FloatingIntervalRenderer:
         intervals: FloatingIntervalData,
     ) -> _FloatingState:
         document.plot_id.removeprefix("plot:")
+        boundary_columns = [intervals.start_values, intervals.end_values]
+        if intervals.middle_values is not None:
+            boundary_columns.insert(1, intervals.middle_values)
+        y_minimum, y_maximum = x09_auto_range_bounds(tuple(boundary_columns))
         state = _FloatingState(
             title="",
             x_axis=_AxisState(intervals.category_field_name, "categorical"),
-            y_axis=_AxisState(f"{intervals.start_field_name}–{intervals.end_field_name}", "linear"),
+            y_axis=_AxisState(
+                f"{intervals.start_field_name}–{intervals.end_field_name}",
+                "linear",
+                y_minimum,
+                y_maximum,
+            ),
         )
         for action in actions:
             if isinstance(action, (CreatePlot, BindFields)):

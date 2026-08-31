@@ -1883,6 +1883,7 @@ describe('PlotAgent real desktop workflow', () => {
       selectedSources: [{ datasetId: 'source:temperature', sourceVersion: 1 }],
       instruction: '新目标请求',
     }))
+    expect(prepareWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlots')
     expect(screen.getByRole('button', { name: '线点图' })).toBeInTheDocument()
 
     await act(async () => {
@@ -1977,7 +1978,7 @@ describe('PlotAgent real desktop workflow', () => {
     expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedProfileIds')
   })
 
-  it('rejects unknown plot mentions and never turns vague references into a target', async () => {
+  it('rejects unknown plot mentions and defaults an unqualified follow-up to the current plot', async () => {
     const user = userEvent.setup()
     const runWorkflow = vi.fn(async (input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0]) => {
       void input
@@ -1995,9 +1996,39 @@ describe('PlotAgent real desktop workflow', () => {
 
     await user.clear(composer)
     await user.type(composer, '把上一张图改成红色')
+    expect(screen.getByText('默认编辑 @图1 · v1')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '生成任务计划' }))
     await screen.findByRole('heading', { name: '任务计划' })
     expect(runWorkflow).toHaveBeenCalledWith(expect.objectContaining({ instruction: '把上一张图改成红色' }))
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toMatchObject({
+      selectedPlots: [{ plotId: expect.stringMatching(/^plot:ui\./), plotVersion: 1 }],
+    })
+  })
+
+  it('offers an explicit new-plot target and sends no existing plot selection', async () => {
+    const user = userEvent.setup()
+    const runWorkflow = vi.fn(async (input: Parameters<PlotAgentDesktopApi['runWorkflow']>[0]) => {
+      void input
+      return ok(workflowResultWithPlan(profiledCreatePlanFixture(['K01'])))
+    })
+    installApi(fakeDesktop({ runWorkflow }))
+    render(<App />)
+    await openSampleAndCreatePlot(user)
+
+    await user.click(screen.getByRole('button', { name: '新建图' }))
+    expect(await screen.findByRole('dialog', { name: '图形库' })).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox', { name: '搜索图形库' }), 'K01')
+    await user.click(screen.getByRole('button', { name: /K01.*折线图/ }))
+    await user.click(screen.getByRole('button', { name: '选择此图形' }))
+    expect(screen.getByRole('textbox', { name: '描述绘图要求' })).toHaveAttribute('placeholder', '描述新图要求')
+
+    await user.type(screen.getByRole('textbox', { name: '描述绘图要求' }), '再画一张折线图')
+    await user.click(screen.getByRole('button', { name: '生成任务计划' }))
+
+    expect(runWorkflow.mock.calls.at(-1)?.[0]).toMatchObject({
+      selectedProfileIds: ['K01'],
+      instruction: '再画一张折线图',
+    })
     expect(runWorkflow.mock.calls.at(-1)?.[0]).not.toHaveProperty('selectedPlots')
   })
 

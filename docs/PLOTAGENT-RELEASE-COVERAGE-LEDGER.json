@@ -1756,6 +1756,11 @@
           "font_weight",
           "font_color"
         ],
+        "set_chart_parameter": [
+          "bar_border_visible",
+          "within_group_gap_percent",
+          "between_group_gap_percent"
+        ],
         "export_plot": [
           "png",
           "svg",

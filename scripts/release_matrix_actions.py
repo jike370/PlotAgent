@@ -387,14 +387,17 @@ def _labels_action(
     )
 
 
-_CHART_PARAMETER_VALUES: dict[str, str | int | bool] = {
+_CHART_PARAMETER_VALUES: dict[str, str | int | float | bool] = {
+    "bar_border_visible": True,
+    "between_group_gap_percent": 35.0,
     "color_scale_visible": True,
     "equal_axes": False,
     "levels": 7,
     "show_counts": False,
     "size_key_visible": False,
-    "identity_labels_visible": False,
+    "identity_labels_visible": True,
     "triangle": "lower",
+    "within_group_gap_percent": 40.0,
 }
 
 

@@ -577,6 +577,13 @@ class DurableAgentCoreHost:
         }
         for item in validated.items:
             profile_authorized = item.profile_id in allowed_profiles
+            if selected_plots and item.task_kind == "create":
+                raise AgentFoundationError(
+                    "INTENT_TARGET_MODE_MISMATCH",
+                    "A selected existing plot is authoritative and cannot become a create task. "
+                    "The user must choose the explicit new-plot target before creating another "
+                    "plot.",
+                )
             if item.task_kind == "create" and (
                 not item.source_aliases
                 or not set(item.source_aliases) <= selected_sources
@@ -1191,7 +1198,10 @@ class DurableAgentCoreHost:
             "and their types are already present in the context snapshot, bind them directly "
             "without calling inspection tools. Inspect rows only when unresolved data shape or "
             "field semantics blocks a safe plan; do not infer unseen values. A selected plot "
-            "target is authoritative. A UI-selected chart profile is a default, never a "
+            "target is authoritative: when selected_plots is non-empty, every intent item must "
+            "be edit or update_data and must target one of those plots; never emit create. The "
+            "explicit new-plot UI target sends no selected_plots. A UI-selected chart profile is "
+            "a default, never a "
             "permission boundary. Use it when the instruction does not explicitly name a "
             "different chart. When the user explicitly names a different supported chart, use "
             "the user's latest wording directly; do not ask them to update the UI or repeat that "
@@ -1227,7 +1237,12 @@ class DurableAgentCoreHost:
             "When the selected EngineProfile exposes set_chart_parameter, translate an explicit "
             "chart-specific request into DraftSetChartParameter instead of omitting it. For "
             "example, a K21 request for a lower, upper, or full triangle uses parameter=triangle "
-            "with value lower, upper, or full exactly as requested. "
+            "with value lower, upper, or full exactly as requested. For K09, remove or restore "
+            "the whole chart's bar border with parameter=bar_border_visible; use "
+            "within_group_gap_percent for spacing between bars inside one category group and "
+            "between_group_gap_percent for spacing between adjacent category groups. If the "
+            "user only says bar spacing or 柱间距 and the intended kind changes the result, ask "
+            "which of those two gaps they mean instead of guessing or dropping the request. "
             "The selected_plot_contexts array is the authoritative current data state for each "
             "selected plot. A task_kind=edit item is visual-only and therefore has no sources, "
             "bindings, or data_operations. If the user asks to filter, sort, reshape, convert, or "

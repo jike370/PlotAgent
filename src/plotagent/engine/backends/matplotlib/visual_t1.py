@@ -43,6 +43,7 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
     SetAxis,
     SetCanvas,
+    SetChartParameter,
     SetColorMap,
     SetDataLabels,
     SetErrorStyle,
@@ -51,7 +52,13 @@ from plotagent.engine.contracts import (
     SetTitle,
 )
 from plotagent.engine.product_style import PRODUCT_TYPOGRAPHY
-from plotagent.engine.visual_t1 import effective_visual_actions, resolve_canvas_inches
+from plotagent.engine.visual_t1 import (
+    K09_VISUAL_CHART_PARAMETERS,
+    effective_visual_actions,
+    product_default_visual_actions,
+    resolve_canvas_inches,
+    resolve_k09_grouped_column_style,
+)
 
 from .font import contains_cjk_text
 
@@ -140,15 +147,13 @@ def apply_visual_actions(
     *,
     resolved_font_family: str | None = None,
 ) -> None:
-    effective = effective_visual_actions(actions)
+    effective = effective_visual_actions((*product_default_visual_actions(document), *actions))
+    if document.profile_id == "K09":
+        _apply_k09_grouped_column_style(figure, document, effective)
     # Reference lines must see the final axis state so their native objects
     # span the same data ranges in both backends regardless of action order.
     ordered = (
-        *(
-            action
-            for action in effective
-            if not isinstance(action, (AddReferenceLine, AddCallout))
-        ),
+        *(action for action in effective if not isinstance(action, (AddReferenceLine, AddCallout))),
         *(action for action in effective if isinstance(action, AddReferenceLine)),
         *(action for action in effective if isinstance(action, AddCallout)),
     )
@@ -173,11 +178,16 @@ def apply_visual_actions(
         elif isinstance(action, SetDataLabels):
             _apply_data_labels(figure, action)
         elif isinstance(action, SetCanvas):
-            current_width, current_height = (
-                float(value) for value in figure.get_size_inches()
-            )
+            current_width, current_height = (float(value) for value in figure.get_size_inches())
             width, height = resolve_canvas_inches(current_width, current_height, action)
             figure.set_size_inches(width, height, forward=True)
+        elif (
+            isinstance(action, SetChartParameter)
+            and action.parameter in K09_VISUAL_CHART_PARAMETERS
+        ):
+            # Resolved together above because each gap affects the same native
+            # bar geometry and must use the final value of both parameters.
+            continue
         elif isinstance(action, AddAnnotation):
             _apply_annotation(figure, action)
         elif isinstance(action, AddReferenceLine):
@@ -194,6 +204,41 @@ def apply_visual_actions(
         for text in figure.findobj(match=Text):
             if contains_cjk_text(text.get_text()):
                 text.set_fontfamily(resolved_font_family)
+
+
+def _apply_k09_grouped_column_style(
+    figure: Figure,
+    document: PlotDocument,
+    actions: tuple[PlotEngineAction, ...],
+) -> None:
+    style = resolve_k09_grouped_column_style(document, actions)
+    axes = _data_axes(figure)
+    if len(axes) != 1:
+        raise RuntimeError("K09 Matplotlib output must contain exactly one data axis")
+    containers = tuple(
+        container for container in axes[0].containers if isinstance(container, BarContainer)
+    )
+    if not containers:
+        raise RuntimeError("K09 Matplotlib output contains no native bar containers")
+    category_count = len(containers[0].patches)
+    if category_count < 1 or any(
+        len(container.patches) != category_count for container in containers
+    ):
+        raise RuntimeError("K09 Matplotlib bar containers do not share one category grid")
+
+    series_count = len(containers)
+    slot_width = (1.0 - style.between_group_gap_percent / 100.0) / series_count
+    bar_width = slot_width / (1.0 + style.within_group_gap_percent / 100.0)
+    edge_color = style.border_color if style.bar_border_visible else "none"
+    edge_width = style.border_width_pt if style.bar_border_visible else 0.0
+    for series_index, container in enumerate(containers):
+        offset = (series_index - (series_count - 1) / 2.0) * slot_width
+        for category_index, patch in enumerate(container.patches):
+            center = float(category_index) + offset
+            patch.set_x(center - bar_width / 2.0)
+            patch.set_width(bar_width)
+            patch.set_edgecolor(edge_color)
+            patch.set_linewidth(edge_width)
 
 
 def _data_axes(figure: Figure) -> list[Axes]:
@@ -506,6 +551,32 @@ def _series_style_artists(
             action.fill_stroke_style,
         )
     )
+    semantic_candidates = [
+        artist
+        for artist in candidates
+        if getattr(artist, "_plotagent_semantic_target", None) == target
+    ]
+    if semantic_candidates:
+        selected_semantic: list[Any] = []
+        if requested_line:
+            selected_semantic.extend(
+                artist
+                for artist in semantic_candidates
+                if isinstance(artist, (Line2D, LineCollection, Patch, PolyCollection))
+            )
+        if requested_marker:
+            selected_semantic.extend(
+                artist
+                for artist in semantic_candidates
+                if isinstance(artist, (Line2D, PathCollection))
+            )
+        if requested_fill:
+            selected_semantic.extend(
+                artist
+                for artist in semantic_candidates
+                if isinstance(artist, (BarContainer, Patch, PolyCollection))
+            )
+        return list(dict.fromkeys(selected_semantic or semantic_candidates))
     selected: list[Any] = []
     if requested_line:
         line_candidates = [
@@ -633,9 +704,7 @@ def _set_line(artist: Any, action: SetSeriesStyle) -> None:
             edges = mcolors.to_rgba_array(artist.get_edgecolor())
             if len(edges):
                 edges[:, 3] = action.line_opacity
-                cast(Any, artist).set_edgecolor(
-                    edges[0] if isinstance(artist, Patch) else edges
-                )
+                cast(Any, artist).set_edgecolor(edges[0] if isinstance(artist, Patch) else edges)
         else:
             artist.set_alpha(action.line_opacity)
 
@@ -666,9 +735,20 @@ def _apply_series(figure: Figure, action: SetSeriesStyle) -> None:
     artists = _series_style_artists(figure, action.target, action)
     key = _target_key(action.target)
     if action.visible is not None and key in {"primary", "left", "right", "cumulative"}:
-        axes = _data_axes(figure)
-        selected_axis = axes[-1] if key in {"right", "cumulative"} and len(axes) > 1 else axes[0]
-        artists = _axis_artists(selected_axis)
+        semantic_artists = [
+            artist
+            for axis in _data_axes(figure)
+            for artist in _axis_artists(axis)
+            if getattr(artist, "_plotagent_semantic_target", None) == action.target
+        ]
+        if semantic_artists:
+            artists = semantic_artists
+        else:
+            axes = _data_axes(figure)
+            selected_axis = (
+                axes[-1] if key in {"right", "cumulative"} and len(axes) > 1 else axes[0]
+            )
+            artists = _axis_artists(selected_axis)
     for artist in artists:
         for primitive in _iter_primitives(artist):
             if action.visible is not None:
@@ -680,9 +760,7 @@ def _apply_series(figure: Figure, action: SetSeriesStyle) -> None:
 
 def _apply_legend(figure: Figure, action: SetLegend) -> None:
     axes = _data_axes(figure)
-    existing_legends = tuple(
-        legend for axis in axes if (legend := axis.get_legend()) is not None
-    )
+    existing_legends = tuple(legend for axis in axes if (legend := axis.get_legend()) is not None)
     visible = bool(existing_legends) if action.visible is None else action.visible
     if not visible or action.anchor == "none":
         for legend in existing_legends:
@@ -699,9 +777,7 @@ def _apply_legend(figure: Figure, action: SetLegend) -> None:
         axis_handles, axis_labels = axis.get_legend_handles_labels()
         existing = axis.get_legend()
         if not axis_handles and existing is not None:
-            axis_handles = [
-                handle for handle in existing.legend_handles if handle is not None
-            ]
+            axis_handles = [handle for handle in existing.legend_handles if handle is not None]
             axis_labels = [text.get_text() for text in existing.get_texts()]
         for handle, label in zip(axis_handles, axis_labels, strict=True):
             if label not in labels:
@@ -869,12 +945,32 @@ def _apply_error(figure: Figure, action: SetErrorStyle) -> None:
         for collection in axis.collections:
             if not isinstance(collection, PolyCollection):
                 continue
-            if action.band_fill_color is not None:
-                collection.set_facecolor(action.band_fill_color)
-            if action.band_fill_opacity is not None:
-                collection.set_alpha(action.band_fill_opacity)
+            if action.band_fill_color is not None or action.band_fill_opacity is not None:
+                facecolors = collection.get_facecolors()
+                current_face = (
+                    tuple(float(value) for value in facecolors[0])
+                    if len(facecolors)
+                    else mcolors.to_rgba("none")
+                )
+                inherited_alpha = collection.get_alpha()
+                fill_alpha = (
+                    action.band_fill_opacity
+                    if action.band_fill_opacity is not None
+                    else (
+                        float(inherited_alpha)
+                        if inherited_alpha is not None
+                        else current_face[3]
+                    )
+                )
+                fill_color = action.band_fill_color or current_face[:3]
+                # ``Collection.set_alpha`` overrides both face and edge alpha.
+                # The public contract exposes fill opacity separately from the
+                # band stroke, so persist alpha on the face RGBA only and let
+                # the explicit boundary remain opaque.
+                collection.set_alpha(None)
+                collection.set_facecolor(mcolors.to_rgba(fill_color, fill_alpha))
             if action.band_stroke_color is not None:
-                collection.set_edgecolor(action.band_stroke_color)
+                collection.set_edgecolor(mcolors.to_rgba(action.band_stroke_color, 1.0))
             if action.band_stroke_width_pt is not None:
                 collection.set_linewidth(action.band_stroke_width_pt)
 
@@ -905,9 +1001,7 @@ def _apply_data_labels(figure: Figure, action: SetDataLabels) -> None:
         points = [(float(row[0]), float(row[1]), float(row[1])) for row in line_points]
     elif isinstance(artist, PathCollection):
         collection_points: Any = artist.get_offsets()
-        points = [
-            (float(row[0]), float(row[1]), float(row[1])) for row in collection_points
-        ]
+        points = [(float(row[0]), float(row[1]), float(row[1])) for row in collection_points]
     elif isinstance(artist, BarContainer):
         points = [
             (

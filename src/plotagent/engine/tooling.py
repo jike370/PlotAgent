@@ -60,6 +60,24 @@ class EngineActionCodec:
                     {
                         "operation": capability.operation,
                         "parameters": capability.parameters,
+                        **(
+                            {
+                                "target_parameters": tuple(
+                                    {
+                                        "object_kind": rule.object_kind,
+                                        **(
+                                            {"object_key": rule.object_key}
+                                            if rule.object_key is not None
+                                            else {"object_key_prefix": rule.object_key_prefix}
+                                        ),
+                                        "parameters": rule.parameters,
+                                    }
+                                    for rule in capability.target_parameters
+                                )
+                            }
+                            if capability.target_parameters
+                            else {}
+                        ),
                     }
                     for capability in profile.capabilities
                 ),

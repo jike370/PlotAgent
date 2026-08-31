@@ -15,6 +15,7 @@ from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter, LogLocator
 
 import plotagent.engine.backends.origin.visual_t1 as origin_visual_t1
+from plotagent.engine import EngineCatalog
 from plotagent.engine.backends.matplotlib.visual_t1 import (
     apply_visual_actions,
     apply_visuals_before_save,
@@ -24,6 +25,7 @@ from plotagent.engine.backends.origin.visual_t1 import (
     _ORIGIN_FOUR_SIDED_FRAME_PROFILES,
     _apply_action,
     _apply_callouts,
+    _apply_k01_physical_axis_sides,
     _apply_k09_subset_fill_colors,
     _apply_origin_product_frame,
     _apply_origin_product_typography,
@@ -37,9 +39,11 @@ from plotagent.engine.backends.origin.visual_t1 import (
     _k09_requested_x_tick_font_size,
     _legend_column_count,
     _origin_legend_anchor,
+    _origin_colormap_flip,
     _series_numeric_tolerance,
     _updated_tick_bits,
     _verify_actions,
+    _verify_k01_physical_axis_sides,
     _verify_k09_subset_fill_color,
     _verify_origin_product_frame,
     _verify_origin_product_opposite_axes,
@@ -71,6 +75,7 @@ from plotagent.engine.profiles import ENGINE_PROFILES
 from plotagent.engine.repository import document_ref
 from plotagent.engine.visual_t1 import (
     effective_visual_actions,
+    product_default_visual_actions,
     split_visual_actions,
     visual_style_hash,
 )
@@ -96,8 +101,14 @@ class _OriginFrameLayer:
         self.properties = {
             "x.showLabels": 3,
             "y.showLabels": 3,
+            "x2.showlabel": 1,
+            "y2.showlabel": 1,
             "x2.ticks": 10,
             "y2.ticks": 10,
+        }
+        self.labels = {
+            "xt": _OriginFrameLabel(),
+            "yr": _OriginFrameLabel(),
         }
 
     def index(self) -> int:
@@ -109,8 +120,69 @@ class _OriginFrameLayer:
     def set_int(self, name: str, value: int) -> None:
         self.properties[name] = value
 
+    def label(self, name: str) -> _OriginFrameLabel | None:
+        return self.labels.get(name)
+
+
+class _OriginFrameLabel:
+    def __init__(self) -> None:
+        self.properties = {"show": 1}
+
+    def get_int(self, name: str) -> int:
+        return self.properties[name]
+
+    def set_int(self, name: str, value: int) -> None:
+        self.properties[name] = value
+
 
 class _OriginFrameGraph(list[_OriginFrameLayer]):
+    name = "Graph_1"
+
+
+class _OriginPositionAxis:
+    def __init__(self, limits: tuple[float, float, float]) -> None:
+        self.limits = limits
+
+
+class _OriginPositionLayer:
+    def __init__(
+        self,
+        *,
+        x_limits: tuple[float, float, float],
+        y_limits: tuple[float, float, float],
+        x_reverse: int,
+        y_reverse: int,
+    ) -> None:
+        self._index = 0
+        self.axes = {
+            "x": _OriginPositionAxis(x_limits),
+            "y": _OriginPositionAxis(y_limits),
+        }
+        self.properties: dict[str, float | int] = {
+            "x.reverse": x_reverse,
+            "y.reverse": y_reverse,
+        }
+
+    def index(self) -> int:
+        return self._index
+
+    def axis(self, name: str) -> _OriginPositionAxis:
+        return self.axes[name]
+
+    def get_int(self, name: str) -> int:
+        return int(self.properties[name])
+
+    def set_int(self, name: str, value: int) -> None:
+        self.properties[name] = value
+
+    def get_float(self, name: str) -> float:
+        return float(self.properties[name])
+
+    def set_float(self, name: str, value: float) -> None:
+        self.properties[name] = value
+
+
+class _OriginPositionGraph(list[_OriginPositionLayer]):
     name = "Graph_1"
 
 
@@ -178,9 +250,10 @@ class _OriginSeriesGraph(list[_OriginSeriesLayer]):
 
 
 class _OriginSeriesOp:
-    def __init__(self, *, plot_pid: int = 200) -> None:
+    def __init__(self, *, plot_pid: int = 200, plot_count: int = 2) -> None:
         self.commands: list[str] = []
         self.plot_pid = plot_pid
+        self.plot_count = plot_count
 
     def lt_exec(self, command: str) -> bool:
         self.commands.append(command)
@@ -188,9 +261,11 @@ class _OriginSeriesOp:
 
     def lt_float(self, expression: str) -> float:
         if expression == "__PAT1COUNT":
-            return 2
+            return float(self.plot_count)
         if expression == "__PAT1VALUE":
             return float(self.plot_pid)
+        if expression.startswith('color("#'):
+            return float(int(expression.split('"', 2)[1][1:], 16))
         raise AssertionError(f"unexpected LabTalk expression {expression}")
 
 
@@ -301,11 +376,7 @@ class _OriginReferenceOp:
             return True
         values = {
             key: value.rstrip(";")
-            for key, value in (
-                token.split(":=", 1)
-                for token in command.split()
-                if ":=" in token
-            )
+            for key, value in (token.split(":=", 1) for token in command.split() if ":=" in token)
         }
         line = _OriginReferenceObject(self.layer, name=values["name"])
         line.set_int("attach", 2)
@@ -355,7 +426,7 @@ class _K09SubsetOrigin:
             return float(self.enabled)
         if expression == "__PAT1K09START":
             return float(self.start)
-        if expression.startswith("color(\""):
+        if expression.startswith('color("'):
             return float(int(expression.split('"', 2)[1][1:], 16))
         if "[" in expression and expression.endswith("]"):
             variable, ordinal = expression[:-1].split("[", 1)
@@ -417,6 +488,122 @@ def test_visual_actions_are_split_from_structural_actions_and_hashed() -> None:
     assert visual == (title,)
     assert visual_style_hash(readback, visual) == visual_style_hash(readback, visual)
     assert visual_style_hash(readback, ()) != visual_style_hash(readback, visual)
+
+
+def test_k06_product_defaults_are_shared_and_explicit_edits_win() -> None:
+    document = _document().model_copy(update={"profile_id": "K06"})
+    defaults = product_default_visual_actions(document)
+
+    assert [action.operation for action in defaults] == [
+        "set_series_style",
+        "set_error_style",
+        "set_legend",
+    ]
+    series = defaults[0]
+    errors = defaults[1]
+    legend = defaults[2]
+    assert isinstance(series, SetSeriesStyle)
+    assert series.marker_shape == "circle"
+    assert series.marker_fill_color == "#1676D2"
+    assert isinstance(errors, SetErrorStyle)
+    assert errors.bar_color == "#1676D2"
+    assert errors.bar_width_pt == 1.25
+    assert errors.cap_size_pt == 4.0
+    assert isinstance(legend, SetLegend)
+    assert legend.visible is False
+
+    explicit = SetSeriesStyle(
+        action_id="action:k06-explicit-marker",
+        target=series.target,
+        expected_plot_version=1,
+        marker_shape="diamond",
+    )
+    effective = effective_visual_actions((*defaults, explicit))
+    merged = next(action for action in effective if isinstance(action, SetSeriesStyle))
+    assert merged.action_id == explicit.action_id
+    assert merged.marker_shape == "diamond"
+    assert merged.marker_fill_color == "#1676D2"
+
+
+def test_k07_product_defaults_define_one_line_and_ribbon_contract() -> None:
+    document = _document().model_copy(update={"profile_id": "K07"})
+    defaults = product_default_visual_actions(document)
+
+    assert [action.operation for action in defaults] == [
+        "set_series_style",
+        "set_error_style",
+        "set_legend",
+    ]
+    series, band, legend = defaults
+    assert isinstance(series, SetSeriesStyle)
+    assert series.line_stroke_color == "#1676D2"
+    assert series.line_width_pt == 1.5
+    assert series.line_style == "solid"
+    assert isinstance(band, SetErrorStyle)
+    assert band.band_fill_color == "#1676D2"
+    assert band.band_fill_opacity == 0.25
+    assert band.band_stroke_width_pt == 1.0
+    assert isinstance(legend, SetLegend)
+    assert legend.visible is False
+
+
+def test_k22_product_defaults_define_visible_cross_backend_contract() -> None:
+    document = _document().model_copy(update={"profile_id": "K22"})
+    defaults = product_default_visual_actions(document)
+
+    assert len(defaults) == 1
+    colormap = defaults[0]
+    assert isinstance(colormap, SetColorMap)
+    assert colormap.target == "series:t1.matrix"
+    assert colormap.palette == "viridis"
+    assert colormap.reverse is False
+    assert colormap.colorbar_visible is True
+    assert colormap.colorbar_anchor == "right"
+    assert colormap.colorbar_tick_format == "auto"
+
+
+def test_k22_origin_colormap_direction_is_profile_scoped() -> None:
+    assert _origin_colormap_flip("K22", "magma", True) == 0
+    assert _origin_colormap_flip("K22", "magma", False) == 1
+    assert _origin_colormap_flip("K20", "magma", True) == 1
+    assert _origin_colormap_flip("K20", "blue_white_red", True) == 0
+
+
+def test_x40_product_defaults_are_paper_backed_and_target_scoped() -> None:
+    document = _document().model_copy(update={"profile_id": "X40"})
+    defaults = product_default_visual_actions(document)
+
+    assert [action.operation for action in defaults] == [
+        "set_series_style",
+        "set_series_style",
+        "set_series_style",
+        "set_axis",
+        "set_axis",
+        "set_legend",
+    ]
+    before, after, connector, x_axis, y_axis, legend = defaults
+    assert isinstance(before, SetSeriesStyle)
+    assert before.target == "series:t1.column_1"
+    assert before.marker_shape == "square"
+    assert before.marker_fill_color == "#BDBDBD"
+    assert isinstance(after, SetSeriesStyle)
+    assert after.target == "series:t1.column_2"
+    assert after.marker_shape == "circle"
+    assert after.marker_fill_color == "#D95B67"
+    assert isinstance(connector, SetSeriesStyle)
+    assert connector.target == "series:t1.connector"
+    assert connector.line_stroke_color == "#000000"
+    assert connector.line_width_pt == 1.0
+    assert isinstance(x_axis, SetAxis)
+    assert x_axis.axis_title_visible is False
+    assert isinstance(y_axis, SetAxis)
+    assert y_axis.label == "Value"
+    assert isinstance(legend, SetLegend)
+    assert legend.visible is False
+    catalog = EngineCatalog(ENGINE_PROFILES)
+    profile = catalog.get("X40")
+    for action in defaults:
+        catalog.validate_action(profile, action)
 
 
 def test_rebinding_discards_only_data_derived_visual_edits() -> None:
@@ -766,10 +953,7 @@ def test_origin_product_frame_boxes_only_eligible_cartesian_profiles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     graph = _OriginFrameGraph((_OriginFrameLayer(0),))
-    template_frame = {
-        (1, axis_code): axis_code in {0, 1}
-        for axis_code in (0, 1, 2, 3)
-    }
+    template_frame = {(1, axis_code): axis_code in {0, 1} for axis_code in (0, 1, 2, 3)}
     writes: list[tuple[int, int, bool]] = []
     monkeypatch.setattr(
         origin_visual_t1,
@@ -779,18 +963,20 @@ def test_origin_product_frame_boxes_only_eligible_cartesian_profiles(
         ),
     )
 
-    product_frame = _apply_origin_product_frame(
-        object(), graph, "K03", template_frame
-    )
+    product_frame = _apply_origin_product_frame(object(), graph, "K03", template_frame)
 
     assert all(product_frame.values())
     assert writes == [(1, 2, True), (1, 3, True)]
     assert graph[0].properties == {
         "x.showLabels": 1,
         "y.showLabels": 1,
+        "x2.showlabel": 0,
+        "y2.showlabel": 0,
         "x2.ticks": 0,
         "y2.ticks": 0,
     }
+    assert graph[0].labels["xt"].get_int("show") == 0
+    assert graph[0].labels["yr"].get_int("show") == 0
 
 
 def test_origin_product_frame_verifies_clean_top_and_right_sides() -> None:
@@ -799,19 +985,74 @@ def test_origin_product_frame_verifies_clean_top_and_right_sides() -> None:
         {
             "x.showLabels": 1,
             "y.showLabels": 1,
+            "x2.showlabel": 0,
+            "y2.showlabel": 0,
             "x2.ticks": 0,
             "y2.ticks": 0,
         }
     )
+    graph[0].labels["xt"].set_int("show", 0)
+    graph[0].labels["yr"].set_int("show", 0)
 
     snapshot = _verify_origin_product_opposite_axes(graph, "K03")
 
     assert snapshot == {
         "top.ticks": 0,
         "top.labels": False,
+        "top.direct_labels": False,
+        "top.title": False,
         "right.ticks": 0,
         "right.labels": False,
+        "right.direct_labels": False,
+        "right.title": False,
     }
+
+
+def test_origin_k01_anchors_primary_axes_to_physical_left_and_bottom() -> None:
+    layer = _OriginPositionLayer(
+        x_limits=(-100.0, 1500.0, 200.0),
+        y_limits=(-10000.0, 100000.0, 20000.0),
+        x_reverse=1,
+        y_reverse=0,
+    )
+    graph = _OriginPositionGraph((layer,))
+
+    applied = _apply_k01_physical_axis_sides(graph, "K01")
+    reopened = _verify_k01_physical_axis_sides(graph, "K01")
+
+    assert applied == {
+        "x_reverse": 1,
+        "y_reverse": 0,
+        "y_position": 1500.0,
+        "x_position": -10000.0,
+    }
+    assert reopened == {
+        "x_reverse": 1,
+        "y_reverse": 0,
+        "x_postype": 2,
+        "y_postype": 2,
+        "x_position": -10000.0,
+        "y_position": 1500.0,
+    }
+
+    layer.properties["y.reverse"] = 1
+    _apply_k01_physical_axis_sides(graph, "K01")
+    assert layer.properties["x.position"] == 100000.0
+
+
+def test_origin_k01_rejects_fresh_reopen_axis_position_drift() -> None:
+    layer = _OriginPositionLayer(
+        x_limits=(-100.0, 1500.0, 200.0),
+        y_limits=(-10000.0, 100000.0, 20000.0),
+        x_reverse=1,
+        y_reverse=0,
+    )
+    graph = _OriginPositionGraph((layer,))
+    _apply_k01_physical_axis_sides(graph, "K01")
+    layer.properties["y.position"] = -100.0
+
+    with pytest.raises(RuntimeError, match="physical left axis"):
+        _verify_k01_physical_axis_sides(graph, "K01")
 
 
 @pytest.mark.parametrize(
@@ -833,11 +1074,15 @@ def test_origin_product_frame_rejects_opposite_ticks_or_labels(
         {
             "x.showLabels": 1,
             "y.showLabels": 1,
+            "x2.showlabel": 0,
+            "y2.showlabel": 0,
             "x2.ticks": 0,
             "y2.ticks": 0,
             property_name: value,
         }
     )
+    graph[0].labels["xt"].set_int("show", 0)
+    graph[0].labels["yr"].set_int("show", 0)
 
     with pytest.raises(RuntimeError, match=f"side={side}"):
         _verify_origin_product_opposite_axes(graph, "K03")
@@ -896,9 +1141,7 @@ def test_origin_product_frame_preserves_special_template_topology(
         lambda *_args: pytest.fail("special templates must not be normalized"),
     )
 
-    product_frame = _apply_origin_product_frame(
-        object(), graph, profile_id, template_frame
-    )
+    product_frame = _apply_origin_product_frame(object(), graph, profile_id, template_frame)
 
     assert product_frame == template_frame
 
@@ -926,9 +1169,7 @@ def test_origin_product_frame_fresh_readback_respects_explicit_axis_override(
         for layer_index in (1, 2)
         for axis_code in (0, 1, 2, 3)
     }
-    snapshot = _verify_origin_product_frame(
-        object(), graph, (action,), product_frame
-    )
+    snapshot = _verify_origin_product_frame(object(), graph, (action,), product_frame)
 
     assert snapshot["layer:1.bottom"] is True
     assert snapshot["layer:1.top"] is False
@@ -936,9 +1177,7 @@ def test_origin_product_frame_fresh_readback_respects_explicit_axis_override(
 
 
 def test_origin_dual_y_axis_colors_target_distinct_official_layers() -> None:
-    graph = _OriginDualAxisGraph(
-        (_OriginDualAxisLayer(0), _OriginDualAxisLayer(1))
-    )
+    graph = _OriginDualAxisGraph((_OriginDualAxisLayer(0), _OriginDualAxisLayer(1)))
     document = _document().model_copy(update={"profile_id": "X35"})
     left = SetAxis(
         action_id="action:x35-left-axis-color",
@@ -951,6 +1190,7 @@ def test_origin_dual_y_axis_colors_target_distinct_official_layers() -> None:
         target="axis:t1.y_right",
         expected_plot_version=2,
         axis_line_color="#E07A00",
+        tick_color="#FF00AA",
     )
 
     _apply_action(_OriginColorOp(), graph, document, left)
@@ -959,7 +1199,10 @@ def test_origin_dual_y_axis_colors_target_distinct_official_layers() -> None:
 
     _apply_action(_OriginColorOp(), graph, document, right)
     assert graph[0].properties == {"y.color": int("1676D2", 16)}
-    assert graph[1].properties == {"y.color": int("E07A00", 16)}
+    assert graph[1].properties == {
+        "y2.color": int("E07A00", 16),
+        "y2.label.color": int("FF00AA", 16),
+    }
 
 
 def test_origin_product_frame_fails_when_an_unedited_side_does_not_persist(
@@ -972,9 +1215,7 @@ def test_origin_product_frame_fails_when_an_unedited_side_does_not_persist(
         lambda _op, _graph_name, _layer_index, axis_code: int(axis_code != 2),
     )
 
-    product_frame = {
-        (1, axis_code): True for axis_code in (0, 1, 2, 3)
-    }
+    product_frame = {(1, axis_code): True for axis_code in (0, 1, 2, 3)}
     with pytest.raises(RuntimeError, match="side=top"):
         _verify_origin_product_frame(object(), graph, (), product_frame)
 
@@ -1002,12 +1243,106 @@ def test_origin_series_edit_ungroups_multi_plot_layer_before_visible_style() -> 
         if 'set __PAT1P -cl color("#FF0000")' in command
     )
     width = next(
-        index
-        for index, command in enumerate(origin.commands)
-        if "set __PAT1P -wp 2" in command
+        index for index, command in enumerate(origin.commands) if "set __PAT1P -wp 2" in command
     )
     assert ungroup < color < width
     assert any("range __PAT1P=[Graph_1]1!2" in command for command in origin.commands)
+
+
+def test_origin_x09_primary_styles_native_group_and_hides_only_visible_intervals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp(plot_pid=207, plot_count=3)
+    native_fill_calls: list[tuple[str, int, int]] = []
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_x09_group_fill_color",
+        lambda _op, graph_name, layer_index, fill_color: native_fill_calls.append(
+            (graph_name, layer_index, fill_color)
+        ),
+    )
+
+    _apply_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id="action:x09-compound-fill",
+            target="series:x09-native.primary",
+            expected_plot_version=1,
+            visible=True,
+            fill_color="#4C9ED9",
+            fill_stroke_color="#7A1F5C",
+        ),
+        profile_id="X09",
+    )
+
+    ranges = [command for command in origin.commands if command.startswith("range __PAT1P=")]
+    assert ranges
+    assert all("[Graph_1]1!1" in command for command in ranges)
+    assert "layer -gu;" not in origin.commands
+    assert "layer.plot2.show=1;" in origin.commands
+    assert "layer.plot3.show=1;" in origin.commands
+    assert "layer.plot1.show=1;" not in origin.commands
+    assert native_fill_calls == [("Graph_1", 1, 5021401)]
+    assert sum('set __PAT1P -pbc color("#7A1F5C")' in item for item in origin.commands) == 1
+
+
+def test_origin_k07_primary_materializes_line_and_hides_template_symbol() -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp(plot_pid=201, plot_count=3)
+
+    _apply_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id="action:k07-center-line",
+            target="series:k07-native.primary",
+            expected_plot_version=1,
+            line_stroke_color="#5B2A86",
+            line_width_pt=2.0,
+            line_style="dash",
+            line_opacity=0.7,
+        ),
+        profile_id="K07",
+    )
+
+    assert "layer -gu;" not in origin.commands
+    assert any("range __PAT1P=[Graph_1]1!1" in command for command in origin.commands)
+    assert "set __PAT1P -l 1;" in origin.commands
+    assert "set __PAT1P -z 0;" in origin.commands
+    assert 'set __PAT1P -cl color("#5B2A86");' in origin.commands
+    assert "set __PAT1P -wp 2;" in origin.commands
+    assert "set __PAT1P -d 1;" in origin.commands
+    assert "layer.plot1.transparency=30;" in origin.commands
+
+
+def test_origin_x09_primary_verifier_checks_every_visible_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _OriginSeriesGraph((_OriginSeriesLayer(),))
+    origin = _OriginSeriesOp(plot_pid=207, plot_count=3)
+    calls: list[str] = []
+
+    def _compound(_op, _graph, _layer, _action):
+        calls.append("compound")
+        return {"visible_interval_plots": [2, 3]}
+
+    monkeypatch.setattr(origin_visual_t1, "_verify_x09_primary_series", _compound)
+    snapshot = origin_visual_t1._verify_series(
+        origin,
+        graph,
+        SetSeriesStyle(
+            action_id="action:x09-verify-compound",
+            target="series:x09-native.primary",
+            expected_plot_version=1,
+            fill_color="#4C9ED9",
+        ),
+        profile_id="X09",
+    )
+
+    assert calls == ["compound"]
+    assert snapshot == {"visible_interval_plots": [2, 3]}
 
 
 @pytest.mark.parametrize("interior", ("open", "hollow"))
@@ -1029,12 +1364,8 @@ def test_origin_non_solid_marker_interior_overrides_requested_fill(interior: str
     )
 
     assert any("set __PAT1P -kf 1" in command for command in origin.commands)
-    assert any(
-        'set __PAT1P -csf color("#FFFFFF")' in command for command in origin.commands
-    )
-    assert not any(
-        'set __PAT1P -csf color("#000000")' in command for command in origin.commands
-    )
+    assert any('set __PAT1P -csf color("#FFFFFF")' in command for command in origin.commands)
+    assert not any('set __PAT1P -csf color("#000000")' in command for command in origin.commands)
 
 
 def test_origin_line_symbol_color_cascades_to_unoverridden_marker_colors() -> None:
@@ -1071,13 +1402,24 @@ def test_origin_k09_subset_fill_edit_preserves_unedited_native_subsets() -> None
     handled = _apply_k09_subset_fill_colors(origin, graph, document, (action,))
 
     assert handled == frozenset({action.action_id})
-    assert origin.datasets["__PAT1K09COLORS"] == [2, 0xFF0000, 4]
+    assert origin.datasets["__PAT1K09COLORS"] == [0x1676D2, 0xFF0000, 0x299764]
     assert _verify_k09_subset_fill_color(origin, graph, action) == {
         "subset": 2,
         "fill_color": 0xFF0000,
         "custom_increment_list": True,
     }
     assert not any("[Graph_1]1!2" in command for command in origin.commands)
+
+
+def test_origin_k09_zero_edit_materializes_the_shared_product_palette() -> None:
+    graph = _K09SubsetGraph((_K09SubsetLayer(),))
+    origin = _K09SubsetOrigin()
+    document = _document().model_copy(update={"profile_id": "K09"})
+
+    handled = _apply_k09_subset_fill_colors(origin, graph, document, ())
+
+    assert handled == frozenset()
+    assert origin.datasets["__PAT1K09COLORS"] == [0x1676D2, 0xD97800, 0x299764]
 
 
 def test_origin_k09_rejects_unverified_per_subset_border_edit() -> None:
@@ -1094,17 +1436,111 @@ def test_origin_k09_rejects_unverified_per_subset_border_edit() -> None:
         _apply_k09_subset_fill_colors(_K09SubsetOrigin(), graph, document, (action,))
 
 
+def test_origin_x40_styles_native_group_without_ungrouping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    graph = _K09SubsetGraph((_K09SubsetLayer(),))
+    origin = _K09SubsetOrigin()
+    document = _document().model_copy(update={"profile_id": "X40"})
+    initial = origin_visual_t1.X40GroupStyleState(
+        group_count=2,
+        subgroup_size=2,
+        marker_shapes=(2, 2),
+        marker_sizes=(9.0, 9.0),
+        marker_interiors=(0, 0),
+        marker_edge_colors=(0x1676D2, 0xD97800),
+        marker_fill_colors=(0x1676D2, 0xD97800),
+        connector_visible=True,
+        connector_style=0,
+        connector_width=1.0,
+        connector_color=0,
+        connector_by_subgroup=1,
+    )
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(origin_visual_t1, "read_x40_group_style", lambda *_: initial)
+    monkeypatch.setattr(
+        origin_visual_t1,
+        "set_x40_group_style",
+        lambda *args, **kwargs: captured.update(kwargs),
+    )
+    actions = (
+        SetSeriesStyle(
+            action_id="action:x40-before",
+            target="series:t1.column_1",
+            expected_plot_version=1,
+            marker_shape="square",
+            marker_size_pt=6,
+            marker_interior="solid",
+            marker_fill_color="#777777",
+            marker_stroke_color="#777777",
+        ),
+        SetSeriesStyle(
+            action_id="action:x40-after",
+            target="series:t1.column_2",
+            expected_plot_version=1,
+            marker_shape="circle",
+            marker_size_pt=6,
+            marker_interior="open",
+            marker_fill_color="#FF0000",
+            marker_stroke_color="#FF0000",
+        ),
+        SetSeriesStyle(
+            action_id="action:x40-connectors",
+            target="series:t1.connector",
+            expected_plot_version=1,
+            visible=True,
+            line_stroke_color="#000000",
+            line_width_pt=1,
+            line_style="solid",
+        ),
+    )
+
+    handled = origin_visual_t1._apply_x40_group_style(
+        origin,
+        graph,
+        document,
+        actions,
+    )
+
+    assert handled == frozenset(action.action_id for action in actions)
+    assert captured == {
+        "marker_shapes": (1, 2),
+        "marker_sizes": (6.0, 6.0),
+        "marker_interiors": (0, 1),
+        "marker_edge_colors": (0x777777, 0xFF0000),
+        "marker_fill_colors": (0x777777, 0xFFFFFF),
+        "connector_visible": True,
+        "connector_style": 0,
+        "connector_width": 1.0,
+        "connector_color": 0,
+    }
+    assert "layer -gu;" not in origin.commands
+
+
+def test_origin_x40_rejects_line_style_on_group_member() -> None:
+    action = SetSeriesStyle(
+        action_id="action:x40-invalid-member-line",
+        target="series:t1.column_1",
+        expected_plot_version=1,
+        line_stroke_color="#FF0000",
+    )
+
+    with pytest.raises(ValueError, match="column_1 does not support line_stroke_color"):
+        origin_visual_t1._x40_style_action(action)
+
+
 def test_origin_k09_reads_horizontal_legend_columns_from_native_subset_samples() -> None:
     text = (
-        "\\l(1,m1,2) Absorption energy"
-        "\\l(1,m2,2) Defect formation energy"
-        "\\l(1,m3,2) Energy barrier"
+        "\\l(1,m1,2) Absorption energy\\l(1,m2,2) Defect formation energy\\l(1,m3,2) Energy barrier"
     )
 
     assert _k09_legend_column_count(text) == 3
-    assert _k09_legend_column_count(text.replace("\\l(1,m2,2)", "\n\\l(1,m2,2)").replace(
-        "\\l(1,m3,2)", "\n\\l(1,m3,2)"
-    )) == 1
+    assert (
+        _k09_legend_column_count(
+            text.replace("\\l(1,m2,2)", "\n\\l(1,m2,2)").replace("\\l(1,m3,2)", "\n\\l(1,m3,2)")
+        )
+        == 1
+    )
 
     custom_blocks = (
         "\\L(1, PatternFill:#5B7DB6 BorderColor:#5B7DB6 Width:40 Height:50)\\sc A"
@@ -1299,9 +1735,7 @@ def test_origin_legend_anchor_respects_layer_relative_inside_positions(
     legend = type(
         "LegendLabel",
         (),
-        {
-            "get_float": lambda _self, name: {"width": 600.0, "height": 300.0}[name]
-        },
+        {"get_float": lambda _self, name: {"width": 600.0, "height": 300.0}[name]},
     )()
 
     observed = _origin_legend_anchor(graph, layer, legend, anchor)
@@ -1513,9 +1947,7 @@ def test_matplotlib_canvas_action_changes_the_output_page_not_data_axes() -> Non
         ),
     )
 
-    assert tuple(float(value) for value in figure.get_size_inches()) == pytest.approx(
-        (12.0, 4.8)
-    )
+    assert tuple(float(value) for value in figure.get_size_inches()) == pytest.approx((12.0, 4.8))
     assert (axis.get_xlim(), axis.get_ylim()) == limits_before
     plt.close(figure)
 
@@ -1563,9 +1995,7 @@ def test_matplotlib_reference_lines_use_target_axis_data_coordinates() -> None:
     assert x_line.get_linestyle() == "--"
     assert right_line.get_linestyle() == ":"
     assert any(text.get_gid() == actions[0].reference_line_id + ".label" for text in left.texts)
-    assert any(
-        text.get_gid() == actions[1].reference_line_id + ".label" for text in right.texts
-    )
+    assert any(text.get_gid() == actions[1].reference_line_id + ".label" for text in right.texts)
     plt.close(figure)
 
 
@@ -1617,9 +2047,7 @@ def test_matplotlib_callout_binds_to_reference_line_without_category_slot_coordi
 
     apply_visual_actions(figure, _document(), (callout, reference))
 
-    annotation = next(
-        text for text in axis.texts if text.get_gid() == callout.callout_id
-    )
+    annotation = next(text for text in axis.texts if text.get_gid() == callout.callout_id)
     assert annotation.get_text() == callout.text
     assert annotation.xy == pytest.approx((0.55, reference.value))
     assert annotation.get_position() == pytest.approx((0.52, 0.82))
@@ -2183,11 +2611,7 @@ def test_matplotlib_data_labels_edit_matrix_cells() -> None:
         ),
     )
 
-    labels = [
-        text
-        for text in axis.texts
-        if text.get_gid() == "plotagent-label:series:t1.matrix"
-    ]
+    labels = [text for text in axis.texts if text.get_gid() == "plotagent-label:series:t1.matrix"]
     assert [label.get_text() for label in labels] == [
         "v=1.25 unit",
         "v=2.5 unit",
@@ -2244,7 +2668,9 @@ def test_matplotlib_colormap_error_band_and_save_hook(tmp_path: Path) -> None:
     assert len(figure.axes) == 2
     assert figure.axes[-1].get_xlabel() == "Intensity"
     assert isinstance(figure.axes[-1]._colorbar.formatter, FuncFormatter)
-    assert band.get_alpha() == 0.35
+    assert band.get_alpha() is None
+    assert band.get_facecolors()[0, 3] == pytest.approx(0.35)
+    assert band.get_edgecolors()[0, 3] == pytest.approx(1.0)
     plt.close(figure)
 
 

@@ -40,6 +40,7 @@ from plotagent.engine.backends.origin.k03 import K03OriginProject
 from plotagent.engine.backends.origin.k06 import K06OriginProject
 from plotagent.engine.backends.origin.k07 import K07OriginProject
 from plotagent.engine.backends.origin.x02 import X02OriginProject
+from plotagent.engine.product_style import k07_auto_range_bounds
 from plotagent.engine.visual_t1 import split_visual_actions
 
 HASH = "4" * 64
@@ -813,6 +814,15 @@ def test_k07_binds_center_and_band_without_boundary_legend_entries(
     assert origin.book.sheet.columns[3] == pytest.approx([0.5, 0.8, 0.9])
     assert "legend" not in origin.graph.layer.labels
     assert len({plot.color for plot in origin.graph.layer.plots}) == 1
+    assert origin.graph.layer.axis("x").limits[:2] == pytest.approx((-0.1, 2.1))
+    assert origin.graph.layer.axis("y").limits[:2] == pytest.approx((1.33, 5.07))
+    x_bounds, y_bounds = k07_auto_range_bounds(
+        (0.0, 1.0, 2.0),
+        (1.5, 2.4, 3.2),
+        (2.5, 3.8, 4.9),
+    )
+    assert x_bounds == pytest.approx((-0.1, 2.1))
+    assert y_bounds == pytest.approx((1.33, 5.07))
     assert "error_band_series" in {item.object_kind for item in readback.objects}
 
 

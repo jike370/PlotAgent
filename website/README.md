@@ -30,7 +30,7 @@ vercel dev --listen 4173
 
 ## 下载统计
 
-- 下载按钮：`/api/download?release=windows-x64-0.1.1`
+- 下载按钮：`/api/download?release=windows-x64-0.1.2`
 - 实际文件：由下载接口跳转到腾讯云香港 COS
 - 私有数据路径：`downloads/YYYY-MM-DD/<version>/<platform>/<event-id>.json`
 

@@ -16,10 +16,18 @@ from plotagent.engine.contracts import (
     PlotEngineAction,
 )
 from plotagent.engine.ports import EngineObjectRef, EngineReadback
+from plotagent.engine.product_style import (
+    X09_FLOATING_COLUMN_STYLE,
+    x09_auto_range_bounds,
+)
 from plotagent.engine.profile_data import FloatingIntervalData, x09_floating_intervals
 from plotagent.engine.repository import document_ref
 
 from .messages import OriginWorkerRequest
+from .native_visual_t1 import (
+    read_x09_group_fill_colors,
+    set_x09_group_fill_colors,
+)
 from .profile import X09_ORIGIN_PROFILE, resolve_official_template
 from .readback import axis_scale_matches
 from .trace import origin_trace_step, record_origin_trace
@@ -121,6 +129,7 @@ class X09OriginProject:
             self.graph.name = f"G{token}"
             self.graph.lname = f"X09 {template.stem} / {document.plot_id}"
             self._bind_native_objects()
+            self._apply_product_defaults(intervals)
             with origin_trace_step(
                 "native_legend_rebuild",
                 details={"visible_interval_count": max(len(boundaries) - 1, 1)},
@@ -302,6 +311,30 @@ class X09OriginProject:
             legend.set_int("link", 1)
             legend.set_int("show", int(visible))
 
+    def _apply_product_defaults(self, intervals: FloatingIntervalData) -> None:
+        style = X09_FLOATING_COLUMN_STYLE
+        colors = tuple(
+            int(self.op.lt_float(f'color("{value}")')) for value in style.interval_colors
+        )
+        group_colors = (
+            (colors[0], colors[0])
+            if intervals.middle_values is None
+            else (colors[0], colors[1], colors[1])
+        )
+        set_x09_group_fill_colors(self.op, str(self.graph.name), 1, group_colors)
+        y_label = self.layer.label("yl")
+        if y_label is None:
+            raise RuntimeError("Origin X09 is missing its Y-axis title object")
+        y_label.text = f"{intervals.start_field_name}–{intervals.end_field_name}"
+        y_label.set_int("show", 1)
+        boundaries = tuple(values for _name, values in _boundary_columns(intervals))
+        minimum, maximum = x09_auto_range_bounds(boundaries)
+        self.layer.axis("y").limits = (minimum, maximum)
+        self.op.lt_exec(
+            f"range __X09PRODUCT=[{self.graph.name}]Layer1!1; "
+            f"set __X09PRODUCT -vg {(1 - style.bar_width_fraction) * 100:.12g};"
+        )
+
     def _assert_native_structure(self, intervals: FloatingIntervalData) -> dict[str, object]:
         boundaries = _boundary_columns(intervals)
         expected_y_letters = [chr(ord("B") + index) for index in range(len(boundaries))]
@@ -383,6 +416,7 @@ class X09OriginProject:
                 "Origin X09 linked legend does not match the visible intervals: "
                 f"expected={expected_legend_labels!r}, actual={legend_text!r}"
             )
+        self._assert_product_defaults(intervals)
         return {
             "native_plot_ids": plot_ids,
             "exchange_xy": False,
@@ -394,6 +428,32 @@ class X09OriginProject:
             "linked_legend_entry_count": len(expected_legend_labels),
             "linked_legend_labels": list(expected_legend_labels),
         }
+
+    def _assert_product_defaults(self, intervals: FloatingIntervalData) -> None:
+        style = X09_FLOATING_COLUMN_STYLE
+        colors = tuple(
+            int(self.op.lt_float(f'color("{value}")')) for value in style.interval_colors
+        )
+        expected_colors = (
+            (colors[0], colors[0])
+            if intervals.middle_values is None
+            else (colors[0], colors[1], colors[1])
+        )
+        actual_colors = read_x09_group_fill_colors(self.op, str(self.graph.name), 1)
+        if actual_colors != expected_colors:
+            raise RuntimeError("Origin X09 product interval colors changed after reopen")
+        y_label = self.layer.label("yl")
+        expected_label = f"{intervals.start_field_name}–{intervals.end_field_name}"
+        if y_label is None or y_label.text != expected_label or not y_label.get_int("show"):
+            raise RuntimeError("Origin X09 product Y-axis title changed after reopen")
+        boundaries = tuple(values for _name, values in _boundary_columns(intervals))
+        expected_limits = x09_auto_range_bounds(boundaries)
+        actual_limits = tuple(float(value) for value in self.layer.axis("y").limits[:2])
+        if any(
+            not isclose(actual, expected, abs_tol=1e-8)
+            for actual, expected in zip(actual_limits, expected_limits, strict=True)
+        ):
+            raise RuntimeError("Origin X09 product Y-axis range changed after reopen")
 
     def _assert_source_data(self, intervals: FloatingIntervalData) -> None:
         boundaries = _boundary_columns(intervals)

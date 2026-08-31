@@ -12,4 +12,10 @@
   <url>
     <loc>https://fig-agent.cn/origin-version/</loc>
   </url>
+  <url>
+    <loc>https://fig-agent.cn/updates/</loc>
+  </url>
+  <url>
+    <loc>https://fig-agent.cn/updates/0.1.2/</loc>
+  </url>
 </urlset>
